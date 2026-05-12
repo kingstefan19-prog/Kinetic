@@ -431,19 +431,29 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
    Architecture: v3 robust core + full feature set
 ═══════════════════════════════════════════════════════ */
 
+// Safe console – some browsers/WebViews block console methods
+var log = (function(){
+  var c = (typeof console !== 'undefined') ? console : {};
+  return {
+    info:  function(){ try{ if(c.log)  c.log.apply(c,arguments);  }catch(e){} },
+    warn:  function(){ try{ if(c.warn) c.warn.apply(c,arguments); }catch(e){} },
+    error: function(){ try{ if(c.error)c.error.apply(c,arguments);}catch(e){} }
+  };
+})();
+
 // ── 1. DOM HELPERS ──────────────────────────────────────
 const $ = (sel, root) => {
   try { return (root || document).querySelector(sel); }
-  catch(e){ console.warn('$ failed:', sel, e); return null; }
+  catch(e){ log.warn('$ failed:', sel, e); return null; }
 };
 const $$ = (sel, root) => {
   try { return Array.from((root || document).querySelectorAll(sel)); }
-  catch(e){ console.warn('$$ failed:', sel, e); return []; }
+  catch(e){ log.warn('$$ failed:', sel, e); return []; }
 };
 const safeCall = (fn, ...args) => {
   if (typeof fn !== 'function') return null;
   try { return fn(...args); }
-  catch(e){ console.error('safeCall:', fn.name, e); return null; }
+  catch(e){ log.error('safeCall:', fn.name, e); return null; }
 };
 function el(id){ return document.getElementById(id); }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
@@ -485,7 +495,7 @@ const DB = (() => {
   const mem = {};
   const raw = {
     get: k => ok ? localStorage.getItem(k) : (mem[k]??null),
-    set: (k,v) => { if(ok){ try{localStorage.setItem(k,v);}catch(e){console.error('LS set',e);mem[k]=v;} } else mem[k]=v; },
+    set: (k,v) => { if(ok){ try{localStorage.setItem(k,v);}catch(e){log.error('LS set',e);mem[k]=v;} } else mem[k]=v; },
     del: k => { if(ok) localStorage.removeItem(k); else delete mem[k]; },
     keys: () => ok ? Object.keys(localStorage) : Object.keys(mem)
   };
@@ -498,7 +508,7 @@ const DB = (() => {
       raw.set(PRE+'__bk_v'+v, JSON.stringify({ts:Date.now(),data:bk}));
       raw.set(VKEY, String(VER));
     }
-  } catch(e){ console.error('DB migration',e); }
+  } catch(e){ log.error('DB migration',e); }
 
   // Auto-save flash bar
   function flashSave(){
@@ -510,11 +520,11 @@ const DB = (() => {
   return {
     get(key, fallback=null){
       try { const v=raw.get(PRE+key); return (v===null||v===undefined) ? fallback : JSON.parse(v); }
-      catch(e){ console.error('DB.get',key,e); return fallback; }
+      catch(e){ log.error('DB.get',key,e); return fallback; }
     },
     set(key, value){
       try { raw.set(PRE+key, JSON.stringify(value)); flashSave(); return true; }
-      catch(e){ console.error('DB.set',key,e); toast('Speicherfehler'); return false; }
+      catch(e){ log.error('DB.set',key,e); toast('Speicherfehler'); return false; }
     },
     remove(key){ try{ raw.del(PRE+key); }catch(e){} },
     export(){ const o={}; raw.keys().filter(k=>k.startsWith(PRE)&&!k.includes('__bk')).forEach(k=>{o[k]=raw.get(k);}); return o; }
@@ -560,7 +570,7 @@ const AppState = {
       this.activeSession= DB.get('activeSession', null);
       // Ensure plan is valid array
       if(!Array.isArray(this.plan)||!this.plan.length) this.plan = defaultPlan();
-    } catch(e){ console.error('AppState.load',e); }
+    } catch(e){ log.error('AppState.load',e); }
   },
   save(){
     try {
@@ -573,7 +583,7 @@ const AppState = {
       DB.set('prs', this.prs);
       DB.set('weightLog', this.weightLog);
       DB.set('sleepLog', this.sleepLog);
-    } catch(e){ console.error('AppState.save',e); }
+    } catch(e){ log.error('AppState.save',e); }
   },
   saveSession(){ DB.set('activeSession', this.activeSession); }
 };
@@ -604,7 +614,7 @@ function navigate(pageId){
   Timers.clear('toast');
   $$('.page').forEach(p=>p.classList.remove('active'));
   const target=$('#page-'+pageId);
-  if(!target){ console.warn('navigate: no page',pageId); return; }
+  if(!target){ log.warn('navigate: no page',pageId); return; }
   target.classList.add('active');
   $$('.nb').forEach(b=>b.classList.toggle('active', b.dataset.nav===pageId));
   AppState.currentPage=pageId;
@@ -632,9 +642,9 @@ function renderHeroStats(){
   ].map(s=>`<div class="hs-pill"><div class="hs-val">${esc(s.v)}</div><div class="hs-lbl">${esc(s.l)}</div></div>`).join('');
 
   const meta=el('heroMeta'); if(!meta) return;
-  meta.innerHTML=`${u.height} cm · ${u.weight} kg · KFA ${u.kfa}% · FFMI ${u.ffmi}<br>` +
-    `🔥 <span id="streakDays">${AppState.streak}</span> Tage Streak` +
-    (u.name?` · <strong style="color:var(--accent)">${esc(u.name)}</strong>`:'');
+  const nameTag=u.name?' · <strong style="color:var(--accent)">'+esc(u.name)+'</strong>':'';
+  meta.innerHTML=u.height+' cm · '+u.weight+' kg · KFA '+u.kfa+'% · FFMI '+u.ffmi+'<br>'
+    +'🔥 <span id="streakDays">'+AppState.streak+'</span> Tage Streak'+nameTag;
 }
 
 // ── 9. DASHBOARD ────────────────────────────────────────
@@ -656,7 +666,7 @@ function refreshDash(){
     renderCoachCard();
     renderSmartNotifs();
     renderWeightChart();
-  } catch(e){ console.error('refreshDash',e); }
+  } catch(e){ log.error('refreshDash',e); }
 }
 
 // ── 10. SMART NOTIFICATIONS ─────────────────────────────
@@ -791,7 +801,7 @@ function renderPlan(){
       </div>`;
     }).join('');
     const eb=el('editDaysBtn'); if(eb) eb.textContent=em?'✓ Fertig':'✏️ Tage anpassen';
-  } catch(e){ console.error('renderPlan',e); list.innerHTML='<div class="empty">Fehler beim Laden des Plans.</div>'; }
+  } catch(e){ log.error('renderPlan',e); list.innerHTML='<div class="empty">Fehler beim Laden des Plans.</div>'; }
 }
 
 // ── 14. DAY EDITING ─────────────────────────────────────
@@ -833,29 +843,110 @@ function saveDayEdit(){
   AppState.save(); closeDayEditor(); renderPlan(); toast('Tag aktualisiert');
 }
 
-// ── 15. LOG / HISTORY ───────────────────────────────────
+// ── 15. LOG / HISTORY ────────────────────────────────────
 function renderLog(){
-  const el_=el('logList'); if(!el_) return;
-  const h=Array.isArray(AppState.history)?AppState.history.slice().reverse():[];
-  if(!h.length){ el_.innerHTML='<div style="color:var(--t3);font-size:13px">Noch keine Einträge.</div>'; return; }
-  const wkAgo=Date.now()-7*24*3600*1000;
-  const wkVol=h.filter(e=>e.ts>=wkAgo).reduce((a,e)=>a+(e.volume||0),0);
-  const prCount=Object.keys(AppState.prs||{}).length;
-  el_.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
-    <div style="background:var(--card2);border-radius:10px;padding:10px"><div class="sl">Volumen 7T</div><div style="font-size:20px;font-weight:700">${Math.round(wkVol).toLocaleString('de')}<span class="su"> kg</span></div></div>
-    <div style="background:var(--card2);border-radius:10px;padding:10px"><div class="sl">PRs total</div><div style="font-size:20px;font-weight:700">${prCount} <span class="su">🏆</span></div></div>
-  </div>`+h.slice(0,30).map(e=>{
-    const d=new Date(e.ts);
-    const ds=d.toLocaleDateString('de',{weekday:'short',day:'2-digit',month:'2-digit'});
-    const pr=(e.sets||[]).filter(s=>s.pr).length;
-    return `<div style="border-top:1px solid var(--border);padding:10px 0">
-      <div style="display:flex;justify-content:space-between;align-items:baseline">
-        <div style="font-weight:600;font-size:14px">${esc(e.dayName||'Workout')}</div>
-        <div style="font-size:11px;color:var(--t3)">${ds}</div>
-      </div>
-      <div style="font-size:11px;color:var(--t2);margin-top:4px">⏱ ${formatTime(e.durationMs||0)} · ${Math.round(e.volume||0)} kg Volumen${pr?' · 🏆 '+pr+' PR':''}</div>
-    </div>`;
+  var el_=el('logList'); if(!el_) return;
+  var h=Array.isArray(AppState.history)?AppState.history.slice().reverse():[];
+  if(!h.length){
+    el_.innerHTML='<div style="text-align:center;padding:32px 16px">'
+      +'<div style="font-size:42px;margin-bottom:12px">📋</div>'
+      +'<div style="font-weight:600;margin-bottom:6px">Noch kein Training geloggt</div>'
+      +'<div style="font-size:13px;color:var(--t3)">Starte ein Workout – dein Log erscheint hier.</div>'
+      +'</div>';
+    return;
+  }
+
+  // Summary stats
+  var wkAgo=Date.now()-7*24*3600*1000;
+  var wkSessions=h.filter(function(e){return e.ts>=wkAgo;});
+  var wkVol=wkSessions.reduce(function(a,e){return a+(e.volume||0);},0);
+  var wkTime=wkSessions.reduce(function(a,e){return a+(e.durationMs||0);},0);
+  var prCount=Object.keys(AppState.prs||{}).length;
+
+  var statsHtml='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">'
+    +'<div style="background:var(--card2);border-radius:10px;padding:10px;text-align:center">'
+    +'<div style="font-size:20px;font-weight:700;color:var(--accent)">'+wkSessions.length+'</div>'
+    +'<div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-top:3px">Sessions 7T</div></div>'
+    +'<div style="background:var(--card2);border-radius:10px;padding:10px;text-align:center">'
+    +'<div style="font-size:20px;font-weight:700;color:var(--blue)">'+Math.round(wkVol/1000*10)/10+'t</div>'
+    +'<div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-top:3px">Volumen 7T</div></div>'
+    +'<div style="background:var(--card2);border-radius:10px;padding:10px;text-align:center">'
+    +'<div style="font-size:20px;font-weight:700;color:var(--gold)">'+prCount+'</div>'
+    +'<div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-top:3px">PRs gesamt 🏆</div></div>'
+    +'</div>';
+
+  // PR list
+  var prHtml='';
+  var prs=AppState.prs||{};
+  var prKeys=Object.keys(prs);
+  if(prKeys.length){
+    prHtml='<div style="margin-bottom:16px;padding:12px;background:rgba(255,214,10,.06);border:1px solid rgba(255,214,10,.2);border-radius:12px">'
+      +'<div style="font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--gold);margin-bottom:10px">🏆 Persönliche Rekorde</div>'
+      +prKeys.map(function(ex){
+        return '<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px">'
+          +'<span style="color:var(--t2)">'+esc(ex)+'</span>'
+          +'<span style="font-weight:700;color:var(--gold)">'+prs[ex]+' kg</span>'
+          +'</div>';
+      }).join('')
+      +'</div>';
+  }
+
+  // Individual session cards
+  var sessionHtml=h.slice(0,20).map(function(e){
+    var d=new Date(e.ts);
+    var dateStr=d.toLocaleDateString('de',{weekday:'long',day:'2-digit',month:'2-digit',year:'2-digit'});
+    var timeStr=d.toLocaleTimeString('de',{hour:'2-digit',minute:'2-digit'});
+    var prInSession=(e.sets||[]).filter(function(s){return s.pr;}).length;
+    var vol=Math.round(e.volume||0);
+    var dur=formatTime(e.durationMs||0);
+
+    // Group sets by exercise
+    var exMap={};
+    (e.sets||[]).forEach(function(s){
+      if(!s.ex) return;
+      if(!exMap[s.ex]) exMap[s.ex]=[];
+      exMap[s.ex].push(s);
+    });
+
+    var exRows=Object.keys(exMap).map(function(exName){
+      var sets=exMap[exName];
+      var setsStr=sets.map(function(s){
+        if(s.secs) return s.secs+'s';
+        return (s.w||'?')+' kg × '+(s.r||'?');
+      }).join(' · ');
+      var hasPR=sets.some(function(s){return s.pr;});
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)">'
+        +'<div>'
+        +'<div style="font-size:13px;font-weight:500">'+esc(exName)+(hasPR?' <span style="color:var(--gold);font-size:10px">PR 🏆</span>':'')+'</div>'
+        +'<div style="font-size:11px;color:var(--t3);margin-top:2px">'+setsStr+'</div>'
+        +'</div>'
+        +'<div style="font-size:11px;color:var(--t3)">'+sets.length+' Sätze</div>'
+        +'</div>';
+    }).join('');
+
+    return '<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:10px">'
+      // Header
+      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">'
+      +'<div>'
+      +'<div style="font-size:15px;font-weight:700">'+esc(e.dayName||'Workout')+'</div>'
+      +'<div style="font-size:11px;color:var(--t3);margin-top:2px">'+dateStr+' · '+timeStr+'</div>'
+      +'</div>'
+      +(prInSession?'<span style="background:rgba(255,214,10,.15);color:var(--gold);font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px">'+prInSession+' PR</span>':'')
+      +'</div>'
+      // Stats row
+      +'<div style="display:flex;gap:12px;margin-bottom:10px;padding:8px;background:var(--card2);border-radius:8px">'
+      +'<div style="text-align:center;flex:1"><div style="font-size:14px;font-weight:700;color:var(--accent)">'+dur+'</div><div style="font-size:9px;color:var(--t3)">DAUER</div></div>'
+      +'<div style="width:1px;background:var(--border)"></div>'
+      +'<div style="text-align:center;flex:1"><div style="font-size:14px;font-weight:700;color:var(--blue)">'+vol+'</div><div style="font-size:9px;color:var(--t3)">KG VOLUMEN</div></div>'
+      +'<div style="width:1px;background:var(--border)"></div>'
+      +'<div style="text-align:center;flex:1"><div style="font-size:14px;font-weight:700;color:var(--green)">'+Object.keys(exMap).length+'</div><div style="font-size:9px;color:var(--t3)">ÜBUNGEN</div></div>'
+      +'</div>'
+      // Exercise details
+      +(exRows||'<div style="font-size:12px;color:var(--t3);padding:6px 0">Keine Sätze gespeichert.</div>')
+      +'</div>';
   }).join('');
+
+  el_.innerHTML=statsHtml+prHtml+sessionHtml;
 }
 
 // ── 16. WORKOUT SESSION ─────────────────────────────────
@@ -1055,7 +1146,7 @@ function renderWorkout(){
         if(left<=0){ AppState.activeSession.restEndTs=0; AppState.saveSession(); renderWorkout(); }
       }
     },1000,'workoutTick');
-  } catch(e){ console.error('renderWorkout',e); if(el_) el_.innerHTML='<div class="empty">Fehler beim Anzeigen. <button class="btn bp" data-nav="plan" style="margin-top:10px;max-width:200px">→ Plan</button></div>'; }
+  } catch(e){ log.error('renderWorkout',e); if(el_) el_.innerHTML='<div class="empty">Fehler beim Anzeigen. <button class="btn bp" data-nav="plan" style="margin-top:10px;max-width:200px">→ Plan</button></div>'; }
 }
 
 function nextExercise(){
@@ -1235,25 +1326,32 @@ function refreshNutrition(){
     const ekh=el('ernKH'); if(ekh) ekh.textContent=Math.round(total.kh);
     const ef=el('ernF'); if(ef) ef.textContent=Math.round(total.f);
     renderMealList();
-  } catch(e){ console.error('refreshNutrition',e); }
+  } catch(e){ log.error('refreshNutrition',e); }
 }
 
 function renderMealList(){
   const ml=el('mealList'); if(!ml) return;
   const meals=AppState.meals||[];
   if(!meals.length){ ml.innerHTML='<div style="color:var(--t3);font-size:13px">Noch keine Mahlzeiten.</div>'; return; }
-  ml.innerHTML=meals.map((m,i)=>`
-    <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
-      <div style="font-size:20px">${m.aiAnalyzed?'🤖':'🍽️'}</div>
-      <div style="flex:1"><div style="font-size:14px;font-weight:500">${esc(m.name)}</div><div style="font-size:11px;color:var(--t3)">${m.time||''}${m.p?' · P:'+m.p+'g':''} · KH:${m.kh||0}g · F:${m.f||0}g</div></div>
-      <div style="font-size:14px;font-weight:600">${m.kcal||0}</div>
-      <button onclick="deleteMeal(${i})" style="background:none;border:none;color:var(--t3);font-size:16px;cursor:pointer;padding:4px">✕</button>
-    </div>`).join('');
+  ml.innerHTML=meals.map(function(m,i){
+    return '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">'
+      +'<div style="font-size:20px">'+(m.aiAnalyzed?'🤖':'🍽️')+'</div>'
+      +'<div style="flex:1"><div style="font-size:14px;font-weight:500">'+esc(m.name)+'</div>'
+      +'<div style="font-size:11px;color:var(--t3)">'+(m.time||'')+(m.p?' · P:'+m.p+'g':'')+' · KH:'+(m.kh||0)+'g · F:'+(m.f||0)+'g</div></div>'
+      +'<div style="font-size:14px;font-weight:600">'+(m.kcal||0)+'</div>'
+      +'<button data-del-meal="'+i+'" style="background:none;border:none;color:var(--t3);font-size:16px;cursor:pointer;padding:4px">✕</button>'
+      +'</div>';
+  }).join('');
+  // Bind delete via delegation
+  ml.addEventListener('click', function(ev){
+    const btn=ev.target.closest('[data-del-meal]');
+    if(btn){ deleteMeal(parseInt(btn.dataset.delMeal,10)); }
+  });
 }
 
 function addMeal(){
-  const name=(el('mName')||{}).value?.trim();
-  const kcal=parseFloat((el('mKcal')||{}).value)||0;
+  const name=((el('mName')||{value:''}).value||'').trim();
+  const kcal=parseFloat((el('mKcal')||{value:''}).value)||0;
   if(!name||!kcal){ toast('Name und Kalorien erforderlich'); return; }
   AppState.meals.push({name,kcal,p:parseFloat((el('mP')||{}).value)||0,kh:parseFloat((el('mKH')||{}).value)||0,f:parseFloat((el('mF')||{}).value)||0,time:new Date().toLocaleTimeString('de',{hour:'2-digit',minute:'2-digit'})});
   AppState.save();
@@ -1272,38 +1370,59 @@ function deleteMeal(idx){
 
 // ── 21. KI FOTO-ANALYSE ─────────────────────────────────
 async function analyzeFood(input){
-  const file=input?.files?.[0]; if(!file) return;
+  const file=input&&input.files&&input.files[0]; if(!file) return;
   const reader=new FileReader();
-  reader.onload=async e=>{
+  reader.onload=async function(e){
     const imgData=e.target.result;
     const res=el('foodAiResult'); if(!res) return;
-    res.innerHTML=`<div style="text-align:center;padding:20px;color:var(--t2)"><div style="margin-bottom:8px">⏳ KI analysiert Mahlzeit…</div></div>`;
+    res.innerHTML='<div style="text-align:center;padding:20px;color:var(--t2)">⏳ KI analysiert Mahlzeit…</div>';
     try {
       const base64=imgData.split(',')[1], mediaType=file.type||'image/jpeg';
-      const text=await callClaude(`Analysiere dieses Essen-Foto. Gib NUR JSON zurück (kein Text davor/danach):
-{"name":"Mahlzeit-Name (Deutsch)","kcal":Zahl,"protein_g":Zahl,"carbs_g":Zahl,"fat_g":Zahl,"confidence":"hoch|mittel|niedrig","hinweis":"kurze Notiz"}
-Schätze realistisch für sichtbare Portion.`, base64, mediaType);
+      const prompt='Analysiere dieses Essen-Foto. Gib NUR JSON zurueck (kein Text davor/danach):\n{"name":"Mahlzeit-Name (Deutsch)","kcal":Zahl,"protein_g":Zahl,"carbs_g":Zahl,"fat_g":Zahl,"confidence":"hoch|mittel|niedrig","hinweis":"kurze Notiz"}\nSchaetze realistisch fuer sichtbare Portion.';
+      const text=await callClaude(prompt, base64, mediaType);
       let meal;
       try { meal=JSON.parse(text.replace(/```json|```/g,'').trim()); }
-      catch { meal={name:'Mahlzeit',kcal:400,protein_g:20,carbs_g:40,fat_g:15,confidence:'niedrig',hinweis:'Bitte manuell korrigieren'}; }
-      res.innerHTML=`
-        <div style="background:rgba(52,199,89,.07);border:1px solid rgba(52,199,89,.2);border-radius:14px;padding:14px;margin-bottom:10px">
-          <img src="${imgData}" style="width:100%;max-height:140px;object-fit:cover;border-radius:8px;margin-bottom:10px">
-          <div style="font-size:16px;font-weight:700;margin-bottom:8px">${esc(meal.name)}</div>
-          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px">
-            ${[['kcal',meal.kcal,''],['Protein',meal.protein_g,'g','var(--accent)'],['KH',meal.carbs_g,'g','var(--blue)'],['Fett',meal.fat_g,'g','var(--orange)']].map(([l,v,u,c])=>`
-              <div style="text-align:center;padding:8px;background:var(--card2);border-radius:8px">
-                <div style="font-size:16px;font-weight:700;${c?'color:'+c:''}">${v}${u}</div>
-                <div style="font-size:9px;color:var(--t3);margin-top:2px;text-transform:uppercase">${l}</div>
-              </div>`).join('')}
-          </div>
-          <div style="font-size:11px;color:var(--t3);margin-bottom:10px">Konfidenz: ${esc(meal.confidence)} · ${esc(meal.hinweis)}</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-            <button onclick="confirmFoodAI(${meal.kcal},${meal.protein_g},${meal.carbs_g},${meal.fat_g},'${esc(meal.name)}')" class="btn bp" style="padding:11px;font-size:13px">✓ Eintragen</button>
-            <button onclick="el('foodAiResult').innerHTML=''" class="btn bo" style="padding:11px;font-size:13px">✕ Verwerfen</button>
-          </div>
-        </div>`;
-    } catch(err){ res.innerHTML=`<div style="color:var(--accent);font-size:13px;padding:10px">Analysefehler – bitte manuell eintragen.</div>`; }
+      catch(pe){ meal={name:'Mahlzeit',kcal:400,protein_g:20,carbs_g:40,fat_g:15,confidence:'niedrig',hinweis:'Bitte manuell korrigieren'}; }
+
+      // Build HTML without nested template literals
+      const macroHTML=[
+        ['kcal',meal.kcal,'',''],
+        ['Protein',meal.protein_g,'g','var(--accent)'],
+        ['KH',meal.carbs_g,'g','var(--blue)'],
+        ['Fett',meal.fat_g,'g','var(--orange)']
+      ].map(function(row){
+        const l=row[0],v=row[1],u=row[2],c=row[3];
+        return '<div style="text-align:center;padding:8px;background:var(--card2);border-radius:8px">'
+          +'<div style="font-size:16px;font-weight:700;'+(c?'color:'+c:'')+'">'+(v||0)+(u||'')+'</div>'
+          +'<div style="font-size:9px;color:var(--t3);margin-top:2px;text-transform:uppercase">'+l+'</div>'
+          +'</div>';
+      }).join('');
+
+      const safeName=esc(meal.name||'Mahlzeit');
+      res.innerHTML='<div style="background:rgba(52,199,89,.07);border:1px solid rgba(52,199,89,.2);border-radius:14px;padding:14px;margin-bottom:10px">'
+        +'<img src="'+imgData+'" style="width:100%;max-height:140px;object-fit:cover;border-radius:8px;margin-bottom:10px">'
+        +'<div style="font-size:16px;font-weight:700;margin-bottom:8px">'+safeName+'</div>'
+        +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px">'+macroHTML+'</div>'
+        +'<div style="font-size:11px;color:var(--t3);margin-bottom:10px">Konfidenz: '+esc(meal.confidence||'')+'  ·  '+esc(meal.hinweis||'')+'</div>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'
+        +'<button id="foodConfirmBtn" class="btn bp" style="padding:11px;font-size:13px">✓ Eintragen</button>'
+        +'<button id="foodDiscardBtn" class="btn bo" style="padding:11px;font-size:13px">✕ Verwerfen</button>'
+        +'</div></div>';
+
+      // Bind via addEventListener – no onclick strings
+      const confirmBtn=el('foodConfirmBtn');
+      const discardBtn=el('foodDiscardBtn');
+      if(confirmBtn) confirmBtn.addEventListener('click', function(){
+        confirmFoodAI(meal.kcal, meal.protein_g, meal.carbs_g, meal.fat_g, meal.name||'Mahlzeit');
+      });
+      if(discardBtn) discardBtn.addEventListener('click', function(){
+        res.innerHTML='';
+      });
+
+    } catch(err){
+      log.error('analyzeFood',err);
+      res.innerHTML='<div style="color:var(--accent);font-size:13px;padding:10px">Analysefehler – bitte manuell eintragen.</div>';
+    }
   };
   reader.readAsDataURL(file);
   input.value='';
@@ -1335,7 +1454,7 @@ function saveProfile(){
     AppState.save();
     updateProfPreview();
     renderHeroStats();
-  } catch(e){ console.error('saveProfile',e); }
+  } catch(e){ log.error('saveProfile',e); }
 }
 
 function updateProfPreview(){
@@ -1391,20 +1510,21 @@ function refreshDataPage(){
 }
 
 // ── 26. AI COACH ────────────────────────────────────────
-async function callClaude(prompt, imgBase64=null, mediaType='image/jpeg'){
-  const messages=[{role:'user',content:imgBase64
+async function callClaude(prompt, imgBase64, mediaType){
+  if(!mediaType) mediaType='image/jpeg';
+  var msgContent=imgBase64
     ?[{type:'image',source:{type:'base64',media_type:mediaType,data:imgBase64}},{type:'text',text:prompt}]
-    :prompt}];
-  const body=JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages});
-  // Try direct, then proxy
+    :prompt;
+  var body=JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:msgContent}]});
+  function extractText(d){ try{ return (d&&d.content&&d.content[0]&&d.content[0].text)||''; }catch(e){ return ''; } }
   try {
-    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body});
-    if(r.ok) return (await r.json()).content?.[0]?.text||'';
-  } catch(e){}
+    var r1=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:body});
+    if(r1.ok){ var t1=extractText(await r1.json()); if(t1) return t1; }
+  } catch(e1){}
   try {
-    const r=await fetch('https://corsproxy.io/?'+encodeURIComponent('https://api.anthropic.com/v1/messages'),{method:'POST',headers:{'Content-Type':'application/json'},body});
-    if(r.ok) return (await r.json()).content?.[0]?.text||'';
-  } catch(e){}
+    var r2=await fetch('https://corsproxy.io/?'+encodeURIComponent('https://api.anthropic.com/v1/messages'),{method:'POST',headers:{'Content-Type':'application/json'},body:body});
+    if(r2.ok){ var t2=extractText(await r2.json()); if(t2) return t2; }
+  } catch(e2){}
   return '⚠️ KI momentan nicht erreichbar. Bitte online sein und erneut versuchen.';
 }
 
@@ -1423,7 +1543,7 @@ async function getAnalysis(){
 }
 
 async function askCoach(){
-  const q=(el('aiQuestion')||{}).value?.trim(); if(!q) return;
+  var qEl=el('aiQuestion'); var q=qEl?(qEl.value||'').trim():''; if(!q) return;
   const btn=el('aiAskBtn'), res=el('aiAnswer'); if(!res) return;
   if(btn){ btn.disabled=true; btn.textContent='⏳'; }
   res.style.display='block'; res.innerHTML='<span style="color:var(--t3)">⏳ Denke nach…</span>';
@@ -1471,7 +1591,7 @@ function exportData(){
   } catch(e){ toast('Export fehlgeschlagen'); }
 }
 function importData(input){
-  const f=input?.files?.[0]; if(!f) return;
+  const f=input && input.files && input.files[0]; if(!f) return;
   const reader=new FileReader();
   reader.onload=e=>{
     try {
@@ -1545,19 +1665,20 @@ function bindEvents(){
 
 // ── 30. INIT ────────────────────────────────────────────
 function initApp(){
-  try { AppState.load(); } catch(e){ console.error('init: load failed',e); }
-  try { bindEvents(); }    catch(e){ console.error('init: events failed',e); }
+  try { AppState.load(); } catch(e){ log.error('init: load failed',e); }
+  try { bindEvents(); }    catch(e){ log.error('init: events failed',e); }
 
   safeCall(renderHeroStats);
   safeCall(renderPlan);
   safeCall(refreshDash);
   safeCall(loadProfileInputs);
 
-  if(AppState.activeSession?.dayId) navigate('workout');
+  if(AppState.activeSession && AppState.activeSession.dayId) navigate('workout');
 
   if('speechSynthesis' in window) Timers.set(()=>window.speechSynthesis.getVoices(),100,'ttsInit');
 
-  console.info('KINETIC ready · DB v2 · session:', !!AppState.activeSession, '· history:', AppState.history.length);
+  // Safe logging - console.info not available in all environments
+  log.info('KINETIC ready · session:'+!!AppState.activeSession+' · history:'+AppState.history.length);
 }
 
 if(document.readyState==='loading'){
