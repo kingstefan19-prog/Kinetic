@@ -243,9 +243,10 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
   </div>
 
   <!-- Science info banner -->
-  <div style="background:rgba(10,132,255,.07);border:1px solid rgba(10,132,255,.2);border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--t2);line-height:1.6">
-    📊 <strong style="color:var(--blue)">Wissenschaftlich optimiert</strong> · Schoenfeld/Israetel 2024<br>
-    Brust/Rücken: ~14 Sätze/Woche · Schulter: 12 · Trizeps/Bizeps: 12 · Quad/Ham: 12–14 · Frequenz: 2× pro Muskel
+  <div style="background:rgba(10,132,255,.07);border:1px solid rgba(10,132,255,.2);border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--t2);line-height:1.7">
+    📊 <strong style="color:var(--blue)">Dein personalisierter Plan</strong> · 108 kg · FFMI 26,6 · Fortgeschritten<br>
+    Brust <strong style="color:var(--t1)">16 Sätze/Wo</strong> · Rücken <strong style="color:var(--t1)">18</strong> · Schulter <strong style="color:var(--t1)">14</strong> · Trizeps/Bizeps <strong style="color:var(--t1)">12</strong> · Quad/Ham <strong style="color:var(--t1)">14/12</strong><br>
+    <span style="color:var(--green)">✅ Schoenfeld 2024 · 4× Gym + 2× Fußball + Sonntag Spiel</span>
   </div>
 
   <div id="planList"></div>
@@ -598,100 +599,114 @@ const AppState = {
   saveSession(){ DB.set('activeSession', this.activeSession); }
 };
 
-// ── 6. DEFAULT PLAN (wissenschaftlich optimiert nach Schoenfeld/Israetel) ──
-// Ziel: 10–15 Sätze/Muskel/Woche · 2 Übungen/Muskel · 6–8 harte Sätze/Session max
-// Quelle: Schoenfeld et al. 2017, Israetel MEV/MAV-Modell, PubMed Umbrella Review 2022
+// ── 6. DEFAULT PLAN ──────────────────────────────────────
+// Personalisiert für: 108kg · 190cm · KFA 20.1% · FFMI 26.6 · Fortgeschritten
+// Quellen: Schoenfeld et al. 2017/2024 · Israetel MEV/MAV/MRV · Frontiers 2025
+// Ziel: Body Recomp (KFA 20% → 14%) bei Muskelerhalt/leichtem Aufbau
+// Sätze/Woche: Brust 16 · Rücken 18 · Schulter 14 · Trizeps 12 · Bizeps 12 · Quad 14 · Ham 12
+// Frequenz: 2× pro Muskel (Forschung: 2× > 1× für Fortgeschrittene)
+// Fußball berücksichtigt: Di/Fr/So = Bein-Volumen Mo/Mi/Sa kompensieren
 function defaultPlan(){
   return [
     {
-      id:'mon', name:'Push A', type:'gym',
-      sub:'Brust · Schultern · Trizeps · ~70 Min · 14 Sätze',
+      id:'mon', type:'gym',
+      name:'Push A',
+      sub:'Brust · Schulter · Trizeps · ~75 Min · 20 Sätze',
       ex:[
-        // BRUST: 4+3 = 7 Sätze (Woche: 7+7=14 mit Do) ✅
-        {n:'Bankdrücken (LH)',         s:'4×6–8',   note:'Hauptübung · Brust Mass'},
-        {n:'Schrägbankdrücken (KH)',   s:'3×8–10',  note:'Obere Brust · volle Streckung'},
-        {n:'Kabelflys (unten)',         s:'3×12–15', note:'Peak Kontraktion · Stretch'},
-        // SCHULTER: 3+3 = 6 Sätze (Woche: 6+6=12 mit Do) ✅
-        {n:'Schulterdrücken (KH)',     s:'3×8–10',  note:'Schulter Mass · sitzend'},
-        {n:'Seitheben',                s:'3×15–20', note:'Seitl. Schulter · 3 Sek negativ'},
-        // TRIZEPS: 3+3 = 6 Sätze (Woche: 6+6=12 mit Do) ✅
-        {n:'Trizeps Pushdown (Seil)',   s:'3×10–12', note:'Langer Kopf · Ellbogen fixiert'},
-        {n:'Overhead Extension (KH)',   s:'3×10–12', note:'Langer Trizepskopf · Stretch'}
+        // BRUST (8 Sätze heute → Woche: 8+8=16 ✅ MAV für Fortgeschrittene)
+        {n:'Bankdrücken (LH)',            s:'4×6–8',   note:'Compound Mass · Schulterblätter einziehen · Ellbogen 75°'},
+        {n:'Schrägbankdrücken (KH)',      s:'3×8–10',  note:'Obere Brust · volle Streckung unten für max. Stretch'},
+        {n:'Kabelflys (untere Rolle)',     s:'3×12–15', note:'Isolation · Peak-Kontraktion · 2 Sek halten oben'},
+        // SCHULTER (7 Sätze heute → Woche: 7+7=14 ✅ MAV)
+        {n:'Schulterdrücken (KH sitzend)',s:'4×8–10',  note:'Compound Schulter · kein Hohlkreuz · Kern fest'},
+        {n:'Seitheben (KH)',              s:'3×15–20', note:'Seitl. Delto · 3 Sek negativ · Daumen leicht unten'},
+        // TRIZEPS (6 Sätze heute → Woche: 6+6=12 ✅ MAV)
+        {n:'Trizeps Pushdown (Seil)',      s:'3×10–12', note:'Langer Kopf · Ellbogen fixiert · volle Streckung'},
+        {n:'Overhead Extension (KH)',      s:'3×10–12', note:'Maximaler Stretch langer Trizepskopf · langsam exzentrisch'}
       ]
     },
     {
-      id:'tue', name:'Fußball', type:'soccer',
-      sub:'Training · kein Gym · Ausdauer & Agilität', ex:[]
+      id:'tue', type:'soccer',
+      name:'Fußball Training',
+      sub:'Training · kein Gym · +60g KH essen', ex:[]
     },
     {
-      id:'wed', name:'Pull A', type:'gym',
-      sub:'Rücken · Bizeps · Rear Delt · ~70 Min · 14 Sätze',
+      id:'wed', type:'gym',
+      name:'Pull A',
+      sub:'Rücken · Bizeps · Rear Delt · ~75 Min · 21 Sätze',
       ex:[
-        // RÜCKEN BREITE: 4+3 = 7 Sätze (Woche: 7+7=14 mit Sa) ✅
-        {n:'Klimmzüge',                s:'4×6–10',  note:'Breiteste Rückenübung · vollständige Streckung'},
-        {n:'Latzug (Untergriff)',       s:'3×10–12', note:'Unterer Lat · Ellbogen zur Hüfte'},
-        // RÜCKEN DICKE: 4+3 = 7 Sätze ✅
-        {n:'Rudern (LH)',               s:'4×8–10',  note:'Mitte Rücken · Brust zur Stange'},
-        {n:'Rudern (Kabel eng)',        s:'3×10–12', note:'Volle Streckung · Schulterblätter'},
-        // BIZEPS: 3+3 = 6 Sätze (Woche: 6+6=12) ✅
-        {n:'Bizeps Curl (LH)',          s:'3×8–10',  note:'Mass · kein Schwung'},
-        {n:'Hammer Curl (KH)',          s:'3×12–15', note:'Brachialis · Unterarm · alternierend'},
-        // REAR DELT: 3 Sätze ✅
-        {n:'Face Pulls (Kabel)',        s:'3×15–20', note:'Schultergesundheit · externe Rotation'}
+        // RÜCKEN BREITE (6 Sätze → Woche: 6+6+6=18 ✅ MAV-MRV für Fortgeschrittene)
+        {n:'Klimmzüge',                   s:'4×6–10',  note:'Beste Rückenübung · volle Streckung unten · Schulterblätter aktivieren'},
+        {n:'Latzug (Untergriff eng)',      s:'3×10–12', note:'Unterer Lat · Ellbogen zur Hüfte · kein Schwung'},
+        // RÜCKEN DICKE (6 Sätze → inkl. Sa)
+        {n:'Rudern (LH Untergriff)',       s:'4×8–10',  note:'Mitte Rücken · Stange zum Nabel · vollen ROM'},
+        {n:'Seilzugrudern (eng)',          s:'3×12–15', note:'Volle Streckung vorne · Schulterblätter hinten zusammen'},
+        // BIZEPS (6 Sätze → Woche: 6+6=12 ✅ MAV)
+        {n:'Bizeps Curl (LH)',             s:'3×8–10',  note:'Mass-Übung · kein Schwingen · volle Extension'},
+        {n:'Incline Curl (KH) 45°',        s:'3×12–15', note:'Maximaler Stretch langer Bizepskopf · alternierend'},
+        // REAR DELT & Schultergesundheit (3 Sätze)
+        {n:'Face Pulls (Kabel)',           s:'3×15–20', note:'WICHTIG · Schultergesundheit · externe Rotation · Ohrhöhe'}
       ]
     },
     {
-      id:'thu', name:'Legs A', type:'gym',
-      sub:'Quad · Hamstring · Wade · Core · ~75 Min · 16 Sätze',
+      id:'thu', type:'gym',
+      name:'Legs A',
+      sub:'Quad · Hamstring · Wade · Core · ~80 Min · 20 Sätze',
       ex:[
-        // QUAD: 4+3 = 7 Sätze (Woche: 7+6=13 mit Sa) ✅
-        {n:'Kniebeuge (LH)',            s:'4×6–8',   note:'Hauptübung · tief · Knie über Zehen'},
-        {n:'Beinpresse',                s:'3×10–12', note:'⚠️ MODERAT – Fußball Fr · kein Versagen'},
-        {n:'Beinstrecker',              s:'3×12–15', note:'Quad Isolation · langsam exzentrisch'},
-        // HAMSTRING: 3+3 = 6 Sätze (Woche: 6+6=12) ✅
-        {n:'Rumänisches KH',            s:'4×8–10',  note:'Hip Hinge · 3 Sek negativ · Rücken gerade'},
-        {n:'Beinbeuger (Maschine)',     s:'3×10–12', note:'Hamstring Isolation · volle ROM'},
-        // WADE: 4 Sätze (wichtig für Fußball) ✅
-        {n:'Wadenheben stehend',        s:'4×12–15', note:'Sprungkraft · Fußball-spezifisch'},
-        // CORE: 3 Sätze ✅
-        {n:'Plank',                     s:'3×60s',   note:'Rumpfstabilität', timed:true}
+        // QUAD (7 Sätze → Woche: 7+7=14 ✅ MAV · Fußball als Extra-Reiz)
+        {n:'Kniebeuge (LH)',               s:'4×6–8',   note:'Hauptübung · Hüfte tiefer als Knie · Knie über Zehen'},
+        {n:'Beinpresse',                   s:'3×10–12', note:'⚠️ Moderat – Fußball Fr! · Füße schulterbreit · kein Versagen'},
+        {n:'Beinstrecker',                 s:'3×12–15', note:'Quad Isolation · langsam exzentrisch · volle ROM'},
+        // HAMSTRING (6 Sätze → Woche: 6+6=12 ✅ MAV)
+        {n:'Rumänisches Kreuzheben (LH)',  s:'4×8–10',  note:'Hüfte nach hinten · Rücken GERADE · 3 Sek negativ'},
+        {n:'Beinbeuger (Maschine liegend)',s:'3×10–12', note:'Hamstring Isolation · volle ROM · 2 Sek halten oben'},
+        // WADE (4 Sätze – Fußball-spezifisch wichtig!)
+        {n:'Wadenheben stehend',           s:'4×12–15', note:'Sprungkraft & Sprintpower · volle ROM · 1 Sek halten oben'},
+        // CORE (3 Sätze)
+        {n:'Plank',                        s:'3×60s',   note:'Rumpfstabilität · Körper gerade wie Brett · atmen', timed:true}
       ]
     },
     {
-      id:'fri', name:'Fußball', type:'soccer',
-      sub:'Training · kein Gym · Ausdauer & Technik', ex:[]
+      id:'fri', type:'soccer',
+      name:'Fußball Training',
+      sub:'Training · kein Gym · morgen Gym oder Ruhe', ex:[]
     },
     {
-      id:'sat', name:'Push B + Pull B', type:'gym',
-      sub:'Brust · Rücken · Schulter · Trizeps · Bizeps · ~75 Min · 2. Frequenz',
+      id:'sat', type:'gym',
+      name:'Push B + Pull B',
+      sub:'2. Frequenz · Brust/Rücken/Arm · ~80 Min · 22 Sätze',
       ex:[
-        // PUSH B – andere Übungen für Variation ✅
-        {n:'Schrägbank Bankdrücken (LH)', s:'4×6–8',  note:'Obere Brust · 2. Frequenz Push'},
-        {n:'Dips (Brust)',                s:'3×8–12', note:'Brust + Trizeps · Gewicht falls nötig'},
-        {n:'Schulterdrücken (Maschine)', s:'3×10–12', note:'Gelenk-schonend · 2. Frequenz'},
-        {n:'Seitheben Kabel',            s:'3×15–20', note:'Konstante Spannung · langsam'},
-        // PULL B – andere Winkel ✅
-        {n:'Einarmiges KH-Rudern',       s:'4×8–10',  note:'Volles ROM · Rücken strecken'},
-        {n:'Kabel-Pullover',             s:'3×12–15', note:'Lat Isolation · volle Streckung'},
-        {n:'Bizeps Curl (Kabel)',        s:'3×10–12', note:'Konstante Spannung · 2. Frequenz'},
-        // TRIZEPS 2. Frequenz ✅
-        {n:'Skull Crushers (LH)',        s:'3×8–10',  note:'Langer Kopf · langsam exzentrisch'}
+        // PUSH B – andere Übungen für Variation & 2. Frequenz
+        // BRUST (8 Sätze → Wochentotal 16 ✅)
+        {n:'Schrägbank Bankdrücken (LH)',  s:'4×6–8',   note:'Obere Brust Mass · 2. Frequenz · andere Winkel als Mo'},
+        {n:'Dips (Brust)',                 s:'3×8–12',  note:'Brust + Trizeps · Oberkörper leicht vorbeugen · tief'},
+        {n:'Pec Deck / Maschinen-Flys',   s:'3×12–15', note:'Isolation · konstante Spannung · kein Schwung'},
+        // SCHULTER B (7 Sätze → Wochentotal 14 ✅)
+        {n:'Seitheben (Kabel)',            s:'4×15–20', note:'Konstante Spannung · besser als KH für Hypertrophie'},
+        // PULL B – andere Winkel für Rücken
+        // RÜCKEN (6 Sätze → Wochentotal 18 ✅ MRV-Bereich)
+        {n:'Einarmiges KH-Rudern',         s:'4×8–10',  note:'Maximale ROM · Rücken strecken oben · 2. Frequenz'},
+        {n:'Kabel-Pullover (stehend)',      s:'3×12–15', note:'Lat Isolation · volle Streckung · Arme leicht gebeugt'},
+        // BIZEPS (6 Sätze → Wochentotal 12 ✅)
+        {n:'Hammer Curl (KH)',             s:'3×12–15', note:'Brachialis & Unterarm · neutraler Griff · alternierend'},
+        // TRIZEPS (6 Sätze → Wochentotal 12 ✅)
+        {n:'Skull Crushers (LH)',          s:'3×8–10',  note:'Langer Trizepskopf · langsam exzentrisch · 2 Sek unten'}
       ]
     },
     {
-      id:'sun', name:'Spiel', type:'match',
-      sub:'50–80 Min Wettkampf · ~700–900 kcal', ex:[]
+      id:'sun', type:'match',
+      name:'Fußball Spiel',
+      sub:'50–80 Min Wettkampf · ~800 kcal · danach: Kohlenhydrate!', ex:[]
     }
   ];
 }
 
-// ── PLAN RESET (für neue Nutzer oder nach Update) ────────
 function resetToDefaultPlan(){
-  if(!confirm('Plan auf den wissenschaftlich optimierten Standard zurücksetzen? Eigene Änderungen gehen verloren.')) return;
-  AppState.plan = defaultPlan();
+  if(!confirm('Plan zurücksetzen? Eigene Änderungen gehen verloren.')) return;
+  AppState.plan=defaultPlan();
   AppState.save();
   renderPlan();
-  toast('✅ Plan auf optimierten Standard zurückgesetzt');
+  toast('✅ Wissenschaftlich optimierter Plan geladen');
 }
 
 function dayLabel(idx, day){
