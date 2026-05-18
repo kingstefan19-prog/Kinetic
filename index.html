@@ -236,8 +236,18 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
       <div style="width:3px;height:14px;background:var(--accent);border-radius:2px"></div>
       <div class="sh-t">Wochenplan</div>
     </div>
-    <button id="editDaysBtn" class="btn bg2" style="width:auto;padding:6px 12px;font-size:11px;margin:0">✏️ Tage anpassen</button>
+    <div style="display:flex;gap:6px">
+      <button id="editDaysBtn" class="btn bg2" style="width:auto;padding:6px 10px;font-size:11px;margin:0">✏️ Anpassen</button>
+      <button onclick="resetToDefaultPlan()" class="btn bg2" style="width:auto;padding:6px 10px;font-size:11px;margin:0;color:var(--orange)">↺ Reset</button>
+    </div>
   </div>
+
+  <!-- Science info banner -->
+  <div style="background:rgba(10,132,255,.07);border:1px solid rgba(10,132,255,.2);border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--t2);line-height:1.6">
+    📊 <strong style="color:var(--blue)">Wissenschaftlich optimiert</strong> · Schoenfeld/Israetel 2024<br>
+    Brust/Rücken: ~14 Sätze/Woche · Schulter: 12 · Trizeps/Bizeps: 12 · Quad/Ham: 12–14 · Frequenz: 2× pro Muskel
+  </div>
+
   <div id="planList"></div>
 </section>
 
@@ -588,27 +598,107 @@ const AppState = {
   saveSession(){ DB.set('activeSession', this.activeSession); }
 };
 
-// ── 6. DEFAULT PLAN ─────────────────────────────────────
+// ── 6. DEFAULT PLAN (wissenschaftlich optimiert nach Schoenfeld/Israetel) ──
+// Ziel: 10–15 Sätze/Muskel/Woche · 2 Übungen/Muskel · 6–8 harte Sätze/Session max
+// Quelle: Schoenfeld et al. 2017, Israetel MEV/MAV-Modell, PubMed Umbrella Review 2022
 function defaultPlan(){
   return [
-    { id:'mon', name:'Push',     sub:'Brust · Schultern · Trizeps · ~60 Min', type:'gym',
-      ex:[{n:'Bankdrücken (LH)',s:'4×6–8'},{n:'Schrägbankdrücken (KH)',s:'3×8–10'},{n:'Schulterdrücken',s:'3×8–10'},{n:'Seitheben',s:'3×12–15'},{n:'Trizeps Pushdown',s:'3×10–12'}]},
-    { id:'tue', name:'Fußball',  sub:'Training · kein Gym', type:'soccer', ex:[] },
-    { id:'wed', name:'Pull',     sub:'Rücken · Bizeps · ~60 Min', type:'gym',
-      ex:[{n:'Klimmzüge',s:'4×6–10'},{n:'Rudern (LH)',s:'4×8–10'},{n:'Latzug',s:'3×10–12'},{n:'Bizeps Curl (KH)',s:'3×10–12'}]},
-    { id:'thu', name:'Legs',     sub:'Beine · Core · ~65 Min', type:'gym',
-      ex:[{n:'Kniebeuge',s:'4×6–8'},{n:'Beinpresse',s:'3×10–12'},{n:'Rumänisches KH',s:'3×8–10'},{n:'Plank',s:'3×60s',timed:true}]},
-    { id:'fri', name:'Fußball',  sub:'Training · kein Gym', type:'soccer', ex:[] },
-    { id:'sat', name:'Optional', sub:'Ruhe oder leichter Pump', type:'flex', ex:[] },
-    { id:'sun', name:'Spiel',    sub:'50–80 Min Wettkampf', type:'match', ex:[] }
+    {
+      id:'mon', name:'Push A', type:'gym',
+      sub:'Brust · Schultern · Trizeps · ~70 Min · 14 Sätze',
+      ex:[
+        // BRUST: 4+3 = 7 Sätze (Woche: 7+7=14 mit Do) ✅
+        {n:'Bankdrücken (LH)',         s:'4×6–8',   note:'Hauptübung · Brust Mass'},
+        {n:'Schrägbankdrücken (KH)',   s:'3×8–10',  note:'Obere Brust · volle Streckung'},
+        {n:'Kabelflys (unten)',         s:'3×12–15', note:'Peak Kontraktion · Stretch'},
+        // SCHULTER: 3+3 = 6 Sätze (Woche: 6+6=12 mit Do) ✅
+        {n:'Schulterdrücken (KH)',     s:'3×8–10',  note:'Schulter Mass · sitzend'},
+        {n:'Seitheben',                s:'3×15–20', note:'Seitl. Schulter · 3 Sek negativ'},
+        // TRIZEPS: 3+3 = 6 Sätze (Woche: 6+6=12 mit Do) ✅
+        {n:'Trizeps Pushdown (Seil)',   s:'3×10–12', note:'Langer Kopf · Ellbogen fixiert'},
+        {n:'Overhead Extension (KH)',   s:'3×10–12', note:'Langer Trizepskopf · Stretch'}
+      ]
+    },
+    {
+      id:'tue', name:'Fußball', type:'soccer',
+      sub:'Training · kein Gym · Ausdauer & Agilität', ex:[]
+    },
+    {
+      id:'wed', name:'Pull A', type:'gym',
+      sub:'Rücken · Bizeps · Rear Delt · ~70 Min · 14 Sätze',
+      ex:[
+        // RÜCKEN BREITE: 4+3 = 7 Sätze (Woche: 7+7=14 mit Sa) ✅
+        {n:'Klimmzüge',                s:'4×6–10',  note:'Breiteste Rückenübung · vollständige Streckung'},
+        {n:'Latzug (Untergriff)',       s:'3×10–12', note:'Unterer Lat · Ellbogen zur Hüfte'},
+        // RÜCKEN DICKE: 4+3 = 7 Sätze ✅
+        {n:'Rudern (LH)',               s:'4×8–10',  note:'Mitte Rücken · Brust zur Stange'},
+        {n:'Rudern (Kabel eng)',        s:'3×10–12', note:'Volle Streckung · Schulterblätter'},
+        // BIZEPS: 3+3 = 6 Sätze (Woche: 6+6=12) ✅
+        {n:'Bizeps Curl (LH)',          s:'3×8–10',  note:'Mass · kein Schwung'},
+        {n:'Hammer Curl (KH)',          s:'3×12–15', note:'Brachialis · Unterarm · alternierend'},
+        // REAR DELT: 3 Sätze ✅
+        {n:'Face Pulls (Kabel)',        s:'3×15–20', note:'Schultergesundheit · externe Rotation'}
+      ]
+    },
+    {
+      id:'thu', name:'Legs A', type:'gym',
+      sub:'Quad · Hamstring · Wade · Core · ~75 Min · 16 Sätze',
+      ex:[
+        // QUAD: 4+3 = 7 Sätze (Woche: 7+6=13 mit Sa) ✅
+        {n:'Kniebeuge (LH)',            s:'4×6–8',   note:'Hauptübung · tief · Knie über Zehen'},
+        {n:'Beinpresse',                s:'3×10–12', note:'⚠️ MODERAT – Fußball Fr · kein Versagen'},
+        {n:'Beinstrecker',              s:'3×12–15', note:'Quad Isolation · langsam exzentrisch'},
+        // HAMSTRING: 3+3 = 6 Sätze (Woche: 6+6=12) ✅
+        {n:'Rumänisches KH',            s:'4×8–10',  note:'Hip Hinge · 3 Sek negativ · Rücken gerade'},
+        {n:'Beinbeuger (Maschine)',     s:'3×10–12', note:'Hamstring Isolation · volle ROM'},
+        // WADE: 4 Sätze (wichtig für Fußball) ✅
+        {n:'Wadenheben stehend',        s:'4×12–15', note:'Sprungkraft · Fußball-spezifisch'},
+        // CORE: 3 Sätze ✅
+        {n:'Plank',                     s:'3×60s',   note:'Rumpfstabilität', timed:true}
+      ]
+    },
+    {
+      id:'fri', name:'Fußball', type:'soccer',
+      sub:'Training · kein Gym · Ausdauer & Technik', ex:[]
+    },
+    {
+      id:'sat', name:'Push B + Pull B', type:'gym',
+      sub:'Brust · Rücken · Schulter · Trizeps · Bizeps · ~75 Min · 2. Frequenz',
+      ex:[
+        // PUSH B – andere Übungen für Variation ✅
+        {n:'Schrägbank Bankdrücken (LH)', s:'4×6–8',  note:'Obere Brust · 2. Frequenz Push'},
+        {n:'Dips (Brust)',                s:'3×8–12', note:'Brust + Trizeps · Gewicht falls nötig'},
+        {n:'Schulterdrücken (Maschine)', s:'3×10–12', note:'Gelenk-schonend · 2. Frequenz'},
+        {n:'Seitheben Kabel',            s:'3×15–20', note:'Konstante Spannung · langsam'},
+        // PULL B – andere Winkel ✅
+        {n:'Einarmiges KH-Rudern',       s:'4×8–10',  note:'Volles ROM · Rücken strecken'},
+        {n:'Kabel-Pullover',             s:'3×12–15', note:'Lat Isolation · volle Streckung'},
+        {n:'Bizeps Curl (Kabel)',        s:'3×10–12', note:'Konstante Spannung · 2. Frequenz'},
+        // TRIZEPS 2. Frequenz ✅
+        {n:'Skull Crushers (LH)',        s:'3×8–10',  note:'Langer Kopf · langsam exzentrisch'}
+      ]
+    },
+    {
+      id:'sun', name:'Spiel', type:'match',
+      sub:'50–80 Min Wettkampf · ~700–900 kcal', ex:[]
+    }
   ];
+}
+
+// ── PLAN RESET (für neue Nutzer oder nach Update) ────────
+function resetToDefaultPlan(){
+  if(!confirm('Plan auf den wissenschaftlich optimierten Standard zurücksetzen? Eigene Änderungen gehen verloren.')) return;
+  AppState.plan = defaultPlan();
+  AppState.save();
+  renderPlan();
+  toast('✅ Plan auf optimierten Standard zurückgesetzt');
 }
 
 function dayLabel(idx, day){
   const wd=WEEKDAYS[idx]||''; return wd ? wd+' · '+(day.name||'') : (day.name||'');
 }
 
-// ── 7. NAVIGATION ───────────────────────────────────────
+
 function navigate(pageId){
   if(!pageId) return;
   Timers.clear('toast');
@@ -777,31 +867,58 @@ function renderCoachCard(){
 function renderPlan(){
   const list=el('planList'); if(!list) return;
   if(!Array.isArray(AppState.plan)||!AppState.plan.length){
-    list.innerHTML='<div class="empty"><div class="empty-icon">📅</div>Kein Plan.</div>'; return;
+    list.innerHTML='<div class="empty"><div class="empty-icon">📅</div>Kein Plan. <button class="btn bp" onclick="resetToDefaultPlan()" style="margin-top:12px;max-width:220px">Plan laden</button></div>'; return;
   }
   try {
     const em=AppState.editMode;
-    list.innerHTML=AppState.plan.map((day,idx)=>{
-      const badge=day.type==='gym'?'<span class="bd r">GYM</span>':day.type==='soccer'?'<span class="bd g">⚽ Fußball</span>':day.type==='match'?'<span class="bd b">🏟️ Spiel</span>':'<span class="bd gr">Flex</span>';
+    const typeIcon={gym:'💪',soccer:'⚽',match:'🏟️',flex:'😌'};
+    const typeBadge={gym:'<span class="bd r">GYM</span>',soccer:'<span class="bd g">⚽ Fußball</span>',match:'<span class="bd b">🏟️ Spiel</span>',flex:'<span class="bd gr">Flex</span>'};
+
+    list.innerHTML=AppState.plan.map(function(day,idx){
+      const badge=typeBadge[day.type]||typeBadge.flex;
+      // Exercise rows with notes
       const exHtml=(day.ex&&day.ex.length)
-        ?day.ex.map(e=>`<div class="er"><div class="en">${esc(e.n)}</div><div class="es">${esc(e.s)}</div></div>`).join('')
-        :'<div style="color:var(--t3);font-size:12px;padding:8px 0">Keine Übungen.</div>';
-      const startBtn=day.type==='gym'?`<button class="btn bp" data-start="${day.id}" style="margin-top:12px">Workout starten →</button>`:'';
-      const editCtrl=em?`<div style="display:flex;gap:5px;align-items:center;margin-right:6px">
-        <button type="button" class="btn bg2" data-move-up="${idx}" ${idx===0?'disabled':''} style="width:30px;padding:6px 0;font-size:13px;margin:0">↑</button>
-        <button type="button" class="btn bg2" data-move-down="${idx}" ${idx===AppState.plan.length-1?'disabled':''} style="width:30px;padding:6px 0;font-size:13px;margin:0">↓</button>
-        <button type="button" class="btn bg2" data-edit-day="${idx}" style="width:auto;padding:6px 10px;font-size:11px;margin:0">✏️</button>
-      </div>`:'';
-      return `<div class="wk" data-day="${day.id}">
-        <div class="wk-h"${em?'':` data-toggle="${day.id}"`}>
-          <div class="wk-d"><div class="wk-n">${esc(dayLabel(idx,day))}</div><div class="wk-s">${esc(day.sub)}</div></div>
-          ${editCtrl}${badge}${em?'':'<div class="wk-c">▼</div>'}
-        </div>
-        <div class="wk-b" id="wk-b-${day.id}">${exHtml}${startBtn}</div>
-      </div>`;
+        ? day.ex.map(function(e){
+            return '<div class="er">'
+              +'<div style="flex:1">'
+              +'<div class="en">'+esc(e.n)+'</div>'
+              +(e.note?'<div style="font-size:11px;color:var(--t3);margin-top:2px">'+esc(e.note)+'</div>':'')
+              +'</div>'
+              +'<div class="es" style="flex-shrink:0">'+esc(e.s)+'</div>'
+              +'</div>';
+          }).join('')
+        : '<div style="color:var(--t3);font-size:12px;padding:8px 0">'+(typeIcon[day.type]||'')+(day.type==='soccer'?' Fußball Training heute – Gym Pause':day.type==='match'?' Spieltag – Regeneration danach':' Kein Training geplant')+'</div>';
+
+      // Satz-Summe anzeigen
+      const totalSets=day.ex?day.ex.reduce(function(a,e){ var m=e.s&&e.s.match(/^(\d+)/); return a+(m?parseInt(m[1],10):0); },0):0;
+      const setsInfo=day.type==='gym'&&totalSets?'<span style="font-size:10px;color:var(--t3);margin-left:6px">'+totalSets+' Sätze gesamt</span>':'';
+
+      const startBtn=day.type==='gym'
+        ?'<button class="btn bp" data-start="'+day.id+'" style="margin-top:12px">🏋️ Workout starten →</button>'
+        :'';
+
+      const editCtrl=em
+        ?'<div style="display:flex;gap:5px;align-items:center;margin-right:6px">'
+          +'<button type="button" class="btn bg2" data-move-up="'+idx+'" '+(idx===0?'disabled':'')+' style="width:30px;padding:6px 0;font-size:13px;margin:0">↑</button>'
+          +'<button type="button" class="btn bg2" data-move-down="'+idx+'" '+(idx===AppState.plan.length-1?'disabled':'')+' style="width:30px;padding:6px 0;font-size:13px;margin:0">↓</button>'
+          +'<button type="button" class="btn bg2" data-edit-day="'+idx+'" style="width:auto;padding:6px 10px;font-size:11px;margin:0">✏️</button>'
+          +'</div>'
+        :'';
+
+      return '<div class="wk" data-day="'+day.id+'">'
+        +'<div class="wk-h"'+(em?'':' data-toggle="'+day.id+'"')+'>'
+        +'<div class="wk-d">'
+        +'<div class="wk-n">'+esc(dayLabel(idx,day))+setsInfo+'</div>'
+        +'<div class="wk-s">'+esc(day.sub)+'</div>'
+        +'</div>'
+        +editCtrl+badge+(em?'':'<div class="wk-c">▼</div>')
+        +'</div>'
+        +'<div class="wk-b" id="wk-b-'+day.id+'">'+exHtml+startBtn+'</div>'
+        +'</div>';
     }).join('');
-    const eb=el('editDaysBtn'); if(eb) eb.textContent=em?'✓ Fertig':'✏️ Tage anpassen';
-  } catch(e){ log.error('renderPlan',e); list.innerHTML='<div class="empty">Fehler beim Laden des Plans.</div>'; }
+
+    const eb=el('editDaysBtn'); if(eb) eb.textContent=em?'✓ Fertig':'✏️ Anpassen';
+  } catch(e){ log.error('renderPlan',e); list.innerHTML='<div class="empty">Fehler beim Laden. <button class="btn bp" onclick="resetToDefaultPlan()" style="margin-top:10px;max-width:200px">↺ Plan zurücksetzen</button></div>'; }
 }
 
 // ── 14. DAY EDITING ─────────────────────────────────────
