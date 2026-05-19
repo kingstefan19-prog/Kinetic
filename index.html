@@ -833,12 +833,18 @@ function logWeight(){
 }
 
 // ── 12. COACH CARD (MEV/MAV/MRV) ───────────────────────
+// Personalisierte MEV/MAV/MRV für 108kg, FFMI 26.6, Fortgeschritten
+// Quellen: Israetel RP Strength, Schoenfeld 2024, Frontiers 2025
 const VOLUME_LM={
-  brust:{mev:8,mav:14,mrv:22},ruecken:{mev:10,mav:18,mrv:25},
-  schulter:{mev:8,mav:16,mrv:26},bizeps:{mev:8,mav:14,mrv:20},
-  trizeps:{mev:6,mav:12,mrv:18},quads:{mev:8,mav:14,mrv:20},
-  hams:{mev:6,mav:12,mrv:18},glutes:{mev:6,mav:12,mrv:16},
-  core:{mev:6,mav:12,mrv:20}
+  brust:    {mev:10, mav:16, mrv:22},  // Plan: 16 Sätze/Wo ✅ MAV
+  ruecken:  {mev:12, mav:18, mrv:26},  // Plan: 18 Sätze/Wo ✅ MAV
+  schulter: {mev:8,  mav:14, mrv:22},  // Plan: 14 Sätze/Wo ✅ MAV
+  bizeps:   {mev:8,  mav:12, mrv:20},  // Plan: 12 Sätze/Wo ✅ MAV
+  trizeps:  {mev:6,  mav:12, mrv:18},  // Plan: 12 Sätze/Wo ✅ MAV
+  quads:    {mev:8,  mav:14, mrv:20},  // Plan: 14 Sätze/Wo ✅ MAV
+  hams:     {mev:6,  mav:12, mrv:18},  // Plan: 12 Sätze/Wo ✅ MAV
+  wade:     {mev:6,  mav:10, mrv:16},  // Plan: 8 Sätze/Wo (Fußball zusätzlich)
+  core:     {mev:6,  mav:10, mrv:16}   // Plan: 6 Sätze/Wo ✅ MEV-MAV
 };
 const MUSCLE_MAP=[
   [/bank|chest|brust|dip/i,['brust','trizeps']],
@@ -1642,6 +1648,18 @@ function refreshDataPage(){
 }
 
 // ── 26. AI COACH ────────────────────────────────────────
+function aiProfile(){
+  var u=AppState.user;
+  return 'Athlet: '+(u.name||'Stefan')+' · '+(u.height||190)+'cm · '+(u.weight||108)+'kg'
+    +' · KFA '+(u.kfa||20.1)+'% · FFMI '+(u.ffmi||26.6)+' · Bio-Alter 32'
+    +' · Skelettmuskel 48.9kg · Magermasse 86.3kg'
+    +' · Ziel-KFA '+(u.kfaGoal||14)+'%'
+    +' · Wochenplan: Mo Push A / Mi Pull A / Do Legs / Sa Push+Pull B'
+    +' · Fußball: Di+Fr Training + So Spiel'
+    +' · BMR '+(u.kcalTarget?u.kcalTarget+500:2734)+' kcal · Kalorienziel '+(u.kcalTarget||2870)+' kcal'
+    +' · Fortgeschritten · Ziel: Recomp (Fett ab, Muskel halten)';
+}
+
 async function callClaude(prompt, imgBase64, mediaType){
   if(!mediaType) mediaType='image/jpeg';
   var msgContent=imgBase64
@@ -1660,29 +1678,26 @@ async function callClaude(prompt, imgBase64, mediaType){
   return '⚠️ KI momentan nicht erreichbar. Bitte online sein und erneut versuchen.';
 }
 
-function aiProfile(){
-  const u=AppState.user;
-  return `Athlet: ${u.name||'Unbekannt'} · ${u.height}cm · ${u.weight}kg · KFA ${u.kfa}% · FFMI ${u.ffmi} · Ziel: KFA ${u.kfaGoal}% · Plan: Push/Pull/Legs + Fußball Di+Fr · BMR ${u.kcalTarget+500}kcal · Ziel ${u.kcalTarget}kcal`;
-}
-
 async function getAnalysis(){
-  const btn=el('aiAnalysisBtn'), res=el('aiAnalysisResult'); if(!res) return;
+  var btn=el('aiAnalysisBtn'), res=el('aiAnalysisResult'); if(!res) return;
   if(btn){ btn.disabled=true; btn.textContent='⏳ Analysiere…'; }
   res.style.display='block'; res.innerHTML='<span style="color:var(--t3)">⏳ Verbinde mit KI-Coach…</span>';
-  const t=await callClaude(`Elite-Athletik-Coach. Deutsch, max 5 Sätze, motivierend & präzise. Nutze <strong> für Schlüsselpunkte.\n${aiProfile()}`);
+  var prompt='Elite-Athletik-Coach (KINETIC App, angelehnt an MCI von Tim Gabel). Analysiere auf Deutsch, max 5 Sätze, motivierend & präzise. Nutze <strong> für Schlüsselpunkte.\n'+aiProfile();
+  var t=await callClaude(prompt);
   res.innerHTML=t;
   if(btn){ btn.disabled=false; btn.textContent='🧠 Analyse neu starten'; }
 }
 
 async function askCoach(){
   var qEl=el('aiQuestion'); var q=qEl?(qEl.value||'').trim():''; if(!q) return;
-  const btn=el('aiAskBtn'), res=el('aiAnswer'); if(!res) return;
+  var btn=el('aiAskBtn'), res=el('aiAnswer'); if(!res) return;
   if(btn){ btn.disabled=true; btn.textContent='⏳'; }
   res.style.display='block'; res.innerHTML='<span style="color:var(--t3)">⏳ Denke nach…</span>';
-  const t=await callClaude(`Elite-Coach. Deutsch, max 4 Sätze, direkt. Nutze <strong> für Schlüsselpunkte.\n${aiProfile()}\nFrage: ${q}`);
+  var prompt='Elite-Coach (KINETIC/MCI-Stil). Deutsch, max 4 Sätze, direkt & hilfreich. Nutze <strong> für Schlüsselpunkte.\n'+aiProfile()+'\nFrage: '+q;
+  var t=await callClaude(prompt);
   res.innerHTML=t;
   if(btn){ btn.disabled=false; btn.textContent='Fragen →'; }
-  if('speechSynthesis' in window) speakText(t.replace(/<[^>]*>/g,''));
+  if(window.speechSynthesis) speakText(t.replace(/<[^>]*>/g,''));
 }
 
 // ── 27. VOICE COACH ─────────────────────────────────────
