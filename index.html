@@ -651,19 +651,23 @@ function defaultPlan(){
     {
       id:'thu', type:'gym',
       name:'Legs A',
-      sub:'Quad · Hamstring · Wade · Core · ~80 Min · 20 Sätze',
+      sub:'Quad · Hamstring · Adduktoren · Abduktoren · Wade · Core · ~85 Min',
       ex:[
-        // QUAD (7 Sätze → Woche: 7+7=14 ✅ MAV · Fußball als Extra-Reiz)
-        {n:'Kniebeuge (LH)',               s:'4×6–8',   note:'Hauptübung · Hüfte tiefer als Knie · Knie über Zehen'},
-        {n:'Beinpresse',                   s:'3×10–12', note:'⚠️ Moderat – Fußball Fr! · Füße schulterbreit · kein Versagen'},
-        {n:'Beinstrecker',                 s:'3×12–15', note:'Quad Isolation · langsam exzentrisch · volle ROM'},
-        // HAMSTRING (6 Sätze → Woche: 6+6=12 ✅ MAV)
-        {n:'Rumänisches Kreuzheben (LH)',  s:'4×8–10',  note:'Hüfte nach hinten · Rücken GERADE · 3 Sek negativ'},
-        {n:'Beinbeuger (Maschine liegend)',s:'3×10–12', note:'Hamstring Isolation · volle ROM · 2 Sek halten oben'},
-        // WADE (4 Sätze – Fußball-spezifisch wichtig!)
-        {n:'Wadenheben stehend',           s:'4×12–15', note:'Sprungkraft & Sprintpower · volle ROM · 1 Sek halten oben'},
+        // QUAD (7 Sätze · Woche: 7+7=14 ✅ MAV)
+        {n:'Kniebeuge (LH)',                  s:'4×6–8',   note:'Hauptübung · Hüfte tiefer als Knie · Knie über Zehen · Kern angespannt'},
+        {n:'Beinpresse',                      s:'3×10–12', note:'⚠️ MODERAT – Fußball Fr! · Füße schulterbreit · kein Versagen heute'},
+        {n:'Beinstrecker',                    s:'3×12–15', note:'Quad Isolation · langsam exzentrisch · volle ROM · 2 Sek unten'},
+        // HAMSTRING / BEINBIZEPS (6 Sätze · Woche: 6+6=12 ✅)
+        {n:'Rumänisches Kreuzheben (LH)',     s:'4×8–10',  note:'Hüfte hinten schieben · Rücken GERADE · 3 Sek negativ · Hantel nah am Körper'},
+        {n:'Beinbeuger (Maschine liegend)',   s:'3×10–12', note:'Hamstring/Beinbizeps Isolation · volle ROM · 2 Sek Peak-Kontraktion oben'},
+        // ADDUKTOREN (3 Sätze – für Fußball & Stabilität wichtig!)
+        {n:'Adduktionsmaschine (sitzend)',    s:'3×12–15', note:'Oberschenkelinnenseite · langsame kontrollierte Bewegung · kein Schwung'},
+        // ABDUKTOREN (3 Sätze – Hüftstabilität & Fußball!)
+        {n:'Abduktionsmaschine (sitzend)',    s:'3×12–15', note:'Oberschenkelaußenseite & Gesäß · wichtig für Kniestabilität im Fußball'},
+        // WADE (4 Sätze – Fußball-spezifisch!)
+        {n:'Wadenheben stehend',              s:'4×12–15', note:'Sprungkraft & Sprintpower · volle ROM · 1 Sek halten oben · langsam senken'},
         // CORE (3 Sätze)
-        {n:'Plank',                        s:'3×60s',   note:'Rumpfstabilität · Körper gerade wie Brett · atmen', timed:true}
+        {n:'Plank',                           s:'3×60s',   note:'Rumpfstabilität · Körper gerade wie Brett · Gesäß nicht heben · atmen', timed:true}
       ]
     },
     {
@@ -836,38 +840,20 @@ function logWeight(){
 // Personalisierte MEV/MAV/MRV für 108kg, FFMI 26.6, Fortgeschritten
 // Quellen: Israetel RP Strength, Schoenfeld 2024, Frontiers 2025
 const VOLUME_LM={
-  brust:    {mev:10, mav:16, mrv:22},  // Plan: 16 Sätze/Wo ✅ MAV
-  ruecken:  {mev:12, mav:18, mrv:26},  // Plan: 18 Sätze/Wo ✅ MAV
-  schulter: {mev:8,  mav:14, mrv:22},  // Plan: 14 Sätze/Wo ✅ MAV
-  bizeps:   {mev:8,  mav:12, mrv:20},  // Plan: 12 Sätze/Wo ✅ MAV
-  trizeps:  {mev:6,  mav:12, mrv:18},  // Plan: 12 Sätze/Wo ✅ MAV
-  quads:    {mev:8,  mav:14, mrv:20},  // Plan: 14 Sätze/Wo ✅ MAV
-  hams:     {mev:6,  mav:12, mrv:18},  // Plan: 12 Sätze/Wo ✅ MAV
-  wade:     {mev:6,  mav:10, mrv:16},  // Plan: 8 Sätze/Wo (Fußball zusätzlich)
-  core:     {mev:6,  mav:10, mrv:16}   // Plan: 6 Sätze/Wo ✅ MEV-MAV
+  brust:       {mev:10, mav:16, mrv:22},  // Plan: 16/Wo ✅ MAV
+  ruecken:     {mev:12, mav:18, mrv:26},  // Plan: 18/Wo ✅ MAV
+  schulter:    {mev:8,  mav:14, mrv:22},  // Plan: 14/Wo ✅ MAV
+  bizeps:      {mev:8,  mav:12, mrv:20},  // Plan: 12/Wo ✅ MAV
+  trizeps:     {mev:6,  mav:12, mrv:18},  // Plan: 12/Wo ✅ MAV
+  quads:       {mev:8,  mav:14, mrv:20},  // Plan: 14/Wo ✅ MAV
+  hams:        {mev:6,  mav:12, mrv:18},  // Plan: 12/Wo ✅ MAV
+  adduktoren:  {mev:4,  mav:8,  mrv:14},  // Plan: 6/Wo ✅ MEV-MAV (Fußball als Extra)
+  abduktoren:  {mev:4,  mav:8,  mrv:14},  // Plan: 6/Wo ✅ MEV-MAV
+  wade:        {mev:6,  mav:10, mrv:16},  // Plan: 8/Wo (Fußball zusätzlich)
+  core:        {mev:6,  mav:10, mrv:16}   // Plan: 6/Wo ✅ MEV-MAV
 };
-const MUSCLE_MAP=[
-  [/bank|chest|brust|dip/i,['brust','trizeps']],
-  [/schulterdr|overhead|military/i,['schulter','trizeps']],
-  [/seitheb|lateral/i,['schulter']],
-  [/trizeps|pushdown|french/i,['trizeps']],
-  [/klimm|latzug|pulldown/i,['ruecken','bizeps']],
-  [/rudern|row/i,['ruecken','bizeps']],
-  [/bizeps|curl/i,['bizeps']],
-  [/kniebeug|squat|hack/i,['quads','glutes']],
-  [/beinpresse|leg press/i,['quads','glutes']],
-  [/rumän|romanian|kreuz|hip thrust/i,['hams','glutes','ruecken']],
-  [/plank|crunch|core/i,['core']]
-];
-function musclesFor(n){ for(const[re,m]of MUSCLE_MAP) if(re.test(n)) return m; return []; }
+// MUSCLE_MAP, musclesFor, weeklyMuscleSets defined in section 18 (Exercise Families)
 
-function weeklyMuscleSets(){
-  const since=Date.now()-7*24*3600*1000, acc={};
-  (AppState.history||[]).filter(e=>e.ts>=since).forEach(e=>{
-    (e.sets||[]).forEach(s=>{ if(s.r) musclesFor(s.ex).forEach(m=>{ acc[m]=(acc[m]||0)+1; }); });
-  });
-  return acc;
-}
 function renderCoachCard(){
   const el_=el('coachCard'); if(!el_) return;
   const vol=weeklyMuscleSets();
@@ -1366,32 +1352,193 @@ function coachSuggestion(exName,targetStr){
   return{weight:minW,reps:targetReps,hint};
 }
 
-// ── 18. EXERCISE FAMILIES ───────────────────────────────
+// ── 18. EXERCISE FAMILIES (vollständig inkl. Bein/Adduktoren/Abduktoren) ─
 const EXERCISE_FAMILIES=[
-  {id:'chest_press',name:'Brustdrücken',variants:[{lvl:2,n:'Schrägbankdrücken (KH)',s:'3×8–10'},{lvl:3,n:'Bankdrücken (LH)',s:'4×6–8'},{lvl:4,n:'Bankdrücken Pause-Reps',s:'4×4–6'}]},
-  {id:'shoulder_press',name:'Schulterdrücken',variants:[{lvl:2,n:'Schulterdrücken (KH sitzend)',s:'3×10–12'},{lvl:3,n:'Schulterdrücken',s:'3×8–10'},{lvl:4,n:'Military Press (LH)',s:'4×5–8'}]},
-  {id:'lateral',name:'Seitheben',variants:[{lvl:2,n:'Seitheben (leicht)',s:'3×15–20'},{lvl:3,n:'Seitheben',s:'3×12–15'}]},
-  {id:'triceps',name:'Trizeps',variants:[{lvl:1,n:'Bench Dips',s:'3×10–15'},{lvl:2,n:'Trizeps Pushdown',s:'3×10–12'},{lvl:3,n:'Overhead Trizeps (KH)',s:'3×10–12'},{lvl:4,n:'Close-Grip Bench (LH)',s:'3×6–8'}]},
-  {id:'pull',name:'Vertikalzug',variants:[{lvl:1,n:'Latzug breit',s:'3×10–12'},{lvl:2,n:'Negativ-Klimmzüge',s:'3×5–8'},{lvl:3,n:'Klimmzüge',s:'4×6–10'},{lvl:4,n:'Klimmzüge gewichtet',s:'4×4–6'}]},
-  {id:'row',name:'Horizontalzug',variants:[{lvl:1,n:'Inverted Row',s:'3×8–12'},{lvl:2,n:'Rudern Kabel',s:'3×10–12'},{lvl:3,n:'Rudern (LH)',s:'4×8–10'},{lvl:4,n:'Pendlay Row',s:'4×5–6'}]},
-  {id:'biceps',name:'Bizeps',variants:[{lvl:2,n:'Bizeps Curl (KH)',s:'3×10–12'},{lvl:3,n:'Hammer Curls',s:'3×10–12'},{lvl:4,n:'Bizeps Curl (LH)',s:'3×6–10'}]},
-  {id:'squat',name:'Kniebeuge',variants:[{lvl:1,n:'Goblet Squat',s:'3×10–12'},{lvl:2,n:'Bulgarian Split Squat',s:'3×8–10'},{lvl:3,n:'Front Squat',s:'3×6–8'},{lvl:4,n:'Kniebeuge',s:'4×6–8'}]},
-  {id:'hinge',name:'Hüft-Streckung',variants:[{lvl:1,n:'Hip Thrust (BW)',s:'3×12–15'},{lvl:2,n:'Hip Thrust (LH)',s:'3×8–12'},{lvl:3,n:'Rumänisches KH',s:'3×8–10'},{lvl:4,n:'Konventionelles Kreuzheben',s:'4×3–5'}]},
-  {id:'core',name:'Core',variants:[{lvl:1,n:'Plank',s:'3×30s'},{lvl:2,n:'Plank',s:'3×60s'},{lvl:3,n:'Hanging Knee Raise',s:'3×10–12'},{lvl:4,n:'Ab Wheel Rollout',s:'3×6–10'}]},
+  // OBERKÖRPER PUSH
+  {id:'chest_press',name:'Brustdrücken',variants:[
+    {lvl:2,n:'Schrägbankdrücken (KH)',    s:'3×8–10'},
+    {lvl:3,n:'Bankdrücken (LH)',           s:'4×6–8'},
+    {lvl:3,n:'Dips (Brust)',               s:'3×8–12'},
+    {lvl:4,n:'Bankdrücken Pause-Reps',    s:'4×4–6'}
+  ]},
+  {id:'chest_fly',name:'Brust Fly',variants:[
+    {lvl:1,n:'Pec Deck / Maschinen-Flys',  s:'3×12–15'},
+    {lvl:2,n:'Kabelflys (untere Rolle)',   s:'3×12–15'},
+    {lvl:3,n:'KH-Flys (Schrägbank)',       s:'3×10–12'}
+  ]},
+  {id:'shoulder_press',name:'Schulterdrücken',variants:[
+    {lvl:1,n:'Schulterdrücken (Maschine)', s:'3×10–12'},
+    {lvl:2,n:'Schulterdrücken (KH sitzend)',s:'3×8–10'},
+    {lvl:3,n:'Military Press (LH)',         s:'4×5–8'},
+    {lvl:4,n:'Push Press (LH)',             s:'4×4–6'}
+  ]},
+  {id:'lateral',name:'Seitheben',variants:[
+    {lvl:1,n:'Seitheben (Kabel)',           s:'3×15–20'},
+    {lvl:2,n:'Seitheben (KH)',              s:'3×12–15'},
+    {lvl:3,n:'Seitheben (KH)',              s:'4×12–15'}
+  ]},
+  {id:'triceps',name:'Trizeps',variants:[
+    {lvl:1,n:'Bench Dips',                  s:'3×10–15'},
+    {lvl:2,n:'Trizeps Pushdown (Seil)',     s:'3×10–12'},
+    {lvl:3,n:'Overhead Extension (KH)',     s:'3×10–12'},
+    {lvl:4,n:'Skull Crushers (LH)',         s:'3×8–10'},
+    {lvl:4,n:'Close-Grip Bench (LH)',       s:'3×6–8'}
+  ]},
+  // OBERKÖRPER PULL
+  {id:'pull',name:'Vertikalzug',variants:[
+    {lvl:1,n:'Latzug (breit)',              s:'3×10–12'},
+    {lvl:2,n:'Latzug (Untergriff eng)',     s:'3×10–12'},
+    {lvl:2,n:'Negativ-Klimmzüge',           s:'3×5–8'},
+    {lvl:3,n:'Klimmzüge',                   s:'4×6–10'},
+    {lvl:4,n:'Klimmzüge gewichtet',         s:'4×4–6'}
+  ]},
+  {id:'row',name:'Horizontalzug',variants:[
+    {lvl:1,n:'Seilzugrudern (eng)',         s:'3×12–15'},
+    {lvl:2,n:'Einarmiges KH-Rudern',        s:'3×8–10'},
+    {lvl:3,n:'Rudern (LH Untergriff)',      s:'4×8–10'},
+    {lvl:3,n:'Kabel-Pullover (stehend)',    s:'3×12–15'},
+    {lvl:4,n:'Pendlay Row',                 s:'4×5–6'}
+  ]},
+  {id:'biceps',name:'Bizeps',variants:[
+    {lvl:2,n:'Bizeps Curl (KH)',            s:'3×10–12'},
+    {lvl:2,n:'Hammer Curl (KH)',            s:'3×12–15'},
+    {lvl:3,n:'Incline Curl (KH) 45°',      s:'3×12–15'},
+    {lvl:3,n:'Bizeps Curl (LH)',            s:'3×8–10'},
+    {lvl:4,n:'Bizeps Curl (Kabel)',         s:'3×10–12'}
+  ]},
+  // BEINE - QUAD
+  {id:'squat',name:'Kniebeuge / Quad',variants:[
+    {lvl:1,n:'Goblet Squat',                s:'3×10–12'},
+    {lvl:2,n:'Beinpresse',                  s:'3×10–12'},
+    {lvl:2,n:'Hack Squat (Maschine)',       s:'3×8–10'},
+    {lvl:3,n:'Front Squat',                 s:'3×6–8'},
+    {lvl:3,n:'Kniebeuge (LH)',              s:'4×6–8'},
+    {lvl:4,n:'Pausenkneebeuge (LH)',        s:'4×4–6'}
+  ]},
+  {id:'quad_iso',name:'Quad Isolation',variants:[
+    {lvl:1,n:'Beinstrecker',                s:'3×12–15'},
+    {lvl:2,n:'Bulgarian Split Squat',       s:'3×8–10'},
+    {lvl:2,n:'Ausfallschritte (KH)',        s:'3×10–12'},
+    {lvl:3,n:'Step-Ups (Erhöhung)',         s:'3×10–12'}
+  ]},
+  // BEINE - HAMSTRING (Beinbizeps)
+  {id:'hamstring',name:'Hamstring / Beinbizeps',variants:[
+    {lvl:1,n:'Beinbeuger (Maschine liegend)',s:'3×10–12'},
+    {lvl:2,n:'Beinbeuger (Maschine sitzend)',s:'3×10–12'},
+    {lvl:2,n:'Rumänisches Kreuzheben (LH)', s:'4×8–10'},
+    {lvl:3,n:'Nordic Curl (Beinbizeps)',    s:'3×6–8'},
+    {lvl:3,n:'Sumo Kreuzheben (LH)',        s:'4×5–6'},
+    {lvl:4,n:'Konventionelles Kreuzheben',  s:'4×3–5'}
+  ]},
+  {id:'glutes',name:'Gesäß / Glutes',variants:[
+    {lvl:1,n:'Hip Thrust (Körpergewicht)',  s:'3×15–20'},
+    {lvl:2,n:'Hip Thrust (LH)',             s:'3×8–12'},
+    {lvl:3,n:'Hip Thrust (Maschine)',       s:'3×10–12'},
+    {lvl:4,n:'Bulgarian Split Squat',       s:'4×8–10'}
+  ]},
+  // BEINE - ADDUKTOREN (Innenseite)
+  {id:'adductor',name:'Adduktoren (Innenseite)',variants:[
+    {lvl:1,n:'Adduktionsmaschine (sitzend)',s:'3×12–15'},
+    {lvl:2,n:'Sumo Squat (KH)',             s:'3×12–15'},
+    {lvl:2,n:'Seitliche Ausfallschritte',   s:'3×10–12'},
+    {lvl:3,n:'Kabelzug Adduktion (stehend)',s:'3×12–15'},
+    {lvl:3,n:'Sumo Kreuzheben (LH)',        s:'4×6–8'}
+  ]},
+  // BEINE - ABDUKTOREN (Außenseite)
+  {id:'abductor',name:'Abduktoren (Außenseite)',variants:[
+    {lvl:1,n:'Abduktionsmaschine (sitzend)',s:'3×12–15'},
+    {lvl:2,n:'Seitliches Beinheben (Kabel)',s:'3×12–15'},
+    {lvl:2,n:'Clamshell (Widerstandsband)', s:'3×15–20'},
+    {lvl:3,n:'Hip Abduction (Kabel stehend)',s:'3×12–15'}
+  ]},
+  // WADE
+  {id:'calf',name:'Wadenmuskeln',variants:[
+    {lvl:1,n:'Wadenheben (Beinpresse)',     s:'3×12–15'},
+    {lvl:2,n:'Wadenheben stehend',          s:'4×12–15'},
+    {lvl:3,n:'Wadenheben (Maschine)',       s:'4×10–12'},
+    {lvl:4,n:'Einbeiniges Wadenheben',      s:'3×12–15'}
+  ]},
+  // CORE
+  {id:'core',name:'Core / Rumpf',variants:[
+    {lvl:1,n:'Plank',                       s:'3×30s',  timed:true},
+    {lvl:2,n:'Plank',                       s:'3×60s',  timed:true},
+    {lvl:2,n:'Dead Bug',                    s:'3×10–12'},
+    {lvl:3,n:'Hanging Knee Raise',          s:'3×10–12'},
+    {lvl:4,n:'Ab Wheel Rollout',            s:'3×6–10'}
+  ]}
 ];
 
+// ── MUSCLE_MAP (vollständig, REIHENFOLGE WICHTIG – spezifisch zuerst!) ──────
+const MUSCLE_MAP=[
+  // Beine – MUSS vor allgemeinen "press" Regeln stehen!
+  [/beinpresse|leg press/i,            ['quads','glutes']],
+  [/kniebeug|squat|front squat|hack squat|goblet/i, ['quads','glutes']],
+  [/beinstrecker|leg extension|quad/i, ['quads']],
+  [/ausfallschritt|lunge|split squat|step.?up/i, ['quads','glutes']],
+  [/rumän|romanian|rdl|hip hinge|sumo kreuz/i, ['hams','glutes']],
+  [/beinbeug|leg curl|nordic|hamstring/i, ['hams']],
+  [/hip thrust|glute bridge/i,         ['glutes','hams']],
+  [/adduk|adduktion|sumo squat|sumo kh/i, ['adduktoren']],
+  [/abduk|abduktion|clamshell/i,       ['abduktoren']],
+  [/waden|calf|wadenheben/i,           ['wade']],
+  // Oberkörper
+  [/bank|chest press|brust|dip/i,      ['brust','trizeps']],
+  [/kabelfly|pec deck|flys|fly/i,      ['brust']],
+  [/schulterdr|overhead press|military|push press/i, ['schulter','trizeps']],
+  [/seitheb|lateral raise/i,           ['schulter']],
+  [/face pull|rear delt/i,             ['schulter']],
+  [/trizeps|pushdown|french|skull|overhead ext/i, ['trizeps']],
+  [/klimm|latzug|pulldown|pullover/i,  ['ruecken','bizeps']],
+  [/rudern|row/i,                      ['ruecken','bizeps']],
+  [/bizeps|curl|hammer curl|incline curl/i, ['bizeps']],
+  [/plank|crunch|dead bug|hanging|ab wheel|core/i, ['core']]
+];
+
+function musclesFor(n){
+  for(var i=0;i<MUSCLE_MAP.length;i++){
+    if(MUSCLE_MAP[i][0].test(n)) return MUSCLE_MAP[i][1];
+  }
+  return [];
+}
+
+function weeklyMuscleSets(){
+  var since=Date.now()-7*24*3600*1000, acc={};
+  (AppState.history||[]).filter(function(e){return e.ts>=since;}).forEach(function(e){
+    (e.sets||[]).forEach(function(s){
+      if(s.r||s.secs) musclesFor(s.ex||'').forEach(function(m){ acc[m]=(acc[m]||0)+1; });
+    });
+  });
+  return acc;
+}
+
+// ── findFamilyFor: REIHENFOLGE FIX – Bein vor Schulter! ─────────────────────
 function findFamilyFor(exName){
-  const n=String(exName||'').toLowerCase();
-  for(const f of EXERCISE_FAMILIES) if(f.variants.some(v=>v.n.toLowerCase()===n)) return f;
-  if(/bank|chest|brust/i.test(n)) return EXERCISE_FAMILIES.find(f=>f.id==='chest_press');
-  if(/schulter|press/i.test(n))   return EXERCISE_FAMILIES.find(f=>f.id==='shoulder_press');
-  if(/trizeps|pushdown|dip/i.test(n)) return EXERCISE_FAMILIES.find(f=>f.id==='triceps');
-  if(/klimm|latzug/i.test(n))     return EXERCISE_FAMILIES.find(f=>f.id==='pull');
-  if(/rudern|row/i.test(n))       return EXERCISE_FAMILIES.find(f=>f.id==='row');
-  if(/bizeps|curl/i.test(n))      return EXERCISE_FAMILIES.find(f=>f.id==='biceps');
-  if(/kniebeug|squat/i.test(n))   return EXERCISE_FAMILIES.find(f=>f.id==='squat');
-  if(/rumän|kreuz|hip|hinge/i.test(n)) return EXERCISE_FAMILIES.find(f=>f.id==='hinge');
-  if(/plank|crunch|core/i.test(n)) return EXERCISE_FAMILIES.find(f=>f.id==='core');
+  var n=String(exName||'').toLowerCase();
+  // 1. Exact match in variants
+  for(var i=0;i<EXERCISE_FAMILIES.length;i++){
+    if(EXERCISE_FAMILIES[i].variants.some(function(v){return v.n.toLowerCase()===n;}))
+      return EXERCISE_FAMILIES[i];
+  }
+  // 2. Fallback regex – Bein ZUERST, dann Oberkörper
+  if(/beinbeug|leg curl|hamstring|nordic/i.test(n))    return EXERCISE_FAMILIES.find(function(f){return f.id==='hamstring';});
+  if(/kniebeug|squat/i.test(n))                         return EXERCISE_FAMILIES.find(function(f){return f.id==='squat';});
+  if(/beinpresse|leg press/i.test(n))                   return EXERCISE_FAMILIES.find(function(f){return f.id==='squat';});
+  if(/beinstrecker|quad isolation|ausfallschritt|lunge/i.test(n)) return EXERCISE_FAMILIES.find(function(f){return f.id==='quad_iso';});
+  if(/rumän|romanian|kreuz|hip thrust|sumo/i.test(n))  return EXERCISE_FAMILIES.find(function(f){return f.id==='hamstring';});
+  if(/adduk/i.test(n))  return EXERCISE_FAMILIES.find(function(f){return f.id==='adductor';});
+  if(/abduk|clamshell/i.test(n)) return EXERCISE_FAMILIES.find(function(f){return f.id==='abductor';});
+  if(/waden|calf/i.test(n))     return EXERCISE_FAMILIES.find(function(f){return f.id==='calf';});
+  if(/hip thrust|glute/i.test(n)) return EXERCISE_FAMILIES.find(function(f){return f.id==='glutes';});
+  if(/plank|crunch|core|dead bug|ab wheel/i.test(n))   return EXERCISE_FAMILIES.find(function(f){return f.id==='core';});
+  // Oberkörper – NACH allen Bein-Checks
+  if(/bank|chest|brust/i.test(n))  return EXERCISE_FAMILIES.find(function(f){return f.id==='chest_press';});
+  if(/fly|kabelfly|pec/i.test(n))  return EXERCISE_FAMILIES.find(function(f){return f.id==='chest_fly';});
+  if(/schulter/i.test(n))           return EXERCISE_FAMILIES.find(function(f){return f.id==='shoulder_press';});
+  if(/seitheb/i.test(n))            return EXERCISE_FAMILIES.find(function(f){return f.id==='lateral';});
+  if(/trizeps|pushdown|dip/i.test(n)) return EXERCISE_FAMILIES.find(function(f){return f.id==='triceps';});
+  if(/klimm|latzug/i.test(n))      return EXERCISE_FAMILIES.find(function(f){return f.id==='pull';});
+  if(/rudern|row/i.test(n))        return EXERCISE_FAMILIES.find(function(f){return f.id==='row';});
+  if(/bizeps|curl|hammer/i.test(n)) return EXERCISE_FAMILIES.find(function(f){return f.id==='biceps';});
   return null;
 }
 
@@ -1432,17 +1579,45 @@ function changeVariantBy(delta){
 
 // ── 19. FORM TIPS ───────────────────────────────────────
 const FORM_TIPS={
-  'Bankdrücken (LH)':'Schulterblätter einziehen & halten. Ellbogen ~75° zum Körper. Füße flach.',
-  'Kniebeuge':'Knie über Zehen. Blick gerade. Hüfte tiefer als Kniehöhe für volle ROM.',
-  'Rudern (LH)':'45° Vorbeuge. Rücken gerade. Stange zur Hüfte – nicht zur Brust.',
-  'Klimmzüge':'Schulterblätter zuerst einziehen, dann Ellbogen runterziehen.',
-  'Schulterdrücken':'Kern fest. Nicht im Hohlkreuz. Ellbogen leicht nach vorne.',
-  'Rumänisches KH':'Rücken gerade! Hüfte hinten schieben. Hantel nah am Körper. 3 Sek Negativ.',
-  'Seitheben':'Daumen leicht nach unten. Nur bis Schulterhöhe – nicht höher.',
-  'Trizeps Pushdown':'Ellbogen bleibt fixiert. Volle Streckung unten.',
-  'Bizeps Curl (KH)':'Kein Schwingen! Ellbogen fixiert. Volle Streckung für Stretch-Reflex.',
-  'Beinpresse':'Knie nicht über 90° einfedern. Füße schulterbreit. Heute moderat (Fußball)!',
-  'Plank':'Körper gerade wie ein Brett. Gesäß nicht heben oder senken. Atmen!',
+  // PUSH
+  'Bankdrücken (LH)':              'Schulterblätter einziehen & halten. Ellbogen ~75° zum Körper. Füße flach auf Boden.',
+  'Schrägbankdrücken (KH)':        'Volle Streckung unten für max. Stretch. Hantelköpfe berühren sich oben nicht ganz.',
+  'Schulterdrücken (KH sitzend)':  'Kern fest. Kein Hohlkreuz. Ellbogen leicht nach vorne – schont Schultergelenk.',
+  'Seitheben (KH)':                'Daumen leicht nach unten. Nur bis Schulterhöhe. 3 Sek negativ langsam senken.',
+  'Seitheben (Kabel)':             'Konstante Spannung. Arm leicht gebeugt. Nicht schwingen – langsame Kontrolle.',
+  'Trizeps Pushdown (Seil)':       'Ellbogen fixiert am Körper. Volle Streckung unten. Kein Körperschwung.',
+  'Overhead Extension (KH)':       'Maximaler Stretch für langen Trizepskopf. Ellbogen zeigen nach oben, nicht außen.',
+  'Skull Crushers (LH)':           'Langsam exzentrisch 3 Sek. Ellbogen bleiben parallel. Stange knapp über Stirn.',
+  'Dips (Brust)':                  'Oberkörper leicht vorbeugen für Brustfokus. Tief bis Ellbogen ~90°. Kontrolliert.',
+  // PULL
+  'Klimmzüge':                     'Schulterblätter zuerst einziehen, dann Ellbogen runterziehen. Volle Streckung unten.',
+  'Latzug (Untergriff eng)':       'Ellbogen zur Hüfte führen. Oberkörper leicht zurücklehnen. Schulterblätter unten.',
+  'Rudern (LH Untergriff)':        '45° Vorbeuge. Rücken gerade. Stange zum Nabel – nicht zur Brust. Schulterblätter zusammen.',
+  'Seilzugrudern (eng)':           'Volle Streckung vorne für Stretch. Schulterblätter hinten zusammenziehen. Aufrecht sitzen.',
+  'Face Pulls (Kabel)':            'Zu Ohrhöhe ziehen. Ellbogen hoch halten. Externe Rotation der Schulter! Pflichtübung.',
+  'Bizeps Curl (LH)':              'Kein Schwingen! Ellbogen fixiert. Volle Extension unten für maximalen Stretch.',
+  'Incline Curl (KH) 45°':         'Maximaler Stretch des langen Bizepskopfes. Schultern bleiben zurück. Abwechselnd.',
+  'Hammer Curl (KH)':              'Neutraler Griff (Daumen oben). Trainiert Brachialis & Unterarm. Alternierend.',
+  // BEINE QUAD
+  'Kniebeuge (LH)':                'Hüfte tiefer als Knie. Knie über Zehen. Blick gerade. Kern angespannt. 3 Sek rein.',
+  'Beinpresse':                    '⚠️ Heute moderat wegen Fußball Fr! Füße schulterbreit. Knie nicht über 90° einfedern.',
+  'Beinstrecker':                  'Quad-Isolation. Langsam exzentrisch 3 Sek. Volle ROM. 2 Sek Kontraktion oben halten.',
+  // BEINE HAMSTRING/BEINBIZEPS
+  'Rumänisches Kreuzheben (LH)':   'Hüfte nach hinten schieben. Rücken GERADE – kein Rundrücken! 3 Sek negativ. Hantel nah.',
+  'Beinbeuger (Maschine liegend)': 'Hamstring/Beinbizeps Isolation. Volle ROM. 2 Sek Peak-Kontraktion oben festhalten.',
+  'Beinbeuger (Maschine sitzend)': 'Sitzende Variante. Rücken anlehnen. Volle ROM. Kontrolliert zurückführen.',
+  'Nordic Curl (Beinbizeps)':      'Fortgeschritten! Exzentrisch so langsam wie möglich senken. Konzentrisch helfen ok.',
+  // BEINE ADDUKTOREN
+  'Adduktionsmaschine (sitzend)':  'Oberschenkelinnenseite. Kontrolliert zusammendrücken – kein Schwung! Aufrecht sitzen.',
+  'Sumo Squat (KH)':               'Füße breit & nach außen gedreht. Knie in Zehenrichtung. Betont Adduktoren & Gesäß.',
+  'Seitliche Ausfallschritte':     'Großen Schritt zur Seite. Knie des Standbeins bleibt gestreckt. Langsam zurück.',
+  // BEINE ABDUKTOREN
+  'Abduktionsmaschine (sitzend)':  'Oberschenkelaußenseite & Gesäß. Langsam öffnen – kein Schwung! Kontrolliert zurück.',
+  'Seitliches Beinheben (Kabel)':  'Stehend, Kabel am Knöchel. Bein seitlich bis Hüfthöhe. Kern stabilisieren.',
+  // WADE
+  'Wadenheben stehend':            'Volle ROM: Ganz runter stretchen, ganz hoch auf Zehenspitzen. 1 Sek halten oben.',
+  // CORE
+  'Plank':                         'Körper gerade wie Brett. Gesäß nicht heben oder senken. Kern aktiv anspannen. Atmen!',
 };
 
 // ── 20. NUTRITION ───────────────────────────────────────
