@@ -26,7 +26,7 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{-webkit-tap-highlight-color:transparent}
 body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;line-height:1.5;min-height:100vh;padding-bottom:90px;overflow-x:hidden;-webkit-font-smoothing:antialiased}
- 
+
 .hero{padding:52px 20px 20px;position:relative;overflow:hidden}
 .hero::after{content:'';position:absolute;top:-60px;right:-80px;width:280px;height:280px;background:radial-gradient(circle,rgba(230,57,57,.06),transparent 70%);pointer-events:none}
 .hero-label{font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:10px}
@@ -38,26 +38,26 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 .hs-pill{flex-shrink:0;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 14px;text-align:center;min-width:68px}
 .hs-val{font-size:17px;font-weight:700;line-height:1}
 .hs-lbl{font-size:9px;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase;margin-top:4px}
- 
+
 .nav{position:fixed;bottom:0;left:0;right:0;background:rgba(18,18,18,.97);backdrop-filter:blur(24px);border-top:1px solid var(--border);display:flex;z-index:200;padding:8px 2px 16px}
 .nb{flex:1;background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;padding:5px 2px;opacity:.35;transition:opacity .2s;color:var(--t2)}
 .nb.active{opacity:1;color:var(--accent)}
 .ni{font-size:20px;line-height:1}
 .nl{font-size:8px;font-weight:600;letter-spacing:.3px;text-transform:uppercase}
- 
+
 .page{display:none;padding:0 16px;animation:fi .2s ease}
 .page.active{display:block}
- 
+
 .sh{display:flex;align-items:center;gap:10px;margin:22px 0 12px}
 .sh::before{content:'';width:3px;height:14px;background:var(--accent);border-radius:2px;flex-shrink:0}
 .sh-t{font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3)}
- 
+
 .c{background:var(--card);border-radius:var(--r);padding:16px;margin-bottom:10px;border:1px solid var(--border)}
 .c-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
 .sl{font-size:10px;font-weight:500;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-bottom:5px}
 .sv{font-size:28px;font-weight:700;line-height:1;letter-spacing:-.5px}
 .su{font-size:13px;font-weight:400;color:var(--t2)}
- 
+
 .btn{display:block;width:100%;padding:14px;border-radius:12px;font-family:var(--f);font-size:14px;font-weight:600;cursor:pointer;border:none;transition:all .15s;text-align:center}
 .bp{background:var(--accent);color:#fff}
 .bp:active{background:var(--accent-d);transform:scale(.98)}
@@ -66,7 +66,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 .bg2{background:var(--card2);color:var(--t1);border:1px solid var(--border)}
 .btn:disabled{opacity:.35;cursor:not-allowed}
 .btn-sm{padding:9px 14px;font-size:13px;border-radius:10px}
- 
+
 .wk{background:var(--card);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:8px}
 .wk-h{display:flex;align-items:center;gap:12px;padding:15px 16px;cursor:pointer;user-select:none}
 .wk-d{flex:1}
@@ -76,12 +76,12 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 .wk.open .wk-c{transform:rotate(180deg)}
 .wk-b{display:none;border-top:1px solid var(--border);padding:12px 16px}
 .wk-b.open{display:block}
- 
+
 .er{display:flex;justify-content:space-between;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--border);gap:8px}
 .er:last-of-type{border-bottom:none}
 .en{font-size:14px;font-weight:500;line-height:1.3}
 .es{font-size:13px;font-weight:600;color:var(--accent);white-space:nowrap}
- 
+
 .bd{display:inline-flex;align-items:center;font-size:10px;font-weight:600;letter-spacing:.5px;padding:3px 9px;border-radius:20px}
 .r{background:rgba(230,57,57,.15);color:var(--accent)}
 .g{background:rgba(52,199,89,.15);color:var(--green)}
@@ -90,14 +90,14 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 .v{background:rgba(191,90,242,.15);color:var(--violet)}
 .gl{background:rgba(255,214,10,.15);color:var(--gold)}
 .gr{background:rgba(102,102,102,.2);color:var(--t2)}
- 
+
 /* ── Workout active layout ── */
 .workout-active{padding:16px}
 .wa-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
 .wa-title{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--t3);font-weight:600}
 .wa-timer{font-size:13px;color:var(--t2);margin-top:2px}
 .wa-meta{display:flex;align-items:center;gap:10px}
- 
+
 /* CRITICAL: abort button always on top */
 .abort-btn{
   position:relative;z-index:9999!important;pointer-events:auto!important;
@@ -106,43 +106,43 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
   cursor:pointer;touch-action:manipulation;-webkit-user-select:none;user-select:none;
 }
 .abort-btn:active{background:var(--accent-d);transform:scale(.96)}
- 
+
 /* ── Input fields ── */
 .li{background:var(--card2);border:1.5px solid var(--border2);border-radius:10px;padding:10px;color:var(--t1);font-family:var(--f);font-size:15px;font-weight:600;text-align:center;outline:none;transition:border-color .15s;width:100%}
 .li:focus{border-color:var(--accent)}
 .li::placeholder{color:var(--t3);font-weight:400}
- 
+
 /* ── Toast ── */
 .toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:var(--card2);border:1px solid var(--border2);color:var(--t1);padding:10px 18px;border-radius:24px;font-size:13px;z-index:1000;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}
 .toast.show{opacity:1}
- 
+
 /* ── Auto-save bar ── */
 .autosave-bar{position:fixed;top:0;left:0;right:0;z-index:400;height:3px;background:linear-gradient(90deg,var(--green),var(--blue));transform:scaleX(0);transform-origin:left;transition:transform .5s ease;pointer-events:none}
- 
+
 /* ── Empty state ── */
 .empty{text-align:center;padding:40px 20px;color:var(--t3)}
 .empty-icon{font-size:48px;margin-bottom:12px}
- 
+
 /* ── Suggestion pill ── */
 .sug-pill{display:flex;align-items:center;gap:10px;background:rgba(52,199,89,.07);border:1px solid rgba(52,199,89,.25);border-radius:10px;padding:10px 12px;margin-top:8px;font-size:12px;color:var(--t2)}
 .sug-pill strong{color:var(--green);display:block;font-size:13px}
 .sug-apply{background:var(--green);color:#000;border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:var(--f);white-space:nowrap}
- 
+
 /* ── Coach card ── */
 .coach-bar{margin-bottom:8px}
 .coach-bar-label{display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px}
 .coach-bar-track{height:4px;background:var(--card3);border-radius:2px;overflow:hidden}
 .coach-bar-fill{height:100%;border-radius:2px}
- 
+
 /* ── Profile inputs ── */
 .prof-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
 .prof-label{font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-bottom:5px}
- 
+
 /* ── Sleep buttons ── */
 .sleep-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:8px}
 .sleep-btn{padding:10px 4px;background:var(--card2);border:1.5px solid var(--border2);border-radius:10px;color:var(--t2);font-size:12px;font-weight:600;cursor:pointer;text-align:center;transition:all .15s;font-family:var(--f)}
 .sleep-btn.sel{border-color:var(--blue);color:var(--blue);background:rgba(10,132,255,.1)}
- 
+
 /* ── Benchmark ── */
 .bench-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)}
 .bench-row:last-child{border-bottom:none}
@@ -150,14 +150,14 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 .bench-elite{background:rgba(52,199,89,.15);color:var(--green)}
 .bench-good{background:rgba(10,132,255,.15);color:var(--blue)}
 .bench-avg{background:rgba(255,149,0,.15);color:var(--orange)}
- 
+
 /* ── Voice button ── */
 .voice-btn{display:flex;align-items:center;gap:12px;width:100%;padding:14px 16px;background:rgba(10,132,255,.06);border:1.5px solid rgba(10,132,255,.3);border-radius:14px;color:var(--t1);font-family:var(--f);font-size:14px;font-weight:600;cursor:pointer;transition:all .2s;margin-bottom:10px}
 .voice-btn:active{transform:scale(.98)}
 .voice-btn.listening{border-color:var(--blue);background:rgba(10,132,255,.12)}
 .voice-dot{width:10px;height:10px;border-radius:50%;background:var(--blue);animation:pulse 1s infinite;flex-shrink:0;display:none}
 .voice-btn.listening .voice-dot{display:block}
- 
+
 /* ── Smart banners ── */
 .sm-banner{border-radius:12px;padding:12px 14px;margin-bottom:10px;display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.5}
 .sm-pr{background:rgba(52,199,89,.07);border:1px solid rgba(52,199,89,.2)}
@@ -165,23 +165,23 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 .sm-sleep{background:rgba(10,132,255,.07);border:1px solid rgba(10,132,255,.2)}
 .sm-icon{font-size:22px;flex-shrink:0}
 .sm-body strong{display:block;margin-bottom:3px;font-size:14px}
- 
+
 /* ── Weight chart ── */
 .chart-wrap{height:120px;overflow:hidden}
- 
+
 /* ── Day Edit Modal ── */
 #dayEditModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:500;align-items:flex-end;backdrop-filter:blur(4px)}
- 
+
 @keyframes fi{from{opacity:0}to{opacity:1}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
 @keyframes pop{0%{transform:scale(.85);opacity:0}80%{transform:scale(1.05)}100%{transform:scale(1);opacity:1}}
 </style>
 </head>
 <body>
- 
+
 <div class="autosave-bar" id="autosaveBar"></div>
 <div class="toast" id="toast"></div>
- 
+
 <!-- ══ HERO ══ -->
 <header class="hero" id="heroSection">
   <div class="hero-label">⚡ KINETIC · Athlete OS</div>
@@ -189,9 +189,9 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
   <p class="hero-meta" id="heroMeta">Lade…</p>
   <div class="hs-row" id="heroStats"></div>
 </header>
- 
+
 <main>
- 
+
 <!-- ══ PAGE: DASHBOARD ══ -->
 <section id="page-dash" class="page active">
   <div id="smartNotifs"></div>
@@ -215,7 +215,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
       <div id="dashKcalBar" style="height:100%;background:var(--green);border-radius:2px;width:0;transition:width .6s ease"></div>
     </div>
   </div>
- 
+
   <div class="sh"><div class="sh-t">📊 Gewichtsverlauf</div></div>
   <div class="c">
     <div style="display:flex;gap:8px;margin-bottom:10px">
@@ -224,11 +224,11 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
     </div>
     <div class="chart-wrap" id="weightChart"><div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--t3);font-size:13px">Noch keine Einträge</div></div>
   </div>
- 
+
   <div class="sh"><div class="sh-t">🧠 Smart Coach · Wochenvolumen</div></div>
   <div class="c" id="coachCard"><div style="color:var(--t3);font-size:13px">Starte dein erstes Workout – der Coach lernt mit jedem Satz.</div></div>
 </section>
- 
+
 <!-- ══ PAGE: PLAN ══ -->
 <section id="page-plan" class="page">
   <div class="sh" style="justify-content:space-between;align-items:center">
@@ -241,17 +241,22 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
       <button onclick="resetToDefaultPlan()" class="btn bg2" style="width:auto;padding:6px 10px;font-size:11px;margin:0;color:var(--orange)">↺ Reset</button>
     </div>
   </div>
- 
+
+  <div id="plan-update-banner" style="display:none;background:rgba(52,199,89,.1);border:1px solid rgba(52,199,89,.3);border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:13px;color:var(--t2);line-height:1.5">
+    ✅ <strong style="color:var(--green)">Plan v5 geladen!</strong> Wissenschaftlich optimiert: Sa = Upper B kompakt (70 Min statt 90). Adduktoren, Abduktoren, vollständiges Beintraining. Tippe auf <strong>Legs A</strong> für alle Übungen.
+    <button onclick="this.parentElement.style.display='none'" style="float:right;background:none;border:none;color:var(--t3);cursor:pointer;font-size:16px;padding:0 0 0 8px">✕</button>
+  </div>
+
   <!-- Science info banner -->
   <div style="background:rgba(10,132,255,.07);border:1px solid rgba(10,132,255,.2);border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--t2);line-height:1.7">
     📊 <strong style="color:var(--blue)">Dein personalisierter Plan</strong> · 108 kg · FFMI 26,6 · Fortgeschritten<br>
     Brust <strong style="color:var(--t1)">16 Sätze/Wo</strong> · Rücken <strong style="color:var(--t1)">18</strong> · Schulter <strong style="color:var(--t1)">14</strong> · Trizeps/Bizeps <strong style="color:var(--t1)">12</strong> · Quad/Ham <strong style="color:var(--t1)">14/12</strong><br>
     <span style="color:var(--green)">✅ Schoenfeld 2024 · 4× Gym + 2× Fußball + Sonntag Spiel</span>
   </div>
- 
+
   <div id="planList"></div>
 </section>
- 
+
 <!-- ══ DAY EDIT MODAL ══ -->
 <div id="dayEditModal">
   <div style="background:var(--card);border-radius:20px 20px 0 0;padding:20px 20px 40px;width:100%;max-height:85vh;overflow-y:auto">
@@ -279,7 +284,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
     </div>
   </div>
 </div>
- 
+
 <!-- ══ PAGE: WORKOUT ══ -->
 <section id="page-workout" class="page">
   <div id="workoutContent">
@@ -291,13 +296,13 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
     </div>
   </div>
 </section>
- 
+
 <!-- ══ PAGE: LOG ══ -->
 <section id="page-log" class="page">
   <div class="sh"><div class="sh-t">Trainings-Log</div></div>
   <div id="logList" class="c"><div style="color:var(--t3);font-size:13px">Noch keine Einträge.</div></div>
 </section>
- 
+
 <!-- ══ PAGE: ERNÄHRUNG ══ -->
 <section id="page-ern" class="page">
   <div class="sh"><div class="sh-t">Ernährung heute</div></div>
@@ -327,7 +332,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
       </div>
     </div>
   </div>
- 
+
   <div class="sh"><div class="sh-t">📷 KI Foto-Analyse</div></div>
   <button onclick="document.getElementById('foodPhotoInput').click()"
     style="display:flex;align-items:center;gap:12px;width:100%;padding:14px 16px;background:rgba(230,57,57,.06);border:1.5px dashed rgba(230,57,57,.35);border-radius:14px;color:var(--t1);cursor:pointer;margin-bottom:10px;font-family:var(--f);text-align:left">
@@ -339,7 +344,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
   </button>
   <input type="file" id="foodPhotoInput" accept="image/*" capture="environment" style="display:none" onchange="analyzeFood(this)">
   <div id="foodAiResult"></div>
- 
+
   <div class="sh"><div class="sh-t">Mahlzeit eintragen</div></div>
   <div class="c" style="padding:12px">
     <div style="display:grid;grid-template-columns:1fr 60px 60px 60px;gap:6px;margin-bottom:8px">
@@ -353,7 +358,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
       <button onclick="addMeal()" class="btn bp" style="flex:1;padding:10px;font-size:13px">+ Eintragen</button>
     </div>
   </div>
- 
+
   <div class="sh"><div class="sh-t">Schnellauswahl</div></div>
   <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
     <button onclick="quickMeal('Protein Shake',130,25,5,3)"  class="btn bg2" style="width:auto;padding:7px 10px;font-size:12px">🥤 Shake</button>
@@ -362,11 +367,11 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
     <button onclick="quickMeal('Eier (2)',140,12,0,10)"       class="btn bg2" style="width:auto;padding:7px 10px;font-size:12px">🥚 Eier</button>
     <button onclick="quickMeal('Haferflocken 80g',290,10,50,6)" class="btn bg2" style="width:auto;padding:7px 10px;font-size:12px">🥣 Hafer</button>
   </div>
- 
+
   <div class="sh"><div class="sh-t">Heute gegessen</div></div>
   <div class="c" id="mealList"><div style="color:var(--t3);font-size:13px">Noch keine Mahlzeiten.</div></div>
 </section>
- 
+
 <!-- ══ PAGE: PROFIL / DATEN ══ -->
 <section id="page-data" class="page">
   <div class="sh"><div class="sh-t">👤 Profil</div></div>
@@ -381,7 +386,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
     </div>
     <div id="profPreview" style="padding:10px 12px;background:var(--card2);border-radius:10px;font-size:12px;color:var(--t2);line-height:1.8"></div>
   </div>
- 
+
   <div class="sh"><div class="sh-t">😴 Schlaf & Recovery</div></div>
   <div class="c">
     <div style="font-size:12px;color:var(--t2);margin-bottom:10px">Wie viele Stunden hast du heute geschlafen?</div>
@@ -394,10 +399,10 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
     </div>
     <div id="sleepFeedback" style="font-size:12px;color:var(--t2);min-height:16px;line-height:1.5;margin-top:6px"></div>
   </div>
- 
+
   <div class="sh"><div class="sh-t">💪 Kraft-Benchmarks</div></div>
   <div class="c" id="benchmarkList"><div style="color:var(--t3);font-size:13px">Logge Workouts für Benchmark-Vergleiche.</div></div>
- 
+
   <div class="sh"><div class="sh-t">🤖 KI-Coach</div></div>
   <button class="voice-btn" id="voiceBtn" onclick="toggleVoice()">
     <span style="font-size:26px">🎙️</span>
@@ -414,7 +419,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
   </div>
   <button id="aiAnalysisBtn" onclick="getAnalysis()" class="btn bp" style="margin-bottom:10px">🧠 Persönliche Analyse starten</button>
   <div id="aiAnalysisResult" style="font-size:13px;color:var(--t2);line-height:1.7;display:none;padding:14px;background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:10px"></div>
- 
+
   <div class="sh"><div class="sh-t">💾 Daten</div></div>
   <div style="display:flex;gap:8px;flex-wrap:wrap">
     <button onclick="exportData()" class="btn bg2" style="flex:1;padding:10px;font-size:13px">📤 Exportieren</button>
@@ -423,9 +428,9 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
   </div>
   <input type="file" id="importInput" accept=".json" style="display:none" onchange="importData(this)">
 </section>
- 
+
 </main>
- 
+
 <nav class="nav">
   <button class="nb active" data-nav="dash">    <span class="ni">📊</span><span class="nl">Dash</span></button>
   <button class="nb"         data-nav="plan">    <span class="ni">📅</span><span class="nl">Plan</span></button>
@@ -434,14 +439,14 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
   <button class="nb"         data-nav="ern">     <span class="ni">🥗</span><span class="nl">Essen</span></button>
   <button class="nb"         data-nav="data">    <span class="ni">👤</span><span class="nl">Profil</span></button>
 </nav>
- 
+
 <script>
 'use strict';
 /* ═══════════════════════════════════════════════════════
    KINETIC Athlete OS · Merged Final
    Architecture: v3 robust core + full feature set
 ═══════════════════════════════════════════════════════ */
- 
+
 // Safe console – some browsers/WebViews block console methods
 var log = (function(){
   var c = (typeof console !== 'undefined') ? console : {};
@@ -451,7 +456,7 @@ var log = (function(){
     error: function(){ try{ if(c.error)c.error.apply(c,arguments);}catch(e){} }
   };
 })();
- 
+
 // ── 1. DOM HELPERS ──────────────────────────────────────
 const $ = (sel, root) => {
   try { return (root || document).querySelector(sel); }
@@ -468,7 +473,7 @@ const safeCall = (fn, ...args) => {
 };
 function el(id){ return document.getElementById(id); }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
- 
+
 // ── 2. TIMER REGISTRY ───────────────────────────────────
 const Timers = (() => {
   const ivs = new Map(), tos = new Map();
@@ -495,7 +500,7 @@ const Timers = (() => {
     }
   };
 })();
- 
+
 // ── 3. DB (versioned, memory fallback) ─────────────────
 const DB = (() => {
   const PRE = 'kinetic.', VER = 2, VKEY = PRE + '__v';
@@ -520,14 +525,14 @@ const DB = (() => {
       raw.set(VKEY, String(VER));
     }
   } catch(e){ log.error('DB migration',e); }
- 
+
   // Auto-save flash bar
   function flashSave(){
     const b=el('autosaveBar'); if(!b) return;
     b.style.transform='scaleX(1)';
     Timers.set(()=>{ b.style.transform='scaleX(0)'; }, 600, 'saveFlash');
   }
- 
+
   return {
     get(key, fallback=null){
       try { const v=raw.get(PRE+key); return (v===null||v===undefined) ? fallback : JSON.parse(v); }
@@ -541,7 +546,7 @@ const DB = (() => {
     export(){ const o={}; raw.keys().filter(k=>k.startsWith(PRE)&&!k.includes('__bk')).forEach(k=>{o[k]=raw.get(k);}); return o; }
   };
 })();
- 
+
 // ── 4. TOAST ────────────────────────────────────────────
 function toast(msg){
   const t=el('toast'); if(!t) return;
@@ -549,10 +554,10 @@ function toast(msg){
   t.classList.add('show');
   Timers.set(()=>t.classList.remove('show'), 2000, 'toast');
 }
- 
+
 // ── 5. CENTRAL APP STATE ────────────────────────────────
 const WEEKDAYS = ['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'];
- 
+
 const AppState = {
   currentPage: 'dash',
   activeSession: null,
@@ -566,22 +571,32 @@ const AppState = {
   weightLog: [],       // [{w,d}]
   sleepLog: [],        // [{h,d}]
   editMode: false,
- 
+
   load(){
     try {
-      this.user         = Object.assign({name:'',age:0,weight:108,height:190,kfa:20.1,kfaGoal:14,ffmi:26.6,kcalTarget:2870}, DB.get('user',{}));
-      this.streak       = DB.get('streak', 0);
-      this.lastStreakDate= DB.get('lastStreakDate', null);
-      this.meals        = DB.get('meals', []);
-      this.plan         = DB.get('plan', defaultPlan());
-      this.history      = DB.get('history', []);
-      this.prs          = DB.get('prs', {});
-      this.weightLog    = DB.get('weightLog', []);
-      this.sleepLog     = DB.get('sleepLog', []);
-      this.activeSession= DB.get('activeSession', null);
-      // Ensure plan is valid array
-      if(!Array.isArray(this.plan)||!this.plan.length) this.plan = defaultPlan();
-    } catch(e){ log.error('AppState.load',e); }
+      this.user          = Object.assign({name:'',age:0,weight:108,height:190,kfa:20.1,kfaGoal:14,ffmi:26.6,kcalTarget:2870}, DB.get('user',{}));
+      this.streak        = DB.get('streak', 0);
+      this.lastStreakDate = DB.get('lastStreakDate', null);
+      this.meals         = DB.get('meals', []);
+      this.history       = DB.get('history', []);
+      this.prs           = DB.get('prs', {});
+      this.weightLog     = DB.get('weightLog', []);
+      this.sleepLog      = DB.get('sleepLog', []);
+      this.activeSession = DB.get('activeSession', null);
+
+      // Plan-Versionierung: alten Plan ersetzen wenn neue Version
+      var savedPlanVer = DB.get('planVersion', 0);
+      var savedPlan    = DB.get('plan', null);
+      if(!savedPlan || !Array.isArray(savedPlan) || !savedPlan.length || savedPlanVer < PLAN_VERSION){
+        // Neue Version: frischen Plan laden, Benutzeranpassungen werden überschrieben
+        this.plan = defaultPlan();
+        DB.set('planVersion', PLAN_VERSION);
+        DB.set('plan', this.plan);
+        log.info('Plan auf Version ' + PLAN_VERSION + ' aktualisiert');
+      } else {
+        this.plan = savedPlan;
+      }
+    } catch(e){ log.error('AppState.load',e); this.plan = defaultPlan(); }
   },
   save(){
     try {
@@ -598,54 +613,55 @@ const AppState = {
   },
   saveSession(){ DB.set('activeSession', this.activeSession); }
 };
- 
-// ── 6. DEFAULT PLAN ──────────────────────────────────────
-// Personalisiert für: 108kg · 190cm · KFA 20.1% · FFMI 26.6 · Fortgeschritten
-// Quellen: Schoenfeld et al. 2017/2024 · Israetel MEV/MAV/MRV · Frontiers 2025
-// Ziel: Body Recomp (KFA 20% → 14%) bei Muskelerhalt/leichtem Aufbau
-// Sätze/Woche: Brust 16 · Rücken 18 · Schulter 14 · Trizeps 12 · Bizeps 12 · Quad 14 · Ham 12
-// Frequenz: 2× pro Muskel (Forschung: 2× > 1× für Fortgeschrittene)
-// Fußball berücksichtigt: Di/Fr/So = Bein-Volumen Mo/Mi/Sa kompensieren
+
+// Plan-Version – Erhöhen wenn defaultPlan() sich ändert
+const PLAN_VERSION = 5;
+// Personalisiert: 108kg · 190cm · KFA 20.1% · FFMI 26.6 · Fortgeschritten
+// Quellen: Schoenfeld 2024 · Israetel MAV/MRV · NSCA 2025 · Barca Hub 2026
+// Strategie: 4× Gym (Mo/Mi/Do/Sa) · Di/Fr/So Fußball · Gym ≠ Fußball selber Tag
+// Samstag: Upper B KOMPAKT (~70 Min, 20 Sätze) – Push+Pull 2. Frequenz
+// Wissenschaft: 2× Frequenz > 1× · RIR 1-3 optimal · Stretch-Position superior
 function defaultPlan(){
   return [
     {
       id:'mon', type:'gym',
       name:'Push A',
-      sub:'Brust · Schulter · Trizeps · ~75 Min · 20 Sätze',
+      sub:'Brust · Schulter · Trizeps · ~70 Min · 20 Sätze',
       ex:[
-        // BRUST (8 Sätze heute → Woche: 8+8=16 ✅ MAV für Fortgeschrittene)
-        {n:'Bankdrücken (LH)',            s:'4×6–8',   note:'Compound Mass · Schulterblätter einziehen · Ellbogen 75°'},
-        {n:'Schrägbankdrücken (KH)',      s:'3×8–10',  note:'Obere Brust · volle Streckung unten für max. Stretch'},
-        {n:'Kabelflys (untere Rolle)',     s:'3×12–15', note:'Isolation · Peak-Kontraktion · 2 Sek halten oben'},
-        // SCHULTER (7 Sätze heute → Woche: 7+7=14 ✅ MAV)
-        {n:'Schulterdrücken (KH sitzend)',s:'4×8–10',  note:'Compound Schulter · kein Hohlkreuz · Kern fest'},
-        {n:'Seitheben (KH)',              s:'3×15–20', note:'Seitl. Delto · 3 Sek negativ · Daumen leicht unten'},
-        // TRIZEPS (6 Sätze heute → Woche: 6+6=12 ✅ MAV)
-        {n:'Trizeps Pushdown (Seil)',      s:'3×10–12', note:'Langer Kopf · Ellbogen fixiert · volle Streckung'},
-        {n:'Overhead Extension (KH)',      s:'3×10–12', note:'Maximaler Stretch langer Trizepskopf · langsam exzentrisch'}
+        // BRUST 8 Sätze (Mo+Sa=16/Wo ✅ MAV)
+        {n:'Bankdrücken (LH)',             s:'4×5–8',   note:'Schwer · E1RM tracken · RIR 2 · Progressive Overload Priorität'},
+        {n:'Schrägbankdrücken (KH)',       s:'3×8–12',  note:'Obere Brust · volle Streckung unten für max. Stretch · RIR 2'},
+        {n:'Kabelflys (untere Rolle)',      s:'3×12–15', note:'Stretch-Fokus · langsam exzentrisch · Peak-Kontraktion · RIR 1'},
+        // SCHULTER 7 Sätze (Mo+Sa=14/Wo ✅ MAV)
+        {n:'Schulterdrücken (KH sitzend)', s:'4×8–10',  note:'Compound · kein Hohlkreuz · Ellbogen leicht vorne · RIR 2'},
+        {n:'Seitheben (KH)',               s:'3×15–20', note:'3 Sek negativ · Daumen leicht runter · nur bis Schulterhöhe · RIR 1'},
+        // TRIZEPS 6 Sätze (Mo+Sa=12/Wo ✅ MAV)
+        {n:'Trizeps Pushdown (Seil)',       s:'3×10–12', note:'Ellbogen fixiert · volle Streckung · kein Körperschwung · RIR 2'},
+        {n:'Overhead Extension (KH)',       s:'3×10–12', note:'Maximaler Stretch langer Kopf · Ellbogen zeigen nach oben · RIR 2'}
       ]
     },
     {
       id:'tue', type:'soccer',
       name:'Fußball Training',
-      sub:'Training · kein Gym · +60g KH essen', ex:[]
+      sub:'⚽ Training · kein Gym (Interferenz!) · +60g KH essen',
+      ex:[]
     },
     {
       id:'wed', type:'gym',
       name:'Pull A',
-      sub:'Rücken · Bizeps · Rear Delt · ~75 Min · 21 Sätze',
+      sub:'Rücken · Bizeps · Rear Delt · ~70 Min · 21 Sätze',
       ex:[
-        // RÜCKEN BREITE (6 Sätze → Woche: 6+6+6=18 ✅ MAV-MRV für Fortgeschrittene)
-        {n:'Klimmzüge',                   s:'4×6–10',  note:'Beste Rückenübung · volle Streckung unten · Schulterblätter aktivieren'},
-        {n:'Latzug (Untergriff eng)',      s:'3×10–12', note:'Unterer Lat · Ellbogen zur Hüfte · kein Schwung'},
-        // RÜCKEN DICKE (6 Sätze → inkl. Sa)
-        {n:'Rudern (LH Untergriff)',       s:'4×8–10',  note:'Mitte Rücken · Stange zum Nabel · vollen ROM'},
-        {n:'Seilzugrudern (eng)',          s:'3×12–15', note:'Volle Streckung vorne · Schulterblätter hinten zusammen'},
-        // BIZEPS (6 Sätze → Woche: 6+6=12 ✅ MAV)
-        {n:'Bizeps Curl (LH)',             s:'3×8–10',  note:'Mass-Übung · kein Schwingen · volle Extension'},
-        {n:'Incline Curl (KH) 45°',        s:'3×12–15', note:'Maximaler Stretch langer Bizepskopf · alternierend'},
-        // REAR DELT & Schultergesundheit (3 Sätze)
-        {n:'Face Pulls (Kabel)',           s:'3×15–20', note:'WICHTIG · Schultergesundheit · externe Rotation · Ohrhöhe'}
+        // RÜCKEN VERTIKAL 4 Sätze
+        {n:'Klimmzüge',                    s:'4×6–10',  note:'Beste Rückenübung · volle Streckung unten · Schulterblätter aktivieren · RIR 2'},
+        {n:'Latzug (Untergriff eng)',       s:'3×10–12', note:'Unterer Lat · Ellbogen zur Hüfte · leicht zurücklehnen · RIR 2'},
+        // RÜCKEN HORIZONTAL 7 Sätze
+        {n:'Rudern (LH Untergriff)',        s:'4×8–10',  note:'Mitte Rücken · Stange zum Nabel · Schulterblätter zusammen · RIR 2'},
+        {n:'Seilzugrudern (eng)',           s:'3×12–15', note:'Volle Streckung vorne · Schulterblätter hinten zusammenziehen · RIR 2'},
+        // BIZEPS 6 Sätze (Mi+Sa=12/Wo ✅ MAV)
+        {n:'Bizeps Curl (LH)',              s:'3×8–10',  note:'Kein Schwingen · volle Extension unten · E1RM tracken · RIR 2'},
+        {n:'Incline Curl (KH) 45°',         s:'3×12–15', note:'Maximaler Stretch langer Kopf · alternierend · langsam · RIR 1'},
+        // REAR DELT 3 Sätze
+        {n:'Face Pulls (Kabel)',            s:'3×15–20', note:'Zu Ohrhöhe · Ellbogen hoch · externe Rotation · NICHT überspringen!'}
       ]
     },
     {
@@ -653,58 +669,59 @@ function defaultPlan(){
       name:'Legs A',
       sub:'Quad · Hamstring · Adduktoren · Abduktoren · Wade · Core · ~85 Min',
       ex:[
-        // QUAD (7 Sätze · Woche: 7+7=14 ✅ MAV)
-        {n:'Kniebeuge (LH)',                  s:'4×6–8',   note:'Hauptübung · Hüfte tiefer als Knie · Knie über Zehen · Kern angespannt'},
-        {n:'Beinpresse',                      s:'3×10–12', note:'⚠️ MODERAT – Fußball Fr! · Füße schulterbreit · kein Versagen heute'},
-        {n:'Beinstrecker',                    s:'3×12–15', note:'Quad Isolation · langsam exzentrisch · volle ROM · 2 Sek unten'},
-        // HAMSTRING / BEINBIZEPS (6 Sätze · Woche: 6+6=12 ✅)
-        {n:'Rumänisches Kreuzheben (LH)',     s:'4×8–10',  note:'Hüfte hinten schieben · Rücken GERADE · 3 Sek negativ · Hantel nah am Körper'},
-        {n:'Beinbeuger (Maschine liegend)',   s:'3×10–12', note:'Hamstring/Beinbizeps Isolation · volle ROM · 2 Sek Peak-Kontraktion oben'},
-        // ADDUKTOREN (3 Sätze – für Fußball & Stabilität wichtig!)
-        {n:'Adduktionsmaschine (sitzend)',    s:'3×12–15', note:'Oberschenkelinnenseite · langsame kontrollierte Bewegung · kein Schwung'},
-        // ABDUKTOREN (3 Sätze – Hüftstabilität & Fußball!)
-        {n:'Abduktionsmaschine (sitzend)',    s:'3×12–15', note:'Oberschenkelaußenseite & Gesäß · wichtig für Kniestabilität im Fußball'},
-        // WADE (4 Sätze – Fußball-spezifisch!)
-        {n:'Wadenheben stehend',              s:'4×12–15', note:'Sprungkraft & Sprintpower · volle ROM · 1 Sek halten oben · langsam senken'},
-        // CORE (3 Sätze)
-        {n:'Plank',                           s:'3×60s',   note:'Rumpfstabilität · Körper gerade wie Brett · Gesäß nicht heben · atmen', timed:true}
+        // QUAD 7 Sätze (Do+Fußball≈14/Wo ✅ MAV)
+        {n:'Kniebeuge (LH)',                s:'4×5–8',   note:'Hauptübung · Hüfte tiefer als Knie · E1RM tracken · RIR 2'},
+        {n:'Beinpresse',                    s:'3×10–12', note:'⚠️ MODERAT – Fr Fußball! · Füße schulterbreit · RIR 3 · kein Versagen'},
+        {n:'Beinstrecker',                  s:'3×12–15', note:'Quad-Isolation · 3 Sek exzentrisch · 2 Sek Kontraktion oben · RIR 2'},
+        // HAMSTRING/BEINBIZEPS 6 Sätze
+        {n:'Rumänisches Kreuzheben (LH)',   s:'4×8–10',  note:'Hüfte hinten · Rücken GERADE · 3 Sek negativ · Hantel nah am Körper · RIR 2'},
+        {n:'Beinbeuger (Maschine liegend)', s:'3×10–12', note:'Beinbizeps · volle ROM · 2 Sek Kontraktion oben festhalten · RIR 2'},
+        // ADDUKTOREN 3 Sätze (Innenseite - Fußball & Kniestabilität!)
+        {n:'Adduktionsmaschine (sitzend)',  s:'3×12–15', note:'Oberschenkelinnenseite · kontrolliert zusammendrücken · kein Schwung · aufrecht sitzen'},
+        // ABDUKTOREN 3 Sätze (Außenseite - Hüftstabilität!)
+        {n:'Abduktionsmaschine (sitzend)',  s:'3×12–15', note:'Außenseite & Gesäß · langsam öffnen · wichtig für Kniestabilität im Fußball'},
+        // WADE 4 Sätze (Sprungkraft für Fußball!)
+        {n:'Wadenheben stehend',            s:'4×12–15', note:'Volle ROM · ganz runter stretchen · 1 Sek oben halten · langsam senken'},
+        // CORE 3 Sätze
+        {n:'Plank',                         s:'3×60s',   note:'Körper gerade wie Brett · Kern aktiv · Gesäß nicht heben · atmen', timed:true}
       ]
     },
     {
       id:'fri', type:'soccer',
       name:'Fußball Training',
-      sub:'Training · kein Gym · morgen Gym oder Ruhe', ex:[]
+      sub:'⚽ Training · kein Gym · gut essen & früh schlafen (Spiel So)',
+      ex:[]
     },
     {
       id:'sat', type:'gym',
-      name:'Push B + Pull B',
-      sub:'2. Frequenz · Brust/Rücken/Arm · ~80 Min · 22 Sätze',
+      name:'Upper B (2. Frequenz)',
+      sub:'Push B + Pull B · ~70 Min · 20 Sätze · andere Übungen als Mo/Mi',
       ex:[
-        // PUSH B – andere Übungen für Variation & 2. Frequenz
-        // BRUST (8 Sätze → Wochentotal 16 ✅)
-        {n:'Schrägbank Bankdrücken (LH)',  s:'4×6–8',   note:'Obere Brust Mass · 2. Frequenz · andere Winkel als Mo'},
-        {n:'Dips (Brust)',                 s:'3×8–12',  note:'Brust + Trizeps · Oberkörper leicht vorbeugen · tief'},
-        {n:'Pec Deck / Maschinen-Flys',   s:'3×12–15', note:'Isolation · konstante Spannung · kein Schwung'},
-        // SCHULTER B (7 Sätze → Wochentotal 14 ✅)
-        {n:'Seitheben (Kabel)',            s:'4×15–20', note:'Konstante Spannung · besser als KH für Hypertrophie'},
-        // PULL B – andere Winkel für Rücken
-        // RÜCKEN (6 Sätze → Wochentotal 18 ✅ MRV-Bereich)
-        {n:'Einarmiges KH-Rudern',         s:'4×8–10',  note:'Maximale ROM · Rücken strecken oben · 2. Frequenz'},
-        {n:'Kabel-Pullover (stehend)',      s:'3×12–15', note:'Lat Isolation · volle Streckung · Arme leicht gebeugt'},
-        // BIZEPS (6 Sätze → Wochentotal 12 ✅)
-        {n:'Hammer Curl (KH)',             s:'3×12–15', note:'Brachialis & Unterarm · neutraler Griff · alternierend'},
-        // TRIZEPS (6 Sätze → Wochentotal 12 ✅)
-        {n:'Skull Crushers (LH)',          s:'3×8–10',  note:'Langer Trizepskopf · langsam exzentrisch · 2 Sek unten'}
+        // PUSH B – andere Übungen als Mo für Variation (Forschung: Rotation fördert Wachstum)
+        // BRUST 5 Sätze (Mo 8 + Sa 5 = 13 – minimal, Sa ist kürzer per Design)
+        {n:'Schrägbank Bankdrücken (LH)',   s:'3×6–8',   note:'Obere Brust · 2. Frequenz · anderer Winkel als Mo · RIR 2'},
+        {n:'Pec Deck / Maschinen-Flys',     s:'3×12–15', note:'Isolation · konstante Spannung · schnelle Ausführung ok · RIR 1'},
+        // SCHULTER 4 Sätze (Mo 7 + Sa 4 = 11 – leicht unter MAV, ausreichend)
+        {n:'Seitheben (Kabel)',             s:'4×15–20', note:'Konstante Spannung · langsame Ausführung · kein Schwung · RIR 1'},
+        // TRIZEPS 3 Sätze (Mo 6 + Sa 3 = 9 – Fußball kompensiert Ausdauer-Aspekt)
+        {n:'Skull Crushers (LH)',           s:'3×8–10',  note:'Langer Kopf · 2 Sek exzentrisch · Ellbogen parallel · RIR 2'},
+        // PULL B – andere Übungen als Mi
+        // RÜCKEN 5 Sätze (Mi 11 + Sa 5 = 16 – im MRV-Bereich, gut für Fortgeschrittene)
+        {n:'Einarmiges KH-Rudern',          s:'4×8–10',  note:'Maximale ROM · Rücken strecken oben · anderer Reiz als Mi · RIR 2'},
+        {n:'Kabel-Pullover (stehend)',       s:'3×12–15', note:'Lat-Isolation · volle Streckung · Arme leicht gebeugt · RIR 2'},
+        // BIZEPS 3 Sätze (Mi 6 + Sa 3 = 9 – ausreichend für Wachstum)
+        {n:'Hammer Curl (KH)',              s:'3×12–15', note:'Brachialis & Unterarm · neutraler Griff · alternierend · RIR 2'}
       ]
     },
     {
       id:'sun', type:'match',
       name:'Fußball Spiel',
-      sub:'50–80 Min Wettkampf · ~800 kcal · danach: Kohlenhydrate!', ex:[]
+      sub:'🏟️ 50–80 Min Wettkampf · ~800 kcal · danach: Pasta/Reis + Protein!',
+      ex:[]
     }
   ];
 }
- 
+
 function resetToDefaultPlan(){
   if(!confirm('Plan zurücksetzen? Eigene Änderungen gehen verloren.')) return;
   AppState.plan=defaultPlan();
@@ -712,12 +729,12 @@ function resetToDefaultPlan(){
   renderPlan();
   toast('✅ Wissenschaftlich optimierter Plan geladen');
 }
- 
+
 function dayLabel(idx, day){
   const wd=WEEKDAYS[idx]||''; return wd ? wd+' · '+(day.name||'') : (day.name||'');
 }
- 
- 
+
+
 function navigate(pageId){
   if(!pageId) return;
   Timers.clear('toast');
@@ -736,7 +753,7 @@ function navigate(pageId){
   if(pageId==='ern')     safeCall(refreshNutrition);
   if(pageId==='data')    safeCall(refreshDataPage);
 }
- 
+
 // ── 8. HERO STATS ───────────────────────────────────────
 function renderHeroStats(){
   const row=el('heroStats'); if(!row) return;
@@ -749,13 +766,13 @@ function renderHeroStats(){
     {v:u.ffmi||'26.6',   l:'FFMI'},
     {v:bmi,              l:'BMI'}
   ].map(s=>`<div class="hs-pill"><div class="hs-val">${esc(s.v)}</div><div class="hs-lbl">${esc(s.l)}</div></div>`).join('');
- 
+
   const meta=el('heroMeta'); if(!meta) return;
   const nameTag=u.name?' · <strong style="color:var(--accent)">'+esc(u.name)+'</strong>':'';
   meta.innerHTML=u.height+' cm · '+u.weight+' kg · KFA '+u.kfa+'% · FFMI '+u.ffmi+'<br>'
     +'🔥 <span id="streakDays">'+AppState.streak+'</span> Tage Streak'+nameTag;
 }
- 
+
 // ── 9. DASHBOARD ────────────────────────────────────────
 function refreshDash(){
   try {
@@ -777,7 +794,7 @@ function refreshDash(){
     renderWeightChart();
   } catch(e){ log.error('refreshDash',e); }
 }
- 
+
 // ── 10. SMART NOTIFICATIONS ─────────────────────────────
 function renderSmartNotifs(){
   const c=el('smartNotifs'); if(!c) return;
@@ -803,7 +820,7 @@ function renderSmartNotifs(){
       <div class="sm-body"><strong>${n.title}</strong>${n.body}</div>
     </div>`).join('');
 }
- 
+
 // ── 11. WEIGHT CHART ────────────────────────────────────
 function renderWeightChart(){
   const wrap=el('weightChart'); if(!wrap) return;
@@ -835,7 +852,7 @@ function logWeight(){
   refreshDash();
   toast('✅ '+v+' kg eingetragen');
 }
- 
+
 // ── 12. COACH CARD (MEV/MAV/MRV) ───────────────────────
 // Personalisierte MEV/MAV/MRV für 108kg, FFMI 26.6, Fortgeschritten
 // Quellen: Israetel RP Strength, Schoenfeld 2024, Frontiers 2025
@@ -853,7 +870,7 @@ const VOLUME_LM={
   core:        {mev:6,  mav:10, mrv:16}   // Plan: 6/Wo ✅ MEV-MAV
 };
 // MUSCLE_MAP, musclesFor, weeklyMuscleSets defined in section 18 (Exercise Families)
- 
+
 function renderCoachCard(){
   const el_=el('coachCard'); if(!el_) return;
   const vol=weeklyMuscleSets();
@@ -869,7 +886,7 @@ function renderCoachCard(){
   }).join('');
   el_.innerHTML=rows+`<div style="margin-top:10px;font-size:10px;color:var(--t3);line-height:1.5">Israetel MEV/MAV/MRV-Modell · Ziel: MEV–MAV für Hypertrophie</div>`;
 }
- 
+
 // ── 13. PLAN RENDER ─────────────────────────────────────
 function renderPlan(){
   const list=el('planList'); if(!list) return;
@@ -880,7 +897,7 @@ function renderPlan(){
     const em=AppState.editMode;
     const typeIcon={gym:'💪',soccer:'⚽',match:'🏟️',flex:'😌'};
     const typeBadge={gym:'<span class="bd r">GYM</span>',soccer:'<span class="bd g">⚽ Fußball</span>',match:'<span class="bd b">🏟️ Spiel</span>',flex:'<span class="bd gr">Flex</span>'};
- 
+
     list.innerHTML=AppState.plan.map(function(day,idx){
       const badge=typeBadge[day.type]||typeBadge.flex;
       // Exercise rows with notes
@@ -895,15 +912,15 @@ function renderPlan(){
               +'</div>';
           }).join('')
         : '<div style="color:var(--t3);font-size:12px;padding:8px 0">'+(typeIcon[day.type]||'')+(day.type==='soccer'?' Fußball Training heute – Gym Pause':day.type==='match'?' Spieltag – Regeneration danach':' Kein Training geplant')+'</div>';
- 
+
       // Satz-Summe anzeigen
       const totalSets=day.ex?day.ex.reduce(function(a,e){ var m=e.s&&e.s.match(/^(\d+)/); return a+(m?parseInt(m[1],10):0); },0):0;
       const setsInfo=day.type==='gym'&&totalSets?'<span style="font-size:10px;color:var(--t3);margin-left:6px">'+totalSets+' Sätze gesamt</span>':'';
- 
+
       const startBtn=day.type==='gym'
         ?'<button class="btn bp" data-start="'+day.id+'" style="margin-top:12px">🏋️ Workout starten →</button>'
         :'';
- 
+
       const editCtrl=em
         ?'<div style="display:flex;gap:5px;align-items:center;margin-right:6px">'
           +'<button type="button" class="btn bg2" data-move-up="'+idx+'" '+(idx===0?'disabled':'')+' style="width:30px;padding:6px 0;font-size:13px;margin:0">↑</button>'
@@ -911,7 +928,7 @@ function renderPlan(){
           +'<button type="button" class="btn bg2" data-edit-day="'+idx+'" style="width:auto;padding:6px 10px;font-size:11px;margin:0">✏️</button>'
           +'</div>'
         :'';
- 
+
       return '<div class="wk" data-day="'+day.id+'">'
         +'<div class="wk-h"'+(em?'':' data-toggle="'+day.id+'"')+'>'
         +'<div class="wk-d">'
@@ -923,22 +940,22 @@ function renderPlan(){
         +'<div class="wk-b" id="wk-b-'+day.id+'">'+exHtml+startBtn+'</div>'
         +'</div>';
     }).join('');
- 
+
     const eb=el('editDaysBtn'); if(eb) eb.textContent=em?'✓ Fertig':'✏️ Anpassen';
   } catch(e){ log.error('renderPlan',e); list.innerHTML='<div class="empty">Fehler beim Laden. <button class="btn bp" onclick="resetToDefaultPlan()" style="margin-top:10px;max-width:200px">↺ Plan zurücksetzen</button></div>'; }
 }
- 
+
 // ── 14. DAY EDITING ─────────────────────────────────────
 let _editIdx=-1, _variantConfirm=false;
- 
+
 function toggleEditMode(){ AppState.editMode=!AppState.editMode; renderPlan(); }
- 
+
 function moveDay(from, to){
   if(from<0||to<0||from>=AppState.plan.length||to>=AppState.plan.length) return;
   const a=AppState.plan, [item]=a.splice(from,1); a.splice(to,0,item);
   AppState.save(); renderPlan();
 }
- 
+
 function openDayEditor(idx){
   const day=AppState.plan[idx]; if(!day) return;
   _editIdx=idx;
@@ -951,9 +968,9 @@ function openDayEditor(idx){
   if(sel){ sel.innerHTML='<option value="">— kein Tausch —</option>'+AppState.plan.map((d,i)=>i===idx?'':`<option value="${i}">${esc(dayLabel(i,d))}</option>`).join(''); sel.value=''; }
   modal.style.display='flex';
 }
- 
+
 function closeDayEditor(){ const m=el('dayEditModal'); if(m) m.style.display='none'; _editIdx=-1; }
- 
+
 function saveDayEdit(){
   if(_editIdx<0) return closeDayEditor();
   const day=AppState.plan[_editIdx]; if(!day) return closeDayEditor();
@@ -966,7 +983,7 @@ function saveDayEdit(){
   }
   AppState.save(); closeDayEditor(); renderPlan(); toast('Tag aktualisiert');
 }
- 
+
 // ── 15. LOG / HISTORY ────────────────────────────────────
 function renderLog(){
   var el_=el('logList'); if(!el_) return;
@@ -979,14 +996,14 @@ function renderLog(){
       +'</div>';
     return;
   }
- 
+
   // Summary stats
   var wkAgo=Date.now()-7*24*3600*1000;
   var wkSessions=h.filter(function(e){return e.ts>=wkAgo;});
   var wkVol=wkSessions.reduce(function(a,e){return a+(e.volume||0);},0);
   var wkTime=wkSessions.reduce(function(a,e){return a+(e.durationMs||0);},0);
   var prCount=Object.keys(AppState.prs||{}).length;
- 
+
   var statsHtml='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">'
     +'<div style="background:var(--card2);border-radius:10px;padding:10px;text-align:center">'
     +'<div style="font-size:20px;font-weight:700;color:var(--accent)">'+wkSessions.length+'</div>'
@@ -998,7 +1015,7 @@ function renderLog(){
     +'<div style="font-size:20px;font-weight:700;color:var(--gold)">'+prCount+'</div>'
     +'<div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-top:3px">PRs gesamt 🏆</div></div>'
     +'</div>';
- 
+
   // PR list
   var prHtml='';
   var prs=AppState.prs||{};
@@ -1014,7 +1031,7 @@ function renderLog(){
       }).join('')
       +'</div>';
   }
- 
+
   // Individual session cards
   var sessionHtml=h.slice(0,20).map(function(e){
     var d=new Date(e.ts);
@@ -1023,7 +1040,7 @@ function renderLog(){
     var prInSession=(e.sets||[]).filter(function(s){return s.pr;}).length;
     var vol=Math.round(e.volume||0);
     var dur=formatTime(e.durationMs||0);
- 
+
     // Group sets by exercise
     var exMap={};
     (e.sets||[]).forEach(function(s){
@@ -1031,7 +1048,7 @@ function renderLog(){
       if(!exMap[s.ex]) exMap[s.ex]=[];
       exMap[s.ex].push(s);
     });
- 
+
     var exRows=Object.keys(exMap).map(function(exName){
       var sets=exMap[exName];
       var setsStr=sets.map(function(s){
@@ -1047,7 +1064,7 @@ function renderLog(){
         +'<div style="font-size:11px;color:var(--t3)">'+sets.length+' Sätze</div>'
         +'</div>';
     }).join('');
- 
+
     return '<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:10px">'
       // Header
       +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">'
@@ -1069,10 +1086,10 @@ function renderLog(){
       +(exRows||'<div style="font-size:12px;color:var(--t3);padding:6px 0">Keine Sätze gespeichert.</div>')
       +'</div>';
   }).join('');
- 
+
   el_.innerHTML=statsHtml+prHtml+sessionHtml;
 }
- 
+
 // ── 16. WORKOUT SESSION ─────────────────────────────────
 function startWorkout(dayId){
   if(!dayId) return;
@@ -1095,7 +1112,7 @@ function startWorkout(dayId){
   AppState.saveSession();
   navigate('workout');
 }
- 
+
 let _abortPending=false;
 function abortWorkout(){
   if(!AppState.activeSession){ navigate('plan'); return; }
@@ -1113,7 +1130,7 @@ function abortWorkout(){
   toast('Training abgebrochen');
   navigate('plan');
 }
- 
+
 function lastWeightFor(exName){
   for(let i=AppState.history.length-1;i>=0;i--){
     const sets=(AppState.history[i].sets||[]);
@@ -1123,7 +1140,7 @@ function lastWeightFor(exName){
   }
   return null;
 }
- 
+
 function renderWorkout(){
   const el_=el('workoutContent'); if(!el_) return;
   const s=AppState.activeSession;
@@ -1142,7 +1159,7 @@ function renderWorkout(){
     const last=lastWeightFor(cur.n);
     const pr=AppState.prs[cur.n];
     const isTimed=cur.isTimed;
- 
+
     // Sets HTML
     const setsHtml=cur.sets.map((st,i)=>`
       <tr>
@@ -1155,7 +1172,7 @@ function renderWorkout(){
         <td><input data-set-idx="${i}" data-set-field="rpe" type="number" inputmode="decimal" placeholder="RPE" value="${st.rpe||''}" style="width:70px;padding:8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-size:14px"></td>
         <td><button type="button" class="btn ${st.done?'bp':'bg2'}" data-set-done="${i}" style="padding:8px 10px;font-size:12px;margin:0;width:auto">${st.done?'✓':'○'}</button></td>
       </tr>`).join('');
- 
+
     const restLeft=Math.max(0,Math.floor(((s.restEndTs||0)-Date.now())/1000));
     const restHtml=restLeft>0
       ?`<div class="c" style="background:var(--card2);text-align:center;padding:14px;margin-top:10px">
@@ -1168,7 +1185,7 @@ function renderWorkout(){
           <button type="button" class="btn bg2" data-rest="90"  style="padding:10px 4px;font-size:12px">⏸ 90s</button>
           <button type="button" class="btn bg2" data-rest="180" style="padding:10px 4px;font-size:12px">⏸ 3 Min</button>
         </div>`;
- 
+
     // Variant selector
     const fam=findFamilyFor(cur.n);
     const varHtml=fam?`<div style="margin-top:10px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
@@ -1178,10 +1195,10 @@ function renderWorkout(){
         ${fam.variants.map(v=>`<option value="${esc(v.n)}|${esc(v.s)}" ${v.n===cur.n?'selected':''}>L${v.lvl} · ${esc(v.n)}</option>`).join('')}
       </select>
     </div>`:'';
- 
+
     // Form tip
     const tip=FORM_TIPS[cur.n]||'';
- 
+
     el_.innerHTML=`
       <div class="workout-active">
         <div class="wa-head">
@@ -1194,12 +1211,12 @@ function renderWorkout(){
             <button type="button" class="abort-btn" id="abortBtn" data-action="abort">✕ Abbruch</button>
           </div>
         </div>
- 
+
         <!-- Exercise pills -->
         <div style="display:flex;gap:5px;overflow-x:auto;padding:0 0 10px;scrollbar-width:none;-webkit-overflow-scrolling:touch">
           ${s.exercises.map((ex,i)=>`<button type="button" data-jump="${i}" style="flex-shrink:0;padding:5px 10px;border-radius:20px;font-size:11px;font-weight:600;border:1.5px solid ${i===s.currentIdx?'var(--accent)':ex.done?'var(--green)':'var(--border2)'};background:${i===s.currentIdx?'var(--accent)':ex.done?'rgba(52,199,89,.1)':'var(--card2)'};color:${i===s.currentIdx?'#000':ex.done?'var(--green)':'var(--t3)'};cursor:pointer;font-family:var(--f)">${ex.done?'✓ ':''} ${esc(ex.n.split(' ')[0])}</button>`).join('')}
         </div>
- 
+
         <div class="c">
           <div class="sl">Aktuelle Übung</div>
           <div style="font-size:20px;font-weight:700;margin-top:6px">${esc(cur.n)}</div>
@@ -1210,7 +1227,7 @@ function renderWorkout(){
           ${tip?`<div style="margin-top:10px;padding:8px 10px;background:rgba(10,132,255,.06);border-left:3px solid rgba(10,132,255,.3);border-radius:6px;font-size:12px;color:var(--t2);line-height:1.5"><b style="color:var(--blue)">Technik:</b> ${esc(tip)}</div>`:''}
           ${varHtml}
         </div>
- 
+
         <div class="c" style="padding:12px">
           <table style="width:100%;border-collapse:separate;border-spacing:6px 4px">
             <thead><tr>
@@ -1223,14 +1240,14 @@ function renderWorkout(){
           </table>
           <button type="button" id="addSetBtn" class="btn bo" style="margin-top:8px;font-size:12px;padding:8px">+ Satz hinzufügen</button>
         </div>
- 
+
         ${restHtml}
- 
+
         <button class="btn bp" id="nextExBtn" style="margin-top:10px">
           ${s.currentIdx+1>=s.exercises.length?'✅ Workout beenden':'Nächste Übung →'}
         </button>
       </div>`;
- 
+
     // Bind events
     const nextBtn=el('nextExBtn'); if(nextBtn) nextBtn.addEventListener('click', nextExercise);
     const addBtn=el('addSetBtn');
@@ -1259,7 +1276,7 @@ function renderWorkout(){
     $$('#workoutContent [data-jump]').forEach(btn=>{
       btn.addEventListener('click',()=>{ s.currentIdx=parseInt(btn.dataset.jump,10); AppState.saveSession(); renderWorkout(); });
     });
- 
+
     // Workout tick
     Timers.setInterval(()=>{
       const wt=el('waTimer'); if(wt&&AppState.activeSession) wt.textContent='⏱ '+formatTime(Date.now()-AppState.activeSession.startTs);
@@ -1272,7 +1289,7 @@ function renderWorkout(){
     },1000,'workoutTick');
   } catch(e){ log.error('renderWorkout',e); if(el_) el_.innerHTML='<div class="empty">Fehler beim Anzeigen. <button class="btn bp" data-nav="plan" style="margin-top:10px;max-width:200px">→ Plan</button></div>'; }
 }
- 
+
 function nextExercise(){
   const s=AppState.activeSession; if(!s) return;
   s.exercises[s.currentIdx].done=true;
@@ -1281,7 +1298,7 @@ function nextExercise(){
   if(s.currentIdx>=s.exercises.length){ finishWorkout(); return; }
   AppState.saveSession(); renderWorkout();
 }
- 
+
 function finishWorkout(){
   const s=AppState.activeSession; if(!s) return;
   Timers.clear('workoutTick');
@@ -1309,12 +1326,12 @@ function finishWorkout(){
   toast(prs?`💪 Fertig! ${prs} neue PR${prs>1?'s':''}! 🏆`:'💪 Workout abgeschlossen!');
   refreshDash(); renderLog(); navigate('dash');
 }
- 
+
 function formatTime(ms){
   const t=Math.max(0,Math.floor(ms/1000));
   return `${String(Math.floor(t/60)).padStart(2,'0')}:${String(t%60).padStart(2,'0')}`;
 }
- 
+
 // ── 17. PROGRESSION ALGORITHM ───────────────────────────
 function parseRepRange(s){
   if(!s) return null;
@@ -1324,7 +1341,7 @@ function parseRepRange(s){
   if(m2) return{sets:+m2[1],lo:+m2[2],hi:+m2[2]};
   return null;
 }
- 
+
 function lastSessionSetsFor(exName){
   for(let i=AppState.history.length-1;i>=0;i--){
     const sets=(AppState.history[i].sets||[]).filter(x=>x.ex===exName);
@@ -1332,7 +1349,7 @@ function lastSessionSetsFor(exName){
   }
   return [];
 }
- 
+
 function coachSuggestion(exName,targetStr){
   const range=parseRepRange(targetStr);
   const last=lastSessionSetsFor(exName);
@@ -1351,7 +1368,7 @@ function coachSuggestion(exName,targetStr){
   if(avgRpe!==null&&avgRpe<=7) hint=`RPE niedrig – ggf. +${minW<40?1.25:2.5} kg statt +1 Wdh.`;
   return{weight:minW,reps:targetReps,hint};
 }
- 
+
 // ── 18. EXERCISE FAMILIES (vollständig inkl. Bein/Adduktoren/Abduktoren) ─
 const EXERCISE_FAMILIES=[
   // OBERKÖRPER PUSH
@@ -1467,7 +1484,7 @@ const EXERCISE_FAMILIES=[
     {lvl:4,n:'Ab Wheel Rollout',            s:'3×6–10'}
   ]}
 ];
- 
+
 // ── MUSCLE_MAP (vollständig, REIHENFOLGE WICHTIG – spezifisch zuerst!) ──────
 const MUSCLE_MAP=[
   // Beine – MUSS vor allgemeinen "press" Regeln stehen!
@@ -1493,14 +1510,14 @@ const MUSCLE_MAP=[
   [/bizeps|curl|hammer curl|incline curl/i, ['bizeps']],
   [/plank|crunch|dead bug|hanging|ab wheel|core/i, ['core']]
 ];
- 
+
 function musclesFor(n){
   for(var i=0;i<MUSCLE_MAP.length;i++){
     if(MUSCLE_MAP[i][0].test(n)) return MUSCLE_MAP[i][1];
   }
   return [];
 }
- 
+
 function weeklyMuscleSets(){
   var since=Date.now()-7*24*3600*1000, acc={};
   (AppState.history||[]).filter(function(e){return e.ts>=since;}).forEach(function(e){
@@ -1510,7 +1527,7 @@ function weeklyMuscleSets(){
   });
   return acc;
 }
- 
+
 // ── findFamilyFor: REIHENFOLGE FIX – Bein vor Schulter! ─────────────────────
 function findFamilyFor(exName){
   var n=String(exName||'').toLowerCase();
@@ -1541,7 +1558,7 @@ function findFamilyFor(exName){
   if(/bizeps|curl|hammer/i.test(n)) return EXERCISE_FAMILIES.find(function(f){return f.id==='biceps';});
   return null;
 }
- 
+
 function applyVariant(newName, newRange){
   const s=AppState.activeSession; if(!s) return;
   const cur=s.exercises[s.currentIdx]; if(!cur) return;
@@ -1562,7 +1579,7 @@ function applyVariant(newName, newRange){
   cur.sets=Array.from({length:nSets},()=>({w,r,secs:'',rpe:'',done:false}));
   AppState.saveSession(); toast('Übung → '+newName); renderWorkout();
 }
- 
+
 function changeVariantBy(delta){
   const s=AppState.activeSession; if(!s) return;
   const cur=s.exercises[s.currentIdx]; if(!cur) return;
@@ -1576,7 +1593,7 @@ function changeVariantBy(delta){
   if(!next||next.n===cur.n){ toast(delta>0?'Schon schwerste Variante':'Schon leichteste Variante'); return; }
   applyVariant(next.n,next.s);
 }
- 
+
 // ── 19. FORM TIPS ───────────────────────────────────────
 const FORM_TIPS={
   // PUSH
@@ -1619,7 +1636,7 @@ const FORM_TIPS={
   // CORE
   'Plank':                         'Körper gerade wie Brett. Gesäß nicht heben oder senken. Kern aktiv anspannen. Atmen!',
 };
- 
+
 // ── 20. NUTRITION ───────────────────────────────────────
 function refreshNutrition(){
   try {
@@ -1641,7 +1658,7 @@ function refreshNutrition(){
     renderMealList();
   } catch(e){ log.error('refreshNutrition',e); }
 }
- 
+
 function renderMealList(){
   const ml=el('mealList'); if(!ml) return;
   const meals=AppState.meals||[];
@@ -1661,7 +1678,7 @@ function renderMealList(){
     if(btn){ deleteMeal(parseInt(btn.dataset.delMeal,10)); }
   });
 }
- 
+
 function addMeal(){
   const name=((el('mName')||{value:''}).value||'').trim();
   const kcal=parseFloat((el('mKcal')||{value:''}).value)||0;
@@ -1671,16 +1688,16 @@ function addMeal(){
   ['mName','mKcal','mP','mKH','mF'].forEach(id=>{const e=el(id);if(e)e.value='';});
   refreshNutrition(); toast('✅ Mahlzeit eingetragen');
 }
- 
+
 function quickMeal(name,kcal,p,kh,f){
   AppState.meals.push({name,kcal,p,kh,f,time:new Date().toLocaleTimeString('de',{hour:'2-digit',minute:'2-digit'})});
   AppState.save(); refreshNutrition(); toast('✅ '+name);
 }
- 
+
 function deleteMeal(idx){
   AppState.meals.splice(idx,1); AppState.save(); refreshNutrition();
 }
- 
+
 // ── 21. KI FOTO-ANALYSE ─────────────────────────────────
 async function analyzeFood(input){
   const file=input&&input.files&&input.files[0]; if(!file) return;
@@ -1696,7 +1713,7 @@ async function analyzeFood(input){
       let meal;
       try { meal=JSON.parse(text.replace(/```json|```/g,'').trim()); }
       catch(pe){ meal={name:'Mahlzeit',kcal:400,protein_g:20,carbs_g:40,fat_g:15,confidence:'niedrig',hinweis:'Bitte manuell korrigieren'}; }
- 
+
       // Build HTML without nested template literals
       const macroHTML=[
         ['kcal',meal.kcal,'',''],
@@ -1710,7 +1727,7 @@ async function analyzeFood(input){
           +'<div style="font-size:9px;color:var(--t3);margin-top:2px;text-transform:uppercase">'+l+'</div>'
           +'</div>';
       }).join('');
- 
+
       const safeName=esc(meal.name||'Mahlzeit');
       res.innerHTML='<div style="background:rgba(52,199,89,.07);border:1px solid rgba(52,199,89,.2);border-radius:14px;padding:14px;margin-bottom:10px">'
         +'<img src="'+imgData+'" style="width:100%;max-height:140px;object-fit:cover;border-radius:8px;margin-bottom:10px">'
@@ -1721,7 +1738,7 @@ async function analyzeFood(input){
         +'<button id="foodConfirmBtn" class="btn bp" style="padding:11px;font-size:13px">✓ Eintragen</button>'
         +'<button id="foodDiscardBtn" class="btn bo" style="padding:11px;font-size:13px">✕ Verwerfen</button>'
         +'</div></div>';
- 
+
       // Bind via addEventListener – no onclick strings
       const confirmBtn=el('foodConfirmBtn');
       const discardBtn=el('foodDiscardBtn');
@@ -1731,7 +1748,7 @@ async function analyzeFood(input){
       if(discardBtn) discardBtn.addEventListener('click', function(){
         res.innerHTML='';
       });
- 
+
     } catch(err){
       log.error('analyzeFood',err);
       res.innerHTML='<div style="color:var(--accent);font-size:13px;padding:10px">Analysefehler – bitte manuell eintragen.</div>';
@@ -1740,14 +1757,14 @@ async function analyzeFood(input){
   reader.readAsDataURL(file);
   input.value='';
 }
- 
+
 function confirmFoodAI(kcal,p,kh,f,name){
   AppState.meals.push({name,kcal,p,kh,f,aiAnalyzed:true,time:new Date().toLocaleTimeString('de',{hour:'2-digit',minute:'2-digit'})});
   AppState.save();
   const r=el('foodAiResult'); if(r) r.innerHTML='';
   refreshNutrition(); toast('✅ '+name+' eingetragen');
 }
- 
+
 // ── 22. PROFILE ─────────────────────────────────────────
 function saveProfile(){
   try {
@@ -1769,7 +1786,7 @@ function saveProfile(){
     renderHeroStats();
   } catch(e){ log.error('saveProfile',e); }
 }
- 
+
 function updateProfPreview(){
   const pp=el('profPreview'); if(!pp) return;
   const u=AppState.user;
@@ -1779,14 +1796,14 @@ function updateProfPreview(){
   const toGoal=u.weight&&u.kfa&&u.kfaGoal?(u.weight*(u.kfa-u.kfaGoal)/100).toFixed(1):'—';
   pp.innerHTML=`${u.height||190} cm · ${u.weight||108} kg · KFA ${u.kfa||20.1}%<br>BMI: <b>${bmi}</b> · FFMI: <b>${u.ffmi||26.6}</b> · Magermasse: <b>${musKg} kg</b><br>Ziel: KFA ${u.kfaGoal||14}% → noch ca. <b style="color:var(--accent)">${toGoal} kg</b> Fett abbauen`;
 }
- 
+
 function loadProfileInputs(){
   const u=AppState.user;
   const fields={profName:u.name,profAge:u.age||'',profWeight:u.weight,profHeight:u.height,profKfa:u.kfa,profKfaGoal:u.kfaGoal||14};
   Object.entries(fields).forEach(([id,v])=>{ const e=el(id); if(e&&v) e.value=v; });
   updateProfPreview();
 }
- 
+
 // ── 23. SLEEP ───────────────────────────────────────────
 function logSleep(h,btn){
   $$('.sleep-btn').forEach(b=>b.classList.remove('sel'));
@@ -1798,7 +1815,7 @@ function logSleep(h,btn){
   const msgs={4:'😴 Wenig Schlaf – Progression heute verlangsamt.',5:'⚠️ Unterdurchschnittlich – Volumen leicht reduziert.',6:'😐 Ausreichend – normale Progression.',7:'✅ Gut – volle Progression.',8:'🌟 Optimal! Aggressivere Progression.'};
   const fb=el('sleepFeedback'); if(fb) fb.textContent=msgs[h]||'';
 }
- 
+
 // ── 24. BENCHMARKS ──────────────────────────────────────
 const BENCH_STD={'Bankdrücken (LH)':{inter:100,adv:130,elite:160},'Kniebeuge':{inter:120,adv:160,elite:200},'Rudern (LH)':{inter:90,adv:120,elite:150},'Schulterdrücken':{inter:65,adv:90,elite:115},'Klimmzüge':{inter:0,adv:0,elite:0}};
 function renderBenchmarks(){
@@ -1811,7 +1828,7 @@ function renderBenchmarks(){
   }).join('');
   c.innerHTML=rows||'<div style="color:var(--t3);font-size:13px">Logge Workouts für Vergleiche.</div>';
 }
- 
+
 // ── 25. DATA PAGE ───────────────────────────────────────
 function refreshDataPage(){
   safeCall(loadProfileInputs);
@@ -1821,7 +1838,7 @@ function refreshDataPage(){
   const s=AppState.sleepLog.find(x=>x.d===today);
   if(s) $$('.sleep-btn').forEach(b=>{ if(parseInt(b.textContent)===s.h) b.classList.add('sel'); });
 }
- 
+
 // ── 26. AI COACH ────────────────────────────────────────
 function aiProfile(){
   var u=AppState.user;
@@ -1834,7 +1851,7 @@ function aiProfile(){
     +' · BMR '+(u.kcalTarget?u.kcalTarget+500:2734)+' kcal · Kalorienziel '+(u.kcalTarget||2870)+' kcal'
     +' · Fortgeschritten · Ziel: Recomp (Fett ab, Muskel halten)';
 }
- 
+
 async function callClaude(prompt, imgBase64, mediaType){
   if(!mediaType) mediaType='image/jpeg';
   var msgContent=imgBase64
@@ -1852,7 +1869,7 @@ async function callClaude(prompt, imgBase64, mediaType){
   } catch(e2){}
   return '⚠️ KI momentan nicht erreichbar. Bitte online sein und erneut versuchen.';
 }
- 
+
 async function getAnalysis(){
   var btn=el('aiAnalysisBtn'), res=el('aiAnalysisResult'); if(!res) return;
   if(btn){ btn.disabled=true; btn.textContent='⏳ Analysiere…'; }
@@ -1862,7 +1879,7 @@ async function getAnalysis(){
   res.innerHTML=t;
   if(btn){ btn.disabled=false; btn.textContent='🧠 Analyse neu starten'; }
 }
- 
+
 async function askCoach(){
   var qEl=el('aiQuestion'); var q=qEl?(qEl.value||'').trim():''; if(!q) return;
   var btn=el('aiAskBtn'), res=el('aiAnswer'); if(!res) return;
@@ -1874,7 +1891,7 @@ async function askCoach(){
   if(btn){ btn.disabled=false; btn.textContent='Fragen →'; }
   if(window.speechSynthesis) speakText(t.replace(/<[^>]*>/g,''));
 }
- 
+
 // ── 27. VOICE COACH ─────────────────────────────────────
 let _voiceRec=null, _isListening=false;
 function toggleVoice(){
@@ -1903,7 +1920,7 @@ function speakText(text){
   const deV=voices.find(v=>v.lang.startsWith('de')); if(deV) u.voice=deV;
   window.speechSynthesis.speak(u);
 }
- 
+
 // ── 28. EXPORT / IMPORT ─────────────────────────────────
 function exportData(){
   try {
@@ -1933,7 +1950,7 @@ function importData(input){
   };
   reader.readAsText(f); input.value='';
 }
- 
+
 function downloadApp(){
   try {
     const html=document.documentElement.outerHTML;
@@ -1942,31 +1959,31 @@ function downloadApp(){
     toast('✅ App-Datei wird heruntergeladen');
   } catch(e){ toast('Download fehlgeschlagen'); }
 }
- 
+
 // ── 29. GLOBAL EVENT DELEGATION ─────────────────────────
 function bindEvents(){
   document.addEventListener('click', ev=>{
     const nav=ev.target.closest('[data-nav]');
     if(nav){ navigate(nav.dataset.nav); return; }
- 
+
     const abort=ev.target.closest('[data-action="abort"]');
     if(abort){ ev.preventDefault(); ev.stopPropagation(); abortWorkout(); return; }
- 
+
     const start=ev.target.closest('[data-start]');
     if(start){ startWorkout(start.dataset.start); return; }
- 
+
     if(ev.target.closest('#editDaysBtn')){ toggleEditMode(); return; }
- 
+
     const up=ev.target.closest('[data-move-up]');
     if(up){ const i=parseInt(up.dataset.moveUp,10); moveDay(i,i-1); return; }
     const dn=ev.target.closest('[data-move-down]');
     if(dn){ const i=parseInt(dn.dataset.moveDown,10); moveDay(i,i+1); return; }
     const ed=ev.target.closest('[data-edit-day]');
     if(ed){ openDayEditor(parseInt(ed.dataset.editDay,10)); return; }
- 
+
     if(ev.target.closest('#dem-cancel')){ closeDayEditor(); return; }
     if(ev.target.closest('#dem-save'))  { saveDayEdit();    return; }
- 
+
     const typeBtn=ev.target.closest('#dem-type [data-type]');
     if(typeBtn){
       $$('#dem-type [data-type]').forEach(b=>{ b.style.borderColor=''; b.style.color=''; });
@@ -1974,44 +1991,56 @@ function bindEvents(){
       if(_editIdx>=0&&AppState.plan[_editIdx]) AppState.plan[_editIdx]._pendingType=typeBtn.dataset.type;
       return;
     }
- 
+
     if(ev.target.id==='dayEditModal'){ closeDayEditor(); return; }
- 
+
     const tog=ev.target.closest('[data-toggle]');
     if(tog){ const card=tog.closest('.wk'), body=el('wk-b-'+tog.dataset.toggle); if(card) card.classList.toggle('open'); if(body) body.classList.toggle('open'); }
   }, false);
- 
+
   document.addEventListener('visibilitychange', ()=>{ if(document.hidden) safeCall(()=>AppState.save()); });
   window.addEventListener('beforeunload', ()=>{ Timers.clearAll(); safeCall(()=>AppState.save()); });
 }
- 
+
 // ── 30. INIT ────────────────────────────────────────────
 function initApp(){
   try { AppState.load(); } catch(e){ log.error('init: load failed',e); }
   try { bindEvents(); }    catch(e){ log.error('init: events failed',e); }
- 
+
   safeCall(renderHeroStats);
   safeCall(renderPlan);
   safeCall(refreshDash);
   safeCall(loadProfileInputs);
- 
+
+  // Show update banner + auto-open Legs A on first load of new plan version
+  var shownBanner = DB.get('planBannerV'+PLAN_VERSION, false);
+  if(!shownBanner){
+    DB.set('planBannerV'+PLAN_VERSION, true);
+    var banner = el('plan-update-banner');
+    if(banner) banner.style.display = 'block';
+    // Auto-open Legs A so the new exercises are immediately visible
+    Timers.set(function(){
+      var thuCard = document.querySelector('[data-day="thu"]');
+      var thuBody = el('wk-b-thu');
+      if(thuCard) thuCard.classList.add('open');
+      if(thuBody) thuBody.classList.add('open');
+    }, 300, 'autoOpenLegs');
+  }
+
   if(AppState.activeSession && AppState.activeSession.dayId) navigate('workout');
- 
-  if('speechSynthesis' in window) Timers.set(()=>window.speechSynthesis.getVoices(),100,'ttsInit');
- 
-  // Safe logging - console.info not available in all environments
-  log.info('KINETIC ready · session:'+!!AppState.activeSession+' · history:'+AppState.history.length);
+  if(window.speechSynthesis) Timers.set(function(){window.speechSynthesis.getVoices();},100,'ttsInit');
+  log.info('KINETIC v'+PLAN_VERSION+' ready · history:'+AppState.history.length);
 }
- 
+
 if(document.readyState==='loading'){
   document.addEventListener('DOMContentLoaded', initApp);
 } else {
   initApp();
 }
- 
+
 // Debug exposure
 window.KINETIC={AppState,DB,Timers,navigate,startWorkout,abortWorkout};
- 
+
 // ── PWA INSTALL PROMPT ──────────────────────────────────
 (function(){
   let dp=null;
