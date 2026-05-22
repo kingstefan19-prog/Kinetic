@@ -199,6 +199,23 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 .ob-day-name{font-weight:600;flex:1}
 @keyframes ob-in{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
 .ob-step{animation:ob-in .25s ease}
+/* ── Glossar / Tooltips ── */
+.term{display:inline-flex;align-items:center;gap:3px;cursor:pointer;border-bottom:1px dashed var(--accent);color:inherit;font-family:var(--f);background:none;border-top:none;border-left:none;border-right:none;padding:0;font-size:inherit}
+.term:active{opacity:.7}
+.gl-chip{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;letter-spacing:.5px;padding:2px 7px;border-radius:10px;background:rgba(230,57,57,.12);color:var(--accent);cursor:pointer;vertical-align:middle;margin-left:2px;border:none;font-family:var(--f)}
+.gl-chip:active{background:rgba(230,57,57,.22)}
+#glossarModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:700;backdrop-filter:blur(4px)}
+#glossarModal .gm-sheet{background:var(--card);border-radius:20px 20px 0 0;position:fixed;bottom:0;left:0;right:0;max-height:80vh;overflow-y:auto;padding:20px 20px 48px}
+.gm-handle{width:36px;height:4px;background:var(--border2);border-radius:2px;margin:0 auto 18px}
+.gm-title{font-size:22px;font-weight:700;margin-bottom:4px}
+.gm-sub{font-size:13px;color:var(--t2);margin-bottom:18px}
+.gm-entry{border-bottom:1px solid var(--border);padding:14px 0}
+.gm-entry:last-child{border-bottom:none}
+.gm-term{font-size:15px;font-weight:700;color:var(--accent);margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.gm-abbr{font-size:10px;font-weight:600;background:rgba(230,57,57,.12);color:var(--accent);padding:2px 7px;border-radius:8px;letter-spacing:.5px}
+.gm-def{font-size:13px;color:var(--t2);line-height:1.65;margin-bottom:6px}
+.gm-example{font-size:12px;color:var(--t3);background:var(--card2);border-radius:8px;padding:8px 10px;line-height:1.5}
+.gm-example strong{color:var(--t2)}
 </style>
 </head>
 <body>
@@ -274,6 +291,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
     📊 <strong style="color:var(--blue)">Dein personalisierter Plan</strong> · 108 kg · FFMI 26,6 · Fortgeschritten<br>
     Brust <strong style="color:var(--t1)">16 Sätze/Wo</strong> · Rücken <strong style="color:var(--t1)">18</strong> · Schulter <strong style="color:var(--t1)">14</strong> · Trizeps/Bizeps <strong style="color:var(--t1)">12</strong> · Quad/Ham <strong style="color:var(--t1)">14/12</strong><br>
     <span style="color:var(--green)">✅ Schoenfeld 2024 · 4× Gym + 2× Fußball + Sonntag Spiel</span>
+    <button onclick="openGlossar()" style="display:inline-flex;align-items:center;gap:4px;margin-top:8px;background:rgba(10,132,255,.12);border:1px solid rgba(10,132,255,.25);color:var(--blue);font-size:11px;font-weight:600;padding:5px 10px;border-radius:8px;cursor:pointer;font-family:var(--f)">📖 Begriffe erklären (E1RM, RPE, Deload…)</button>
   </div>
 
   <div id="planList"></div>
@@ -395,6 +413,14 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 </section>
 
 <!-- ══ PAGE: PROFIL / DATEN ══ -->
+<!-- ══ GLOSSAR MODAL ══ -->
+<div id="glossarModal" onclick="closeGlossar()">
+  <div class="gm-sheet" onclick="event.stopPropagation()">
+    <div class="gm-handle"></div>
+    <div id="gm-content"></div>
+  </div>
+</div>
+
 <section id="page-data" class="page">
   <div class="sh"><div class="sh-t">👤 Profil</div></div>
   <div class="c">
@@ -441,6 +467,14 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
   </div>
   <button id="aiAnalysisBtn" onclick="getAnalysis()" class="btn bp" style="margin-bottom:10px">🧠 Persönliche Analyse starten</button>
   <div id="aiAnalysisResult" style="font-size:13px;color:var(--t2);line-height:1.7;display:none;padding:14px;background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:10px"></div>
+
+  <div class="sh"><div class="sh-t">📖 Trainings-Glossar</div></div>
+  <div class="c" style="padding:0">
+    <div id="glossar-list"></div>
+    <button onclick="openGlossar()" style="width:100%;padding:14px;background:none;border:none;color:var(--blue);font-family:var(--f);font-size:13px;font-weight:600;cursor:pointer;border-top:1px solid var(--border)">
+      📖 Alle Begriffe öffnen →
+    </button>
+  </div>
 
   <div class="sh"><div class="sh-t">💾 Daten</div></div>
   <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -1380,6 +1414,7 @@ function renderWorkout(){
           </div>
           <div class="wa-meta">
             <span style="font-size:12px;color:var(--t3)">${s.currentIdx+1} / ${s.exercises.length}</span>
+            <button type="button" onclick="openGlossar()" style="background:var(--card2);border:1px solid var(--border);color:var(--t3);font-size:11px;font-weight:600;padding:6px 10px;border-radius:8px;cursor:pointer;font-family:var(--f)">📖</button>
             <button type="button" class="abort-btn" id="abortBtn" data-action="abort">✕ Abbruch</button>
           </div>
         </div>
@@ -1395,7 +1430,7 @@ function renderWorkout(){
           <div style="color:var(--t2);margin-top:4px;font-size:13px">Ziel: ${esc(cur.s)}${isTimed?' · <span style="color:var(--blue)">⏱ Zeitübung</span>':''}</div>
           ${last?`<div style="color:var(--t3);font-size:11px;margin-top:6px">Letztes Mal: ${last.w} kg × ${last.r}${last.rpe?' @ RPE '+last.rpe:''}</div>`:''}
           ${pr?`<div style="color:var(--gold);font-size:11px;margin-top:2px">🏆 PR: ${pr} kg</div>`:''}
-          ${cur.coach&&cur.coach.hint?`<div style="margin-top:10px;padding:8px 10px;background:rgba(10,132,255,.10);border-left:3px solid var(--blue);border-radius:6px;font-size:12px;color:var(--t1)">🧠 <b>Coach:</b> ${esc(cur.coach.hint)}${cur.coach.weight!=null?' <span style="color:var(--blue);font-weight:600">→ '+cur.coach.weight+' kg × '+cur.coach.reps+'</span>':''}</div>`:''}
+          ${cur.coach&&cur.coach.hint?`<div style="margin-top:10px;padding:8px 10px;background:rgba(10,132,255,.10);border-left:3px solid var(--blue);border-radius:6px;font-size:12px;color:var(--t1)">🧠 <b>Coach:</b> ${wrapTerms(cur.coach.hint)}${cur.coach.weight!=null?' <span style="color:var(--blue);font-weight:600">→ '+cur.coach.weight+' kg × '+cur.coach.reps+'</span>':''}</div>`:''}
           ${tip?`<div style="margin-top:10px;padding:8px 10px;background:rgba(10,132,255,.06);border-left:3px solid rgba(10,132,255,.3);border-radius:6px;font-size:12px;color:var(--t2);line-height:1.5"><b style="color:var(--blue)">Technik:</b> ${esc(tip)}</div>`:''}
           ${varHtml}
         </div>
@@ -2005,7 +2040,7 @@ function renderBenchmarks(){
 function refreshDataPage(){
   safeCall(loadProfileInputs);
   safeCall(renderBenchmarks);
-  // restore sleep UI
+  safeCall(renderGlossarPreview);
   const today=new Date().toISOString().split('T')[0];
   const s=AppState.sleepLog.find(x=>x.d===today);
   if(s) $$('.sleep-btn').forEach(b=>{ if(parseInt(b.textContent)===s.h) b.classList.add('sel'); });
@@ -2172,6 +2207,151 @@ function bindEvents(){
 
   document.addEventListener('visibilitychange', ()=>{ if(document.hidden) safeCall(()=>AppState.save()); });
   window.addEventListener('beforeunload', ()=>{ Timers.clearAll(); safeCall(()=>AppState.save()); });
+}
+
+// ── 30. INIT ─────────────────────────────────────────────
+// ══════════════════════════════════════════════════════
+//  TRAININGS-GLOSSAR
+//  Erklärt alle Fachbegriffe verständlich
+// ══════════════════════════════════════════════════════
+
+var GLOSSAR = [
+  {
+    term: 'E1RM',
+    full: 'Estimated One Rep Max',
+    emoji: '🏆',
+    def: 'Das geschätzte maximale Gewicht, das du für genau 1 Wiederholung heben könntest – auch wenn du es nie ausprobiert hast. KINETIC berechnet das automatisch aus deinen geleisteten Sätzen per Brzycki-Formel.',
+    example: 'Du machst Bankdrücken mit 80 kg × 8 Wdh → KINETIC berechnet dein E1RM auf ~104 kg. Nächste Woche: 80 kg × 9 Wdh → E1RM steigt auf ~106 kg. Fortschritt bestätigt! ✅',
+    formula: 'E1RM = Gewicht × (1 + Wdh / 30)'
+  },
+  {
+    term: 'RPE',
+    full: 'Rate of Perceived Exertion',
+    emoji: '🔥',
+    def: 'Deine subjektive Anstrengung auf einer Skala von 1–10. RPE 10 = absolutes Maximum, kein Wdh mehr möglich. RPE 8 = 2 Wdh Reserve (2 RIR). Der Algorithmus nutzt RPE um die nächsten Gewichte zu berechnen.',
+    example: 'RPE 6: Locker, 4+ Wdh Reserve\nRPE 7: Anstrengend, ~3 Wdh Reserve\nRPE 8: Schwer, 2 Wdh Reserve ← Ideal für Hypertrophie\nRPE 9: Sehr schwer, 1 Wdh Reserve\nRPE 10: Absolutes Maximum – kein Wdh mehr',
+    formula: null
+  },
+  {
+    term: 'RIR',
+    full: 'Reps in Reserve',
+    emoji: '🎯',
+    def: 'Wie viele Wiederholungen du noch hättest machen können, bevor du nicht mehr könntest. RIR ist das Gegenteil von RPE. Forschung zeigt: RIR 1–3 ist optimal für Muskelaufbau – nah am Versagen aber nicht jedes Mal bis zum Limit.',
+    example: 'Du machst 8 Wdh und könntest noch 2 weitere schaffen → RIR 2 = RPE 8\nRIR 0 = Muskelversagen = RPE 10',
+    formula: 'RIR = RPE 10 - aktuelles RPE'
+  },
+  {
+    term: 'Double Progression',
+    full: 'Doppelte Progressive Überlastung',
+    emoji: '📈',
+    def: 'Das Herzstück von KINETIC. Du steigerst zuerst die Wiederholungen bis zur oberen Grenze deiner Zielzone – dann erst erhöhst du das Gewicht und startest die Wdh-Range neu. Sicherer und nachhaltiger als wöchentlich Gewicht draufpacken.',
+    example: 'Ziel: 4×6–8 bei Bankdrücken\nWoche 1: 80 kg × 6 ✓\nWoche 2: 80 kg × 7 ✓\nWoche 3: 80 kg × 8 ✓ ← Obere Grenze erreicht!\nWoche 4: 82,5 kg × 6 ← Gewicht +2,5 kg, Wdh neu starten',
+    formula: null
+  },
+  {
+    term: 'Deload',
+    full: 'Entlastungswoche',
+    emoji: '😌',
+    def: 'Eine gezielte Woche mit reduziertem Volumen (–50%) und Intensität (–15–20%). Kein Schritt zurück – sondern notwendige Regeneration für das Nervensystem. KINETIC empfiehlt Deload automatisch wenn Stagnation oder hohe Fatigue erkannt wird.',
+    example: 'Normal: Bankdrücken 4×5–8 bei 80 kg\nDeload-Woche: 2×8 bei 65 kg\nNach Deload: Neue PR möglich! Körper ist "frisch" regeneriert.',
+    formula: null
+  },
+  {
+    term: 'MEV / MAV / MRV',
+    full: 'Minimum / Maximum Adaptive / Maximum Recoverable Volume',
+    emoji: '📊',
+    def: 'Die drei Volumen-Grenzen nach Dr. Mike Israetel. MEV = minimum Sätze für Wachstum. MAV = optimaler Bereich. MRV = maximale Grenze, danach übertrainierst du. KINETIC zeigt dir im Dashboard wo du gerade stehst.',
+    example: 'Beispiel Brust:\nMEV: 10 Sätze/Woche → wächst minimal\nMAV: 14–16 Sätze/Woche → optimales Wachstum ✅\nMRV: 22+ Sätze/Woche → Übertraining, Verletzungsgefahr',
+    formula: null
+  },
+  {
+    term: 'Progressive Overload',
+    full: 'Progressive Überlastung',
+    emoji: '⬆️',
+    def: 'Das einzige unverzichtbare Prinzip im Krafttraining. Dein Körper wächst nur wenn der Trainingsreiz progressiv zunimmt – mehr Gewicht, mehr Wdh, oder mehr Sätze. KINETIC trackt deinen E1RM und stellt sicher dass du immer Fortschritt machst.',
+    example: 'Wenn du 3 Monate lang dasselbe Gewicht hebst, passiert nichts.\nWenn dein E1RM Bankdrücken von 80 auf 90 kg steigt → messbares Muskelwachstum.',
+    formula: null
+  },
+  {
+    term: 'Concurrent Training',
+    full: 'Paralleles Kraft- & Ausdauertraining',
+    emoji: '⚽',
+    def: 'Wenn du sowohl Kraft (Gym) als auch Ausdauer/Sport (Fußball) trainierst. Forschung zeigt: zu viel beides am selben Tag stört Muskelsignale ("Interferenzeffekt"). Deshalb trennt dein KINETIC-Plan Gym und Fußball auf verschiedene Tage.',
+    example: 'Di Fußball Training → Mi Gym Pull A → kein Konflikt ✅\nDo Gym Legs → Fr Fußball → ⚠️ Beinvolumen bewusst reduziert (Beinpresse: RIR 3)',
+    formula: null
+  },
+  {
+    term: 'FFMI',
+    full: 'Fat-Free Mass Index',
+    emoji: '💪',
+    def: 'Der Body-Mass-Index für Muskeln. Misst Muskelmasse im Verhältnis zur Körpergröße, unabhängig vom Körperfett. Gilt als besserer Indikator für Muskelentwicklung als Körpergewicht allein.',
+    example: 'Dein FFMI 26,6 = Fortgeschritten / Bodybuilding-Level\nUntrainiert: ~18–19 | Fortgeschritten: 22–25 | Elite Natural: 25–28',
+    formula: 'FFMI = Magermasse(kg) / Größe(m)²'
+  }
+];
+
+function openGlossar(termKey){
+  var modal = el('glossarModal'); if(!modal) return;
+  var content = el('gm-content'); if(!content) return;
+
+  // Show all or filter to specific term
+  var entries = termKey
+    ? GLOSSAR.filter(function(g){ return g.term.toLowerCase().indexOf(termKey.toLowerCase())>=0; })
+    : GLOSSAR;
+  if(!entries.length) entries = GLOSSAR;
+
+  content.innerHTML = '<div class="gm-title">📖 Trainings-Glossar</div>'
+    +'<div class="gm-sub">Tippe auf einen Begriff im Workout um ihn hier nachzuschlagen.</div>'
+    + entries.map(function(g){
+      var formulaHtml = g.formula
+        ? '<div style="margin-top:8px;font-size:11px;font-family:monospace;color:var(--accent);background:rgba(230,57,57,.08);padding:6px 10px;border-radius:6px">'+esc(g.formula)+'</div>'
+        : '';
+      return '<div class="gm-entry">'
+        +'<div class="gm-term">'+g.emoji+' '+esc(g.term)+' <span class="gm-abbr">'+esc(g.full)+'</span></div>'
+        +'<div class="gm-def">'+esc(g.def)+'</div>'
+        +'<div class="gm-example"><strong>Beispiel:</strong><br>'+esc(g.example).replace(/\\n/g,'<br>')+'</div>'
+        +formulaHtml
+        +'</div>';
+    }).join('');
+
+  modal.style.display = 'block';
+  modal.scrollTop = 0;
+}
+
+function closeGlossar(){
+  var m = el('glossarModal'); if(m) m.style.display='none';
+}
+
+function openGlossarTerm(term){
+  openGlossar(term);
+}
+
+// Render glossar preview list (compact) in data page
+function renderGlossarPreview(){
+  var list = el('glossar-list'); if(!list) return;
+  list.innerHTML = GLOSSAR.map(function(g){
+    return '<div style="display:flex;align-items:center;padding:11px 14px;border-bottom:1px solid var(--border);cursor:pointer;gap:10px" onclick="openGlossar(\''+esc(g.term)+'\')">'
+      +'<span style="font-size:20px;flex-shrink:0">'+g.emoji+'</span>'
+      +'<div style="flex:1">'
+      +'<div style="font-size:14px;font-weight:600">'+esc(g.term)+'</div>'
+      +'<div style="font-size:11px;color:var(--t3);margin-top:1px">'+esc(g.full)+'</div>'
+      +'</div>'
+      +'<span style="color:var(--t3);font-size:16px">›</span>'
+      +'</div>';
+  }).join('');
+}
+
+// Inject term chips into workout coach hint
+// Usage: wrapTerms(text) → replaces known terms with tappable chips
+function wrapTerms(text){
+  if(!text) return text;
+  var terms = ['E1RM','RPE','RIR','Deload','MEV','MAV','MRV','Double Progression'];
+  var result = esc(text);
+  terms.forEach(function(t){
+    var re = new RegExp('\\b('+t+')\\b','g');
+    result = result.replace(re, '<button class="gl-chip" onclick="event.stopPropagation();openGlossarTerm(\''+t+'\')">'+t+' ℹ️</button>');
+  });
+  return result;
 }
 
 // ── 30. INIT ─────────────────────────────────────────────
