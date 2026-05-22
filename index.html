@@ -175,6 +175,30 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 @keyframes fi{from{opacity:0}to{opacity:1}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
 @keyframes pop{0%{transform:scale(.85);opacity:0}80%{transform:scale(1.05)}100%{transform:scale(1);opacity:1}}
+/* ── Onboarding ── */
+.ob-option{
+  width:100%;padding:14px 16px;background:var(--card2);
+  border:1.5px solid var(--border2);border-radius:12px;
+  color:var(--t1);font-family:var(--f);font-size:14px;font-weight:500;
+  cursor:pointer;text-align:left;transition:all .15s;line-height:1.4;
+}
+.ob-option:active{transform:scale(.98)}
+.ob-option.selected{border-color:var(--accent);background:rgba(230,57,57,.1);color:var(--accent)}
+.ob-option.ob-num{text-align:center;font-size:15px;font-weight:700}
+.ob-option{
+  width:100%;padding:14px 16px;background:var(--card);border:1.5px solid var(--border);
+  border-radius:12px;color:var(--t1);font-family:var(--f);font-size:14px;font-weight:500;
+  cursor:pointer;text-align:left;transition:all .15s;line-height:1.4;
+}
+.ob-option:active{transform:scale(.98)}
+.ob-option.selected{border-color:var(--accent);background:rgba(230,57,57,.08)}
+.ob-option.ob-num{text-align:center;padding:14px 8px}
+.ob-plan-preview{background:var(--card2);border-radius:10px;padding:12px;margin-bottom:8px}
+.ob-day-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px}
+.ob-day-row:last-child{border-bottom:none}
+.ob-day-name{font-weight:600;flex:1}
+@keyframes ob-in{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
+.ob-step{animation:ob-in .25s ease}
 </style>
 </head>
 <body>
@@ -232,13 +256,11 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 <!-- ══ PAGE: PLAN ══ -->
 <section id="page-plan" class="page">
   <div class="sh" style="justify-content:space-between;align-items:center">
-    <div style="display:flex;align-items:center;gap:10px">
-      <div style="width:3px;height:14px;background:var(--accent);border-radius:2px"></div>
-      <div class="sh-t">Wochenplan</div>
-    </div>
-    <div style="display:flex;gap:6px">
+    <span class="sh-t">Wochenplan</span>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
       <button id="editDaysBtn" class="btn bg2" style="width:auto;padding:6px 10px;font-size:11px;margin:0">✏️ Anpassen</button>
       <button onclick="resetToDefaultPlan()" class="btn bg2" style="width:auto;padding:6px 10px;font-size:11px;margin:0;color:var(--orange)">↺ Reset</button>
+      <button onclick="openOnboarding()" class="btn bg2" style="width:auto;padding:6px 10px;font-size:11px;margin:0;color:var(--blue)">🎯 Plan erstellen</button>
     </div>
   </div>
 
@@ -431,6 +453,156 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 
 </main>
 
+<!-- ══════════════════════════════════════════
+     ONBOARDING MODAL – Plan-Generator
+     Nur für neue User / auf Wunsch öffenbar
+══════════════════════════════════════════ -->
+<div id="onboardingModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:800;overflow-y:auto">
+  <div style="max-width:480px;margin:0 auto;padding:24px 16px 80px">
+
+    <!-- Header -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
+      <div>
+        <div style="font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:4px">⚡ KINETIC · Plan-Generator</div>
+        <div style="font-size:20px;font-weight:700">Dein perfekter Plan</div>
+      </div>
+      <button onclick="closeOnboarding()" style="background:var(--card2);border:1px solid var(--border);color:var(--t2);width:36px;height:36px;border-radius:50%;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button>
+    </div>
+
+    <!-- Progress bar -->
+    <div style="height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin-bottom:24px">
+      <div id="ob-progress" style="height:100%;background:var(--accent);border-radius:2px;transition:width .4s ease;width:12%"></div>
+    </div>
+
+    <!-- Steps container -->
+    <div id="ob-steps">
+
+      <!-- STEP 1: Ziel -->
+      <div class="ob-step" id="ob-step-1">
+        <div style="font-size:16px;font-weight:700;margin-bottom:6px">Was ist dein Hauptziel?</div>
+        <div style="font-size:13px;color:var(--t2);margin-bottom:18px">Wähle das wichtigste Ziel – du kannst später noch anpassen.</div>
+        <div id="ob-goal-btns" style="display:flex;flex-direction:column;gap:10px">
+          <button class="ob-option" data-val="recomp"   onclick="selectOpt(this,'goal')">🔥 Recomp – Fett verlieren &amp; Muskel aufbauen</button>
+          <button class="ob-option" data-val="bulk"     onclick="selectOpt(this,'goal')">💪 Muskelaufbau (Bulk) – maximales Wachstum</button>
+          <button class="ob-option" data-val="cut"      onclick="selectOpt(this,'goal')">⚖️ Definition (Cut) – Fett abbauen, Muskeln halten</button>
+          <button class="ob-option" data-val="strength" onclick="selectOpt(this,'goal')">🏋️ Kraft – maximale Stärke aufbauen</button>
+          <button class="ob-option" data-val="athlete"  onclick="selectOpt(this,'goal')">⚽ Athletisch – Sport + Gym kombinieren</button>
+        </div>
+      </div>
+
+      <!-- STEP 2: Erfahrung -->
+      <div class="ob-step" id="ob-step-2" style="display:none">
+        <div style="font-size:16px;font-weight:700;margin-bottom:6px">Wie lange trainierst du schon?</div>
+        <div style="font-size:13px;color:var(--t2);margin-bottom:18px">Beeinflusst Volumen, Intensität und Übungsauswahl.</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <button class="ob-option" data-val="beginner"      onclick="selectOpt(this,'level')">🌱 Anfänger – unter 1 Jahr (5–10 Sätze/Muskel/Wo)</button>
+          <button class="ob-option" data-val="intermediate"  onclick="selectOpt(this,'level')">📈 Fortgeschritten – 1–3 Jahre (10–15 Sätze/Muskel/Wo)</button>
+          <button class="ob-option" data-val="advanced"      onclick="selectOpt(this,'level')">🔥 Erfahren – 3+ Jahre (15–20 Sätze/Muskel/Wo)</button>
+        </div>
+      </div>
+
+      <!-- STEP 3: Trainingstage -->
+      <div class="ob-step" id="ob-step-3" style="display:none">
+        <div style="font-size:16px;font-weight:700;margin-bottom:6px">Wie viele Gym-Tage pro Woche?</div>
+        <div style="font-size:13px;color:var(--t2);margin-bottom:18px">Wähle realistisch – Konsistenz schlägt Idealplan.</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
+          <button class="ob-option ob-num" data-val="2" onclick="selectOpt(this,'gymDays')">2× / Wo<span style="display:block;font-size:10px;color:var(--t3);margin-top:3px">Ganzkörper</span></button>
+          <button class="ob-option ob-num" data-val="3" onclick="selectOpt(this,'gymDays')">3× / Wo<span style="display:block;font-size:10px;color:var(--t3);margin-top:3px">PPL / ABC</span></button>
+          <button class="ob-option ob-num" data-val="4" onclick="selectOpt(this,'gymDays')">4× / Wo<span style="display:block;font-size:10px;color:var(--t3);margin-top:3px">Upper/Lower</span></button>
+          <button class="ob-option ob-num" data-val="5" onclick="selectOpt(this,'gymDays')">5× / Wo<span style="display:block;font-size:10px;color:var(--t3);margin-top:3px">PPL+</span></button>
+          <button class="ob-option ob-num" data-val="6" onclick="selectOpt(this,'gymDays')">6× / Wo<span style="display:block;font-size:10px;color:var(--t3);margin-top:3px">PPL×2</span></button>
+          <button class="ob-option ob-num" data-val="7" onclick="selectOpt(this,'gymDays')">7× / Wo<span style="display:block;font-size:10px;color:var(--t3);margin-top:3px">Täglich</span></button>
+        </div>
+      </div>
+
+      <!-- STEP 4: Spezielle Sport-Tage -->
+      <div class="ob-step" id="ob-step-4" style="display:none">
+        <div style="font-size:16px;font-weight:700;margin-bottom:6px">Hast du feste Sport-Tage (außer Gym)?</div>
+        <div style="font-size:13px;color:var(--t2);margin-bottom:18px">z.B. Fußball, Tennis, Kampfsport – beeinflusst Bein-Volumen und Fatigue-Management.</div>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px">
+          <button class="ob-option" data-val="none"    onclick="selectOpt(this,'sport')">❌ Nein – nur Gym</button>
+          <button class="ob-option" data-val="soccer2" onclick="selectOpt(this,'sport')">⚽ Fußball 2× / Woche Training + Spiel</button>
+          <button class="ob-option" data-val="soccer1" onclick="selectOpt(this,'sport')">⚽ Fußball 1× / Woche</button>
+          <button class="ob-option" data-val="other"   onclick="selectOpt(this,'sport')">🏃 Andere Sportart (Cardio-Fokus)</button>
+        </div>
+      </div>
+
+      <!-- STEP 5: Equipment -->
+      <div class="ob-step" id="ob-step-5" style="display:none">
+        <div style="font-size:16px;font-weight:700;margin-bottom:6px">Welches Equipment hast du?</div>
+        <div style="font-size:13px;color:var(--t2);margin-bottom:18px">Bestimmt die Übungsauswahl im Plan.</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <button class="ob-option" data-val="fullgym"  onclick="selectOpt(this,'equipment')">🏋️ Vollständiges Gym – Langhanteln, Maschinen, Kabel</button>
+          <button class="ob-option" data-val="basicgym" onclick="selectOpt(this,'equipment')">💪 Basic Gym – Kurzhanteln + Stange, keine Maschinen</button>
+          <button class="ob-option" data-val="home"     onclick="selectOpt(this,'equipment')">🏠 Zuhause – Kurzhanteln / Bänder</button>
+          <button class="ob-option" data-val="bw"       onclick="selectOpt(this,'equipment')">🤸 Nur Körpergewicht</button>
+        </div>
+      </div>
+
+      <!-- STEP 6: Split-Präferenz -->
+      <div class="ob-step" id="ob-step-6" style="display:none">
+        <div style="font-size:16px;font-weight:700;margin-bottom:6px">Welchen Split bevorzugst du?</div>
+        <div style="font-size:13px;color:var(--t2);margin-bottom:18px">Oder: automatisch berechnen lassen (empfohlen).</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <button class="ob-option" data-val="auto"        onclick="selectOpt(this,'split')">🤖 Automatisch – KI wählt den optimalen Split</button>
+          <button class="ob-option" data-val="ppl"         onclick="selectOpt(this,'split')">Push / Pull / Legs (PPL)</button>
+          <button class="ob-option" data-val="upperlower"  onclick="selectOpt(this,'split')">Upper / Lower (4 Tage)</button>
+          <button class="ob-option" data-val="fullbody"    onclick="selectOpt(this,'split')">Ganzkörper (2–3 Tage)</button>
+          <button class="ob-option" data-val="brosplit"    onclick="selectOpt(this,'split')">Bro-Split (1 Muskel/Tag)</button>
+        </div>
+      </div>
+
+      <!-- STEP 7: Körperdaten -->
+      <div class="ob-step" id="ob-step-7" style="display:none">
+        <div style="font-size:16px;font-weight:700;margin-bottom:6px">Deine Körperdaten (optional)</div>
+        <div style="font-size:13px;color:var(--t2);margin-bottom:18px">Für präzisere Kalorienziele und Benchmark-Vergleiche.</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+          <div>
+            <div style="font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-bottom:5px">Name</div>
+            <input id="ob-name"   class="li" type="text"   placeholder="Dein Name"  style="width:100%;text-align:left;padding:10px;font-size:14px;font-weight:400">
+          </div>
+          <div>
+            <div style="font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-bottom:5px">Alter</div>
+            <input id="ob-age"    class="li" type="number" placeholder="Jahre"       style="width:100%;padding:10px;font-size:14px">
+          </div>
+          <div>
+            <div style="font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-bottom:5px">Gewicht (kg)</div>
+            <input id="ob-weight" class="li" type="number" placeholder="z.B. 80"    style="width:100%;padding:10px;font-size:14px">
+          </div>
+          <div>
+            <div style="font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-bottom:5px">Größe (cm)</div>
+            <input id="ob-height" class="li" type="number" placeholder="z.B. 180"   style="width:100%;padding:10px;font-size:14px">
+          </div>
+          <div>
+            <div style="font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-bottom:5px">Körperfett (%)</div>
+            <input id="ob-kfa"    class="li" type="number" step="0.1" placeholder="z.B. 18" style="width:100%;padding:10px;font-size:14px">
+          </div>
+          <div>
+            <div style="font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-bottom:5px">Ziel-KFA (%)</div>
+            <input id="ob-kfagoal" class="li" type="number" step="0.1" placeholder="z.B. 14" style="width:100%;padding:10px;font-size:14px">
+          </div>
+        </div>
+        <button class="btn bp" onclick="generatePlan()" style="margin-top:4px">
+          🎯 Meinen Plan erstellen →
+        </button>
+      </div>
+
+      <!-- STEP 8: Plan-Ergebnis -->
+      <div class="ob-step" id="ob-step-8" style="display:none">
+        <div id="ob-result-content"></div>
+      </div>
+
+    </div><!-- end ob-steps -->
+
+    <!-- Navigation -->
+    <div id="ob-nav" style="display:flex;gap:10px;margin-top:20px">
+      <button id="ob-back-btn" onclick="obBack()" class="btn bo" style="flex:0 0 80px;display:none">← Zurück</button>
+      <button id="ob-next-btn" onclick="obNext()" class="btn bp" style="flex:1;display:none">Weiter →</button>
+    </div>
+
+  </div>
+</div>
+
 <nav class="nav">
   <button class="nb active" data-nav="dash">    <span class="ni">📊</span><span class="nl">Dash</span></button>
   <button class="nb"         data-nav="plan">    <span class="ni">📅</span><span class="nl">Plan</span></button>
@@ -510,7 +682,7 @@ const DB = (() => {
   })();
   const mem = {};
   const raw = {
-    get: k => ok ? localStorage.getItem(k) : (mem[k]??null),
+    get: k => ok ? localStorage.getItem(k) : (mem[k] !== undefined ? mem[k] : null),
     set: (k,v) => { if(ok){ try{localStorage.setItem(k,v);}catch(e){log.error('LS set',e);mem[k]=v;} } else mem[k]=v; },
     del: k => { if(ok) localStorage.removeItem(k); else delete mem[k]; },
     keys: () => ok ? Object.keys(localStorage) : Object.keys(mem)
@@ -2002,34 +2174,28 @@ function bindEvents(){
   window.addEventListener('beforeunload', ()=>{ Timers.clearAll(); safeCall(()=>AppState.save()); });
 }
 
-// ── 30. INIT ────────────────────────────────────────────
+// ── 30. INIT ─────────────────────────────────────────────
 function initApp(){
-  try { AppState.load(); } catch(e){ log.error('init: load failed',e); }
-  try { bindEvents(); }    catch(e){ log.error('init: events failed',e); }
-
+  try { AppState.load(); } catch(e){ log.error('load',e); }
+  try { bindEvents(); }    catch(e){ log.error('events',e); }
   safeCall(renderHeroStats);
   safeCall(renderPlan);
   safeCall(refreshDash);
   safeCall(loadProfileInputs);
-
-  // Show update banner + auto-open Legs A on first load of new plan version
+  // Show update banner + auto-open Legs on first load of new plan version
   var shownBanner = DB.get('planBannerV'+PLAN_VERSION, false);
   if(!shownBanner){
     DB.set('planBannerV'+PLAN_VERSION, true);
     var banner = el('plan-update-banner');
     if(banner) banner.style.display = 'block';
-    // Auto-open Legs A so the new exercises are immediately visible
     Timers.set(function(){
-      var thuCard = document.querySelector('[data-day="thu"]');
-      var thuBody = el('wk-b-thu');
-      if(thuCard) thuCard.classList.add('open');
-      if(thuBody) thuBody.classList.add('open');
+      var c=document.querySelector('[data-day="thu"]'), b=el('wk-b-thu');
+      if(c) c.classList.add('open'); if(b) b.classList.add('open');
     }, 300, 'autoOpenLegs');
   }
-
   if(AppState.activeSession && AppState.activeSession.dayId) navigate('workout');
   if(window.speechSynthesis) Timers.set(function(){window.speechSynthesis.getVoices();},100,'ttsInit');
-  log.info('KINETIC v'+PLAN_VERSION+' ready · history:'+AppState.history.length);
+  log.info('KINETIC v'+PLAN_VERSION+' · '+AppState.history.length+' sessions');
 }
 
 if(document.readyState==='loading'){
@@ -2038,33 +2204,215 @@ if(document.readyState==='loading'){
   initApp();
 }
 
-// Debug exposure
-window.KINETIC={AppState,DB,Timers,navigate,startWorkout,abortWorkout};
+// ══════════════════════════════════════════════════════
+//  ONBOARDING & PLAN-GENERATOR
+//  Nur für neue User oder auf Wunsch (Button "Plan erstellen")
+//  Stefan / bestehende User: PLAN_VERSION 5 bleibt unberührt
+// ══════════════════════════════════════════════════════
+
+var obState = { step:1, goal:'', level:'', gymDays:0, sport:'', equipment:'', split:'' };
+
+function openOnboarding(){
+  obState = { step:1, goal:'', level:'', gymDays:0, sport:'', equipment:'', split:'' };
+  document.querySelectorAll('.ob-option').forEach(function(b){ b.classList.remove('selected'); });
+  var m=el('onboardingModal'); if(m){ m.style.display='block'; m.scrollTop=0; }
+  showObStep(1);
+}
+function closeOnboarding(){
+  var m=el('onboardingModal'); if(m) m.style.display='none';
+}
+function selectOpt(btn, field){
+  btn.parentElement.querySelectorAll('.ob-option').forEach(function(b){ b.classList.remove('selected'); });
+  btn.classList.add('selected');
+  obState[field] = field==='gymDays' ? parseInt(btn.dataset.val,10)||0 : btn.dataset.val;
+  Timers.set(function(){ obNext(); }, 280, 'obAuto');
+}
+function showObStep(step){
+  obState.step = step;
+  for(var i=1; i<=8; i++){
+    var s=el('ob-step-'+i); if(s) s.style.display=(i===step)?'block':'none';
+  }
+  var pb=el('ob-progress'); if(pb) pb.style.width=Math.min(100,Math.round((step/7)*100))+'%';
+  var back=el('ob-back-btn'), next=el('ob-next-btn');
+  if(back) back.style.display=(step>1&&step<8)?'block':'none';
+  if(next) next.style.display=(step<7)?'block':'none';
+}
+function obNext(){
+  var s=obState.step;
+  if(s===1&&!obState.goal)      { toast('Bitte wähle ein Ziel');       return; }
+  if(s===2&&!obState.level)     { toast('Bitte wähle dein Level');     return; }
+  if(s===3&&!obState.gymDays)   { toast('Bitte Trainingstage wählen'); return; }
+  if(s===4&&!obState.sport)     { toast('Bitte wähle eine Option');    return; }
+  if(s===5&&!obState.equipment) { toast('Bitte wähle Equipment');      return; }
+  if(s===6&&!obState.split)     { toast('Bitte wähle einen Split');    return; }
+  if(s<7) showObStep(s+1);
+}
+function obBack(){ if(obState.step>1) showObStep(obState.step-1); }
+
+function generatePlan(){
+  var pb=el('ob-progress'); if(pb) pb.style.width='100%';
+  showObStep(8);
+  // Save body data if provided
+  var flds={name:'ob-name',age:'ob-age',weight:'ob-weight',height:'ob-height',kfa:'ob-kfa',kfaGoal:'ob-kfagoal'};
+  Object.keys(flds).forEach(function(k){
+    var el_=el(flds[k]); if(!el_||!el_.value) return;
+    var v=k==='name'?el_.value.trim():parseFloat(el_.value)||0;
+    if(v) AppState.user[k]=v;
+  });
+  if(AppState.user.weight&&AppState.user.height){
+    var kfa=AppState.user.kfa||20;
+    AppState.user.ffmi=+((AppState.user.weight*(1-kfa/100))/((AppState.user.height/100)**2)).toFixed(1);
+    var bmr=Math.round(88.36+13.4*AppState.user.weight+4.8*AppState.user.height-5.7*(AppState.user.age||30));
+    AppState.user.kcalTarget=Math.round(bmr*1.55-500);
+  }
+  var plan=buildOnboardingPlan(obState);
+  AppState.plan=plan; DB.set('plan',plan); DB.set('planVersion',PLAN_VERSION); AppState.save();
+  // Render result
+  var gn={recomp:'Recomp',bulk:'Muskelaufbau',cut:'Definition',strength:'Kraft',athlete:'Athletisch'};
+  var sn={auto:'KI-optimiert',ppl:'Push/Pull/Legs',upperlower:'Upper/Lower',fullbody:'Ganzkörper',brosplit:'Bro-Split'};
+  var vt={beginner:'5–10',intermediate:'10–15',advanced:'15–20'};
+  var rc=el('ob-result-content'); if(!rc) return;
+  rc.innerHTML='<div style="text-align:center;margin-bottom:20px">'
+    +'<div style="font-size:48px;margin-bottom:10px">🎯</div>'
+    +'<div style="font-size:22px;font-weight:700">Plan erstellt!</div>'
+    +'<div style="font-size:13px;color:var(--t2);margin-top:6px">'+(gn[obState.goal]||obState.goal)+' · '+(sn[obState.split]||obState.split)+' · '+obState.gymDays+'×/Wo</div>'
+    +'</div>'
+    +'<div style="background:rgba(52,199,89,.07);border:1px solid rgba(52,199,89,.2);border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:var(--t2);line-height:1.7">'
+    +'📊 <strong style="color:var(--green)">Wissenschaftliche Basis</strong><br>'
+    +'Ziel-Volumen: <strong style="color:var(--t1)">'+(vt[obState.level]||'10–15')+' Sätze/Muskel/Woche</strong><br>'
+    +'Frequenz: <strong style="color:var(--t1)">2× pro Muskel</strong> · RIR 1–3 · E1RM-Tracking'
+    +'</div>'
+    +'<div style="background:var(--card2);border-radius:10px;padding:12px;margin-bottom:14px">'
+    +'<div style="font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-bottom:8px">Dein Wochenplan</div>'
+    +plan.map(function(day,i){
+      var icon={gym:'💪',soccer:'⚽',match:'🏟️',flex:'😌'}[day.type]||'📅';
+      var col={gym:'var(--accent)',soccer:'var(--blue)',match:'var(--orange)',flex:'var(--t3)'}[day.type]||'var(--t3)';
+      var info=day.ex&&day.ex.length?day.ex.length+' Übg.':'—';
+      return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">'
+        +'<span style="font-weight:600;width:88px">'+(WEEKDAYS[i]||'Tag '+(i+1))+'</span>'
+        +'<span style="flex:1;color:var(--t2)">'+icon+' '+esc(day.name)+'</span>'
+        +'<span style="color:'+col+';font-weight:600;font-size:11px">'+info+'</span></div>';
+    }).join('')
+    +'</div>'
+    +'<button class="btn bp" onclick="applyGeneratedPlan()" style="margin-bottom:10px">✅ Plan übernehmen</button>'
+    +'<button onclick="closeOnboarding()" class="btn bo" style="font-size:13px">Abbrechen</button>';
+}
+
+function applyGeneratedPlan(){
+  closeOnboarding(); safeCall(renderPlan); safeCall(renderHeroStats); navigate('plan');
+  toast('🎯 Dein personalisierter Plan ist aktiv!');
+  Timers.set(function(){
+    var fg=AppState.plan.find(function(d){return d.type==='gym';});
+    if(fg){ var c=document.querySelector('[data-day="'+fg.id+'"]'),b=el('wk-b-'+fg.id);
+      if(c) c.classList.add('open'); if(b) b.classList.add('open'); }
+  },200,'openFirst');
+}
+
+function buildOnboardingPlan(s){
+  var days=parseInt(s.gymDays,10)||3, goal=s.goal||'recomp', level=s.level||'intermediate';
+  var sport=s.sport||'none', equip=s.equipment||'fullgym', splitPref=s.split||'auto';
+  var split=splitPref==='auto'?(days<=2?'fullbody':days<=3?'ppl':days<=4?'upperlower':'ppl'):splitPref;
+  var vol={beginner:{m:'3×8–12',i:'3×10–15'},intermediate:{m:'4×6–10',i:'3×10–15'},advanced:{m:'4×5–8',i:'3×12–15'}}[level]||{m:'4×6–10',i:'3×10–15'};
+  var rn=goal==='strength'?'RIR 1–2':'RIR 2–3';
+  var hasM=equip==='fullgym', full=equip!=='bw'&&equip!=='home';
+  function E(n,s,note,timed){ return {n:n,s:s,note:note+(timed?'':'')}; }
+  var X={
+    cm:  full?E('Bankdrücken (LH)',vol.m,'Compound Brust · '+rn):E('Liegestütze','4×12–20',rn),
+    ci:  full?E('Schrägbankdrücken (KH)','3×8–12','Obere Brust · '+rn):E('Schräge Liegestütze','3×12–15',rn),
+    cf:  hasM?E('Kabelflys (untere Rolle)',vol.i,'Stretch · '+rn):E('KH-Flys',vol.i,rn),
+    sp:  full?E('Schulterdrücken (KH sitzend)',vol.m,rn):E('Pike Push-Ups','3×10–15',rn),
+    sl:  full?E('Seitheben (KH)','3×15–20','3 Sek negativ · '+rn):E('Seitheben (Band)','3×15–20',rn),
+    t1:  hasM?E('Trizeps Pushdown (Seil)',vol.i,'Ellbogen fixiert · '+rn):E('Diamond Push-Ups','3×10–15',rn),
+    t2:  full?E('Overhead Extension (KH)',vol.i,'Stretch · '+rn):E('Skull Crushers (KH)',vol.i,rn),
+    pv:  full?E('Klimmzüge',vol.m,'Volle Streckung · '+rn):E('Klimmzüge',vol.m,rn),
+    la:  hasM?E('Latzug (Untergriff eng)','3×10–12',rn):E('Klimmzüge (Untergriff)','3×10–12',rn),
+    rh:  full?E('Rudern (LH Untergriff)',vol.m,'Schulterblätter · '+rn):E('Einarmiges KH-Rudern',vol.m,rn),
+    rc:  hasM?E('Seilzugrudern (eng)',vol.i,'Volle Streckung · '+rn):E('Einarmiges KH-Rudern',vol.i,rn),
+    b1:  full?E('Bizeps Curl (LH)',vol.i,'Kein Schwung · '+rn):E('Bizeps Curl (KH)',vol.i,rn),
+    b2:  full?E('Incline Curl (KH) 45°','3×12–15','Stretch · '+rn):E('Hammer Curl (KH)','3×12–15',rn),
+    fp:  hasM?E('Face Pulls (Kabel)','3×15–20','Schultergesundheit!'):E('Band Face Pulls','3×15–20','Schultergesundheit!'),
+    sq:  full?E('Kniebeuge (LH)',vol.m,'E1RM tracken · '+rn):E('Goblet Squat (KH)',vol.m,rn),
+    lp:  hasM?E('Beinpresse','3×10–12',rn):E('Bulg. Split Squat','3×8–10',rn),
+    le:  hasM?E('Beinstrecker',vol.i,'Exzentrisch · '+rn):E('Ausfallschritte',vol.i,rn),
+    rd:  full?E('Rumänisches Kreuzheben (LH)',vol.m,'3 Sek negativ · '+rn):E('Rumänisches KH (KH)',vol.m,rn),
+    lc:  hasM?E('Beinbeuger (Maschine liegend)','3×10–12','Beinbizeps · '+rn):E('Nordic Curl','3×6–8',rn),
+    ad:  hasM?E('Adduktionsmaschine (sitzend)','3×12–15','Innenseite'):E('Sumo Squat (KH)','3×12–15','Adduktoren'),
+    ab:  hasM?E('Abduktionsmaschine (sitzend)','3×12–15','Außenseite'):null,
+    ca:  full?E('Wadenheben stehend','4×12–15','Volle ROM'):E('Wadenheben (BW)','4×15–20','Volle ROM'),
+    pl:  {n:'Plank',s:'3×60s',note:'Rumpfstabilität',timed:true}
+  };
+  function fx(a){ return a.filter(function(e){return e&&e.n;}); }
+  function sub(nm,tot){ return (nm.indexOf('Legs')>=0||nm.indexOf('Lower')>=0?'Quad · Hamstring · Adduktoren · Wade':nm.indexOf('Pull')>=0?'Rücken · Bizeps · Rear Delt':nm.indexOf('Push')>=0?'Brust · Schulter · Trizeps':nm.indexOf('Upper')>=0?'Oberkörper':'Alle Muskelgruppen')+' · '+tot+' Sätze'; }
+  function mkSess(name, ex){ var tot=ex.reduce(function(a,e){var m=e.s&&e.s.match(/^(\d+)/);return a+(m?+m[1]:0);},0); return {name:name,sub:sub(name,tot),ex:ex}; }
+
+  var sessions=[];
+  if(split==='fullbody'){
+    sessions.push(mkSess('Ganzkörper A',fx([X.sq,X.rd,X.cm,X.rh,X.sp,X.b1,X.t1,X.ca])));
+    if(days>=2) sessions.push(mkSess('Ganzkörper B',fx([X.lp,X.lc,X.ci,X.la,X.sl,X.b2,X.t2,X.pl])));
+    if(days>=3) sessions.push(mkSess('Ganzkörper C',fx([X.sq,X.rd,X.cf,X.rc,X.fp,X.b1,X.t1,X.ca,X.pl])));
+  } else if(split==='upperlower'){
+    sessions.push(mkSess('Upper A',fx([X.cm,X.ci,X.sp,X.sl,X.t1,X.rh,X.b1,X.fp])));
+    sessions.push(mkSess('Lower A',fx([X.sq,X.lp,X.le,X.rd,X.lc,X.ad,X.ab,X.ca,X.pl])));
+    if(days>=3) sessions.push(mkSess('Upper B',fx([X.pv,X.rh,X.la,X.rc,X.b2,X.sl,X.t2,X.fp])));
+    if(days>=4) sessions.push(mkSess('Lower B',fx([X.sq,X.rd,X.lc,X.le,X.ad,X.ca,X.pl])));
+  } else if(split==='brosplit'){
+    sessions.push(mkSess('Brust',  fx([X.cm,X.ci,X.cf,X.t1,X.t2])));
+    sessions.push(mkSess('Rücken', fx([X.pv,X.rh,X.la,X.rc,X.b1,X.b2,X.fp])));
+    sessions.push(mkSess('Schulter',fx([X.sp,X.sl,X.fp])));
+    sessions.push(mkSess('Beine',  fx([X.sq,X.lp,X.le,X.rd,X.lc,X.ad,X.ca,X.pl])));
+    if(days>=5) sessions.push(mkSess('Arms',fx([X.b1,X.b2,X.t1,X.t2])));
+  } else { // PPL
+    sessions.push(mkSess('Push A',fx([X.cm,X.ci,X.cf,X.sp,X.sl,X.t1,X.t2])));
+    sessions.push(mkSess('Pull A',fx([X.pv,X.la,X.rh,X.rc,X.b1,X.b2,X.fp])));
+    sessions.push(mkSess('Legs A',fx([X.sq,X.lp,X.le,X.rd,X.lc,X.ad,X.ab,X.ca,X.pl])));
+    if(days>=4) sessions.push(mkSess('Push B',fx([X.ci,X.cf,X.sl,X.t1,X.rh,X.b2])));
+    if(days>=5) sessions.push(mkSess('Pull B',fx([X.rh,X.la,X.rc,X.b1,X.sl,X.fp])));
+    if(days>=6) sessions.push(mkSess('Legs B',fx([X.sq,X.lc,X.le,X.rd,X.ad,X.ca])));
+    if(days>=7) sessions.push(mkSess('Aktiv',  fx([X.cf,X.fp,X.b2,X.sl])));
+  }
+
+  // Calendar assignment
+  var allD=['mon','tue','wed','thu','fri','sat','sun'];
+  var soccerDays=sport==='soccer2'?['tue','fri','sun']:sport==='soccer1'?['tue']:sport==='other'?['tue']:[];
+  var avail=allD.filter(function(d){return soccerDays.indexOf(d)<0;});
+  var gymSlots=[];
+  var n=Math.min(days,avail.length), step=avail.length/n;
+  for(var i=0;i<n;i++) gymSlots.push(avail[Math.min(Math.floor(i*step),avail.length-1)]);
+
+  var plan=[], si=0;
+  for(var di=0;di<7;di++){
+    var id=allD[di];
+    var isSoc=soccerDays.indexOf(id)>=0, isMatch=sport==='soccer2'&&id==='sun', isGym=gymSlots.indexOf(id)>=0;
+    if(isMatch)       plan.push({id:id,type:'match', name:'Fußball Spiel',   sub:'🏟️ Wettkampf · danach: KH + Protein!',ex:[]});
+    else if(isSoc)    plan.push({id:id,type:'soccer',name:'Fußball Training',sub:'⚽ Training · kein Gym · +50g KH',      ex:[]});
+    else if(isGym&&si<sessions.length){ var ss=sessions[si++]; plan.push({id:id,type:'gym',name:ss.name,sub:ss.sub,ex:ss.ex}); }
+    else              plan.push({id:id,type:'flex',  name:'Ruhe / Aktiv',   sub:'Regeneration · Mobility · Spaziergang',ex:[]});
+  }
+  return plan;
+}
 
 // ── PWA INSTALL PROMPT ──────────────────────────────────
 (function(){
-  let dp=null;
-  window.addEventListener('beforeinstallprompt',e=>{
+  var dp=null;
+  window.addEventListener('beforeinstallprompt',function(e){
     e.preventDefault(); dp=e;
-    const btn=document.createElement('button');
+    var btn=document.createElement('button');
     btn.textContent='⬇ App installieren';
-    btn.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:84px;z-index:300;background:var(--accent);color:#fff;border:none;border-radius:24px;padding:10px 18px;font:600 13px Inter,sans-serif;box-shadow:0 8px 24px rgba(230,57,57,.4);cursor:pointer';
-    btn.addEventListener('click',async()=>{ if(!dp) return; btn.disabled=true; try{ dp.prompt(); await dp.userChoice; }catch(e){} dp=null; btn.remove(); });
+    btn.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:84px;z-index:300;background:var(--accent);color:#fff;border:none;border-radius:24px;padding:10px 18px;font:600 13px Inter,sans-serif;cursor:pointer';
+    btn.addEventListener('click',function(){ if(!dp) return; btn.disabled=true; dp.prompt(); dp=null; });
     document.body.appendChild(btn);
   });
-  window.addEventListener('appinstalled',()=>{ const b=document.querySelector('[data-install]'); if(b) b.remove(); });
-  // iOS hint
-  const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)&&!window.MSStream;
-  const isSA=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone;
+  window.addEventListener('appinstalled',function(){ var b=document.querySelector('[data-install]'); if(b) b.remove(); });
+  var isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)&&!window.MSStream;
+  var isSA=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone||false;
   if(isIOS&&!isSA&&!sessionStorage.getItem('iosHint')){
     sessionStorage.setItem('iosHint','1');
-    Timers.set(()=>{
-      const h=document.createElement('div');
-      h.style.cssText='position:fixed;left:12px;right:12px;bottom:84px;z-index:300;background:var(--card2);border:1px solid var(--border2);color:var(--t1);padding:12px 14px;border-radius:14px;font:500 12px Inter,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.5)';
-      h.innerHTML='📲 <b>Als App speichern:</b> Teilen → „Zum Home-Bildschirm" <span style="float:right;opacity:.6;cursor:pointer">✕</span>';
-      h.addEventListener('click',e=>{ if(e.target.tagName==='SPAN') h.remove(); });
+    Timers.set(function(){
+      var h=document.createElement('div');
+      h.style.cssText='position:fixed;left:12px;right:12px;bottom:84px;z-index:300;background:var(--card2);border:1px solid var(--border2);color:var(--t1);padding:12px 14px;border-radius:14px;font:500 12px Inter,sans-serif';
+      h.textContent='Teilen > Zum Home-Bildschirm – App installieren';
       document.body.appendChild(h);
-      Timers.set(()=>h.remove(),12000,'iosHint');
+      Timers.set(function(){if(h.parentNode)h.remove();},10000,'iosHint');
     },1500,'iosHintDelay');
   }
 })();
