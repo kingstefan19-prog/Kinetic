@@ -1693,34 +1693,41 @@ const EXERCISE_FAMILIES=[
 ];
 
 // ── MUSCLE_MAP (vollständig, REIHENFOLGE WICHTIG – spezifisch zuerst!) ──────
+// MUSCLE_MAP mit Primär/Sekundär-Gewichtung
+// weight 1.0 = Primärmuskel | 0.5 = sekundär | 0.4 = schwach sekundär
+// Bein-Regexes zuerst (sonst matched Beinpresse als Schulter/Brust)
 const MUSCLE_MAP=[
-  // Beine – MUSS vor allgemeinen "press" Regeln stehen!
-  [/beinpresse|leg press/i,            ['quads','glutes']],
-  [/kniebeug|squat|front squat|hack squat|goblet/i, ['quads','glutes']],
-  [/beinstrecker|leg extension|quad/i, ['quads']],
-  [/ausfallschritt|lunge|split squat|step.?up/i, ['quads','glutes']],
-  [/rumän|romanian|rdl|hip hinge|sumo kreuz/i, ['hams','glutes']],
-  [/beinbeug|leg curl|nordic|hamstring/i, ['hams']],
-  [/hip thrust|glute bridge/i,         ['glutes','hams']],
-  [/adduk|adduktion|sumo squat|sumo kh/i, ['adduktoren']],
-  [/abduk|abduktion|clamshell/i,       ['abduktoren']],
-  [/waden|calf|wadenheben/i,           ['wade']],
-  // Oberkörper
-  [/bank|chest press|brust|dip/i,      ['brust','trizeps']],
-  [/kabelfly|pec deck|flys|fly/i,      ['brust']],
-  [/schulterdr|overhead press|military|push press/i, ['schulter','trizeps']],
-  [/seitheb|lateral raise/i,           ['schulter']],
-  [/face pull|rear delt/i,             ['schulter']],
-  [/trizeps|pushdown|french|skull|overhead ext/i, ['trizeps']],
-  [/klimm|latzug|pulldown|pullover/i,  ['ruecken','bizeps']],
-  [/rudern|row/i,                      ['ruecken','bizeps']],
-  [/bizeps|curl|hammer curl|incline curl/i, ['bizeps']],
-  [/plank|crunch|dead bug|hanging|ab wheel|core/i, ['core']]
+  [/beinpresse|leg press/i,            [{m:'quads',w:1.0},{m:'glutes',w:0.5}]],
+  [/kniebeug|squat|front squat|hack squat|goblet/i, [{m:'quads',w:1.0},{m:'glutes',w:0.7}]],
+  [/beinstrecker|leg extension/i,      [{m:'quads',w:1.0}]],
+  [/ausfallschritt|lunge|split squat/i,[{m:'quads',w:1.0},{m:'glutes',w:0.5}]],
+  [/rumän|romanian|rdl/i,              [{m:'hams',w:1.0},{m:'glutes',w:0.7}]],
+  [/beinbeug|leg curl|nordic/i,        [{m:'hams',w:1.0}]],
+  [/hip thrust|glute bridge/i,         [{m:'glutes',w:1.0},{m:'hams',w:0.5}]],
+  [/adduk/i,                           [{m:'adduktoren',w:1.0}]],
+  [/abduk|clamshell/i,                 [{m:'abduktoren',w:1.0}]],
+  [/waden|calf|wadenheben/i,           [{m:'wade',w:1.0}]],
+  // Brust – Compound zählt Trizeps nur 0.4 (sekundär)
+  [/bank|chest press|brust/i,          [{m:'brust',w:1.0},{m:'trizeps',w:0.3}]],
+  [/kabelfly|pec deck|flys|fly/i,      [{m:'brust',w:1.0}]],
+  [/dip/i,                             [{m:'brust',w:0.7},{m:'trizeps',w:0.7}]],
+  // Schulter – Compound zählt Trizeps sekundär
+  [/schulterdr|overhead press|military|push press/i, [{m:'schulter',w:1.0},{m:'trizeps',w:0.3}]],
+  [/seitheb|lateral raise/i,           [{m:'schulter',w:1.0}]],
+  [/face pull|rear delt/i,             [{m:'schulter',w:1.0}]],
+  // Trizeps direkt – volles Gewicht
+  [/trizeps|pushdown|french|skull|overhead ext/i, [{m:'trizeps',w:1.0}]],
+  // Rücken – Compound zählt Bizeps nur 0.4 (sekundär)
+  [/klimm|latzug|pulldown|pullover/i,  [{m:'ruecken',w:1.0},{m:'bizeps',w:0.4}]],
+  [/rudern|row/i,                      [{m:'ruecken',w:1.0},{m:'bizeps',w:0.4}]],
+  // Bizeps direkt – volles Gewicht
+  [/bizeps|curl|hammer curl|incline curl/i, [{m:'bizeps',w:1.0}]],
+  [/plank|crunch|dead bug|hanging|ab wheel|core/i, [{m:'core',w:1.0}]]
 ];
 
-function musclesFor(n){
+function musclesFor(exName){
   for(var i=0;i<MUSCLE_MAP.length;i++){
-    if(MUSCLE_MAP[i][0].test(n)) return MUSCLE_MAP[i][1];
+    if(MUSCLE_MAP[i][0].test(exName)) return MUSCLE_MAP[i][1];
   }
   return [];
 }
@@ -1729,9 +1736,14 @@ function weeklyMuscleSets(){
   var since=Date.now()-7*24*3600*1000, acc={};
   (AppState.history||[]).filter(function(e){return e.ts>=since;}).forEach(function(e){
     (e.sets||[]).forEach(function(s){
-      if(s.r||s.secs) musclesFor(s.ex||'').forEach(function(m){ acc[m]=(acc[m]||0)+1; });
+      if(!s.r && !s.secs) return;
+      musclesFor(s.ex||'').forEach(function(entry){
+        acc[entry.m] = (acc[entry.m]||0) + (entry.w||1.0);
+      });
     });
   });
+  // Runde auf 0.5 für Lesbarkeit
+  Object.keys(acc).forEach(function(m){ acc[m]=Math.round(acc[m]*2)/2; });
   return acc;
 }
 
