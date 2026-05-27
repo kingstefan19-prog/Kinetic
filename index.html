@@ -1003,28 +1003,47 @@ function refreshDash(){
 
 // ── 10. SMART NOTIFICATIONS ─────────────────────────────
 function renderSmartNotifs(){
-  const c=el('smartNotifs'); if(!c) return;
-  const notifs=[];
-  // PR detection
-  Object.entries(AppState.prs).forEach(([ex,w])=>{
-    const h=AppState.history;
-    if(h.length>=2){
-      const prev=h[h.length-2].sets||[];
-      const prevPR=prev.find(s=>s.ex===ex&&s.w);
-      if(prevPR&&w>prevPR.w) notifs.push({type:'pr',icon:'🏆',title:'Neuer PR!',body:`${esc(ex)}: ${prevPR.w} → ${w} kg`});
+  var c = el('smartNotifs'); if(!c) return;
+  var notifs = [];
+
+  // Readiness Score (täglicher KPI)
+  var score = readinessScore();
+  var scoreData = score>=85 ? {icon:'🟢',title:'Bereit für Top-Workout',body:'Readiness '+score+'/100 – aggressive Progression heute möglich.',type:'pr'}
+                : score>=65 ? {icon:'🟡',title:'Normaler Trainingstag',body:'Readiness '+score+'/100 – plane wie gewohnt.',type:'sleep'}
+                            : {icon:'🔴',title:'Vorsicht heute',body:'Readiness '+score+'/100 – reduziere Volumen oder leichte Session.',type:'warn'};
+  notifs.push(scoreData);
+
+  // Deload-Empfehlung
+  var deload = needsDeload();
+  if(deload){
+    notifs.push({icon:'😌', title:'Deload empfohlen', body:deload.reason+' – diese Woche −40% Volumen, −10% Gewicht.', type:'warn'});
+  }
+
+  // PR-Erkennung
+  Object.entries(AppState.prs||{}).forEach(function(pair){
+    var ex=pair[0], w=pair[1];
+    var h = AppState.history;
+    if(h.length >= 2){
+      var prev = h[h.length-2].sets || [];
+      var prevPR = prev.find(function(s){return s.ex===ex && s.w;});
+      if(prevPR && w > prevPR.w){
+        notifs.push({icon:'🏆', title:'Neuer PR!', body:esc(ex)+': '+prevPR.w+' → '+w+' kg', type:'pr'});
+      }
     }
   });
-  // Sleep warning
-  const lastSleep=AppState.sleepLog.slice(-1)[0];
-  if(lastSleep&&lastSleep.h<=5) notifs.push({type:'sleep',icon:'😴',title:'Wenig Schlaf',body:`Nur ${lastSleep.h}h – Progression heute verlangsamt.`});
-  // Stagnation
-  const h=AppState.history.slice(-3);
-  if(h.length>=3&&h[2].volume<=h[0].volume) notifs.push({type:'warn',icon:'⚠️',title:'Stagnation erkannt',body:'Volumen stagniert – Deload oder Übungswechsel empfohlen.'});
-  c.innerHTML=notifs.slice(0,2).map(n=>`
-    <div class="sm-banner sm-${n.type}">
-      <div class="sm-icon">${n.icon}</div>
-      <div class="sm-body"><strong>${n.title}</strong>${n.body}</div>
-    </div>`).join('');
+
+  // Schlaf-Warnung
+  var lastSleep = (AppState.sleepLog||[]).slice(-1)[0];
+  if(lastSleep && lastSleep.h <= 5){
+    notifs.push({icon:'😴', title:'Wenig Schlaf', body:'Nur '+lastSleep.h+'h – Progression heute automatisch reduziert.', type:'sleep'});
+  }
+
+  c.innerHTML = notifs.slice(0,3).map(function(n){
+    return '<div class="sm-banner sm-'+n.type+'">'
+      +'<div class="sm-icon">'+n.icon+'</div>'
+      +'<div class="sm-body"><strong>'+esc(n.title)+'</strong>'+esc(n.body)+'</div>'
+      +'</div>';
+  }).join('');
 }
 
 // ── 11. WEIGHT CHART ────────────────────────────────────
@@ -1557,23 +1576,111 @@ function lastSessionSetsFor(exName){
   return [];
 }
 
-function coachSuggestion(exName,targetStr){
-  const range=parseRepRange(targetStr);
-  const last=lastSessionSetsFor(exName);
-  if(!last.length) return{weight:null,reps:range?range.lo:null,hint:'Erstes Mal – starte mit RPE 7 (≈3 RIR).'};
-  const allW=last.map(x=>+(x.w)||0), minW=Math.min(...allW);
-  const allR=last.map(x=>+(x.r)||0);
-  const allRpe=last.map(x=>+(x.rpe)||0).filter(Boolean);
-  const avgRpe=allRpe.length?allRpe.reduce((a,b)=>a+b,0)/allRpe.length:null;
-  const hitTop=range?allR.every(r=>r>=range.hi):false;
-  const failedLow=range?allR.some(r=>r<range.lo):false;
-  if(avgRpe!==null&&avgRpe>9) return{weight:minW,reps:range?range.lo:allR[0],hint:'Letztes Mal RPE>9 – Gewicht halten, Technik priorisieren.'};
-  if(failedLow){ const w=Math.round((minW*0.93)*2)/2; return{weight:w,reps:range?range.lo:allR[0],hint:'Untere Wdh-Grenze nicht erreicht → −7% Deload.'}; }
-  if(hitTop){ const inc=minW<40?1.25:2.5; return{weight:minW+inc,reps:range?range.lo:allR[0],hint:`Obere Grenze geknackt → +${inc} kg, Range neu starten.`}; }
-  const targetReps=Math.min(range?range.hi:allR[0]+1,Math.max(...allR)+1);
-  let hint='Gleiches Gewicht – +1 Wdh anpeilen.';
-  if(avgRpe!==null&&avgRpe<=7) hint=`RPE niedrig – ggf. +${minW<40?1.25:2.5} kg statt +1 Wdh.`;
-  return{weight:minW,reps:targetReps,hint};
+// ── Helper: aktuelle Schlaf-Qualität (letzte 3 Tage gewichtet) ───────────
+function recentSleepQuality(){
+  var logs = (AppState.sleepLog||[]).slice(-3);
+  if(!logs.length) return null;
+  var avg = logs.reduce(function(a,s){return a+(s.h||7);},0)/logs.length;
+  if(avg>=7.5) return {q:'top',mod:1.05,note:'😴 Gut erholt → aggressive Progression möglich'};
+  if(avg>=6.5) return {q:'ok', mod:1.0, note:''};
+  if(avg>=5.5) return {q:'low',mod:0.97,note:'😴 Wenig Schlaf → vorsichtige Progression'};
+  return            {q:'bad',mod:0.92,note:'⚠️ Schlafmangel → Gewicht reduzieren, Technik priorisieren'};
+}
+
+// ── Helper: aktuelle Trainingswoche seit erstem Workout ──────────────────
+function currentTrainingWeek(){
+  var h = AppState.history || [];
+  if(!h.length) return 1;
+  var first = h[0].ts || Date.now();
+  return Math.floor((Date.now() - first) / (7*24*3600*1000)) + 1;
+}
+
+// ── Helper: Deload nötig? (alle 6 Wochen oder bei Stagnation) ─────────────
+function needsDeload(){
+  var lastDeload = DB.get('lastDeloadWeek', 0);
+  var thisWeek = currentTrainingWeek();
+  // Auto: alle 6 Wochen
+  if(thisWeek - lastDeload >= 6) return {reason:'6-Wochen-Zyklus erreicht – Deload empfohlen'};
+  // Stagnation: 3 Sessions ohne Volumensteigerung
+  var h = AppState.history.slice(-3);
+  if(h.length>=3 && h[2].volume <= h[0].volume * 0.95) return {reason:'Stagnation – Deload-Woche aktivieren?'};
+  return null;
+}
+
+// ── Helper: Readiness-Score (0–100) basierend auf Schlaf + letzten Workouts ──
+function readinessScore(){
+  var score = 80; // baseline
+  // Schlaf
+  var sleep = recentSleepQuality();
+  if(sleep){
+    if(sleep.q==='top') score += 15;
+    else if(sleep.q==='low') score -= 15;
+    else if(sleep.q==='bad') score -= 30;
+  }
+  // Trainingsdichte letzte 3 Tage
+  var since = Date.now() - 3*24*3600*1000;
+  var recentWorkouts = (AppState.history||[]).filter(function(e){return e.ts>=since;}).length;
+  if(recentWorkouts >= 3) score -= 10;  // viel trainiert
+  if(recentWorkouts === 0) score += 5;   // gut erholt
+  return Math.max(0, Math.min(100, score));
+}
+
+// ── 17. PROGRESSION ALGORITHM (mit Schlaf + Periodisierung) ──────────────
+function coachSuggestion(exName, targetStr){
+  var range = parseRepRange(targetStr);
+  var last = lastSessionSetsFor(exName);
+  var sleep = recentSleepQuality();
+  var sleepMod = sleep ? sleep.mod : 1.0;
+  var sleepNote = sleep ? sleep.note : '';
+
+  if(!last.length){
+    var note = 'Erstes Mal – starte mit RPE 7 (≈3 RIR).';
+    if(sleepNote) note += ' ' + sleepNote;
+    return {weight:null, reps:range?range.lo:null, hint:note};
+  }
+
+  var allW = last.map(function(x){return +(x.w)||0;});
+  var minW = Math.min.apply(null, allW);
+  var allR = last.map(function(x){return +(x.r)||0;});
+  var allRpe = last.map(function(x){return +(x.rpe)||0;}).filter(Boolean);
+  var avgRpe = allRpe.length ? allRpe.reduce(function(a,b){return a+b;},0)/allRpe.length : null;
+  var hitTop = range ? allR.every(function(r){return r>=range.hi;}) : false;
+  var failedLow = range ? allR.some(function(r){return r<range.lo;}) : false;
+
+  // RPE > 9: Halten
+  if(avgRpe !== null && avgRpe > 9){
+    return {weight:minW, reps:range?range.lo:allR[0], hint:'Letztes Mal RPE>9 – Gewicht halten, Technik priorisieren.'+(sleepNote?' '+sleepNote:'')};
+  }
+  // Failed low: Deload −7%
+  if(failedLow){
+    var w = Math.round(minW * 0.93 * 2)/2;
+    return {weight:w, reps:range?range.lo:allR[0], hint:'Untere Wdh-Grenze nicht erreicht → −7% Deload.'};
+  }
+  // Top range: +2.5 kg (schlafabhängig)
+  if(hitTop){
+    var inc = minW<40 ? 1.25 : 2.5;
+    // Bei schlechtem Schlaf nur kleinere Steigerung
+    if(sleep && sleep.q==='bad') inc = Math.max(1.25, inc * 0.5);
+    var newW = Math.round((minW + inc) * 2)/2;
+    var topNote = 'Obere Grenze geknackt → +'+inc+' kg, Range neu starten.';
+    if(sleepNote && sleep.q !== 'ok') topNote += ' ' + sleepNote;
+    return {weight:newW, reps:range?range.lo:allR[0], hint:topNote};
+  }
+  // Normal: +1 Wdh anpeilen, mit Schlaf-Modulation
+  var targetReps = Math.min(range?range.hi:allR[0]+1, Math.max.apply(null,allR)+1);
+  var hint = 'Gleiches Gewicht – +1 Wdh anpeilen.';
+  if(avgRpe !== null && avgRpe <= 7){
+    hint = 'RPE niedrig – ggf. +'+(minW<40?1.25:2.5)+' kg statt +1 Wdh.';
+  }
+  // Schlaf-Boost / -Bremse
+  if(sleep){
+    if(sleep.q==='top') hint += ' ' + sleepNote;
+    else if(sleep.q==='bad'){
+      var redW = Math.round(minW * 0.95 * 2)/2;
+      return {weight:redW, reps:targetReps, hint:'Schlafmangel → −5% heute. ' + sleepNote};
+    }
+  }
+  return {weight:minW, reps:targetReps, hint:hint};
 }
 
 // ── 18. EXERCISE FAMILIES (vollständig inkl. Bein/Adduktoren/Abduktoren) ─
