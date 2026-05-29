@@ -576,13 +576,13 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
       <!-- STEP 6: Split-Präferenz -->
       <div class="ob-step" id="ob-step-6" style="display:none">
         <div style="font-size:16px;font-weight:700;margin-bottom:6px">Welchen Split bevorzugst du?</div>
-        <div style="font-size:13px;color:var(--t2);margin-bottom:18px">Oder: automatisch berechnen lassen (empfohlen).</div>
+        <div style="font-size:13px;color:var(--t2);margin-bottom:18px">"Automatisch" wählt die wissenschaftlich beste Aufteilung für deine Trainingstage.</div>
         <div style="display:flex;flex-direction:column;gap:10px">
-          <button class="ob-option" data-val="auto"        onclick="selectOpt(this,'split')">🤖 Automatisch – KI wählt den optimalen Split</button>
-          <button class="ob-option" data-val="ppl"         onclick="selectOpt(this,'split')">Push / Pull / Legs (PPL)</button>
-          <button class="ob-option" data-val="upperlower"  onclick="selectOpt(this,'split')">Upper / Lower (4 Tage)</button>
-          <button class="ob-option" data-val="fullbody"    onclick="selectOpt(this,'split')">Ganzkörper (2–3 Tage)</button>
-          <button class="ob-option" data-val="brosplit"    onclick="selectOpt(this,'split')">Bro-Split (1 Muskel/Tag)</button>
+          <button class="ob-option" data-val="auto" onclick="selectOpt(this,'split')">🤖 Automatisch <span style="display:block;font-size:11px;color:var(--t3);margin-top:3px;font-weight:400">Empfohlen · KI wählt optimal für 2× Frequenz pro Muskel</span></button>
+          <button class="ob-option" data-val="ppl" onclick="selectOpt(this,'split')">Push / Pull / Legs <span style="display:block;font-size:11px;color:var(--t3);margin-top:3px;font-weight:400">Ideal für 6 Tage · jede Muskelgruppe 2×</span></button>
+          <button class="ob-option" data-val="upperlower" onclick="selectOpt(this,'split')">Upper / Lower <span style="display:block;font-size:11px;color:var(--t3);margin-top:3px;font-weight:400">Ideal für 4 Tage · beste Balance Frequenz/Erholung</span></button>
+          <button class="ob-option" data-val="fullbody" onclick="selectOpt(this,'split')">Ganzkörper <span style="display:block;font-size:11px;color:var(--t3);margin-top:3px;font-weight:400">Ideal für 2–3 Tage · jeder Muskel jede Session</span></button>
+          <button class="ob-option" data-val="brosplit" onclick="selectOpt(this,'split')">Bro-Split <span style="display:block;font-size:11px;color:var(--t3);margin-top:3px;font-weight:400">1 Muskelgruppe pro Tag · nur 1× Frequenz</span></button>
         </div>
       </div>
 
@@ -2714,20 +2714,60 @@ function initApp(){
   safeCall(renderPlan);
   safeCall(refreshDash);
   safeCall(loadProfileInputs);
-  // Show update banner + auto-open Legs on first load of new plan version
-  var shownBanner = DB.get('planBannerV'+PLAN_VERSION, false);
-  if(!shownBanner){
-    DB.set('planBannerV'+PLAN_VERSION, true);
-    var banner = el('plan-update-banner');
-    if(banner) banner.style.display = 'block';
-    Timers.set(function(){
-      var c=document.querySelector('[data-day="thu"]'), b=el('wk-b-thu');
-      if(c) c.classList.add('open'); if(b) b.classList.add('open');
-    }, 300, 'autoOpenLegs');
+
+  // ── ERSTSTART-ERKENNUNG ──
+  // Komplett neue Nutzer (keine History, kein gespeichertes Profil, nie Onboarding gesehen)
+  // bekommen automatisch den Willkommens-Screen. Bestehende Nutzer NIE.
+  var hasSeenWelcome = DB.get('welcomeSeen', false);
+  var hasHistory = AppState.history && AppState.history.length > 0;
+  var hasCustomProfile = DB.get('user', null) !== null;
+  var hasPlanFlag = DB.get('planBannerV'+PLAN_VERSION, false) || DB.get('planBannerV4', false) || DB.get('planBannerV3', false);
+  var isReturningUser = hasHistory || hasCustomProfile || hasPlanFlag;
+
+  if(!hasSeenWelcome && !isReturningUser){
+    // Echter Erststart → Willkommen zeigen
+    DB.set('welcomeSeen', true);
+    Timers.set(function(){ showWelcomeScreen(); }, 400, 'welcomeDelay');
+  } else {
+    // Bestehender Nutzer: Update-Banner + Legs öffnen (wie bisher)
+    var shownBanner = DB.get('planBannerV'+PLAN_VERSION, false);
+    if(!shownBanner){
+      DB.set('planBannerV'+PLAN_VERSION, true);
+      var banner = el('plan-update-banner');
+      if(banner) banner.style.display = 'block';
+      Timers.set(function(){
+        var c=document.querySelector('[data-day="thu"]'), b=el('wk-b-thu');
+        if(c) c.classList.add('open'); if(b) b.classList.add('open');
+      }, 300, 'autoOpenLegs');
+    }
   }
+
   if(AppState.activeSession && AppState.activeSession.dayId) navigate('workout');
   if(window.speechSynthesis) Timers.set(function(){window.speechSynthesis.getVoices();},100,'ttsInit');
   log.info('KINETIC v'+PLAN_VERSION+' · '+AppState.history.length+' sessions');
+}
+
+// ── WILLKOMMENS-SCREEN für neue Nutzer ──
+function showWelcomeScreen(){
+  var existing = el('welcomeScreen');
+  if(existing) existing.remove();
+  var w = document.createElement('div');
+  w.id = 'welcomeScreen';
+  w.style.cssText = 'position:fixed;inset:0;background:linear-gradient(160deg,#1a1a1a 0%,#0a0a0a 100%);z-index:850;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;text-align:center';
+  w.innerHTML =
+     '<div style="font-size:13px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--accent);margin-bottom:16px">⚡ KINETIC Athlete OS</div>'
+    +'<div style="font-size:32px;font-weight:800;line-height:1.15;margin-bottom:16px;max-width:320px">Dein wissenschaftlicher Trainings-Coach</div>'
+    +'<div style="font-size:15px;color:var(--t2);line-height:1.6;margin-bottom:8px;max-width:300px">In unter 1 Minute erstellen wir deinen perfekten Plan – abgestimmt auf deine Ziele, Erfahrung und Trainingstage.</div>'
+    +'<div style="display:flex;gap:24px;margin:28px 0;flex-wrap:wrap;justify-content:center">'
+      +'<div style="text-align:center"><div style="font-size:24px;margin-bottom:4px">🎯</div><div style="font-size:11px;color:var(--t3)">Adaptiver<br>Algorithmus</div></div>'
+      +'<div style="text-align:center"><div style="font-size:24px;margin-bottom:4px">📊</div><div style="font-size:11px;color:var(--t3)">Volumen-<br>Tracking</div></div>'
+      +'<div style="text-align:center"><div style="font-size:24px;margin-bottom:4px">🧠</div><div style="font-size:11px;color:var(--t3)">Smart<br>Coach</div></div>'
+    +'</div>'
+    +'<button id="welcome-start" class="btn bp" style="max-width:300px;font-size:16px;padding:16px">Plan erstellen →</button>'
+    +'<button id="welcome-skip" style="margin-top:14px;background:none;border:none;color:var(--t3);font-size:13px;cursor:pointer;font-family:var(--f)">Erstmal umschauen</button>';
+  document.body.appendChild(w);
+  el('welcome-start').addEventListener('click', function(){ w.remove(); openOnboarding(); });
+  el('welcome-skip').addEventListener('click', function(){ w.remove(); });
 }
 
 if(document.readyState==='loading'){
@@ -2843,7 +2883,20 @@ function applyGeneratedPlan(){
 function buildOnboardingPlan(s){
   var days=parseInt(s.gymDays,10)||3, goal=s.goal||'recomp', level=s.level||'intermediate';
   var sport=s.sport||'none', equip=s.equipment||'fullgym', splitPref=s.split||'auto';
-  var split=splitPref==='auto'?(days<=2?'fullbody':days<=3?'ppl':days<=4?'upperlower':'ppl'):splitPref;
+  // Wissenschaftliche Split-Wahl (Schoenfeld/Israetel: 2× Frequenz pro Muskel optimal)
+  // 2 Tage → Ganzkörper (jeder Muskel 2×)
+  // 3 Tage → Ganzkörper (Anfänger) oder PPL (Fortgeschrittene, aber nur 1× Frequenz)
+  // 4 Tage → Upper/Lower (jeder Muskel 2×) – wissenschaftlich beste Wahl
+  // 5 Tage → Upper/Lower + extra Push/Pull
+  // 6 Tage → PPL 2× (jeder Muskel 2×)
+  var split=splitPref;
+  if(splitPref==='auto'){
+    if(days<=2) split='fullbody';
+    else if(days===3) split=(level==='beginner'?'fullbody':'ppl');
+    else if(days===4) split='upperlower';
+    else if(days===5) split='upperlower';
+    else split='ppl'; // 6+ Tage: PPL läuft 2× durch
+  }
   var vol={beginner:{m:'3×8–12',i:'3×10–15'},intermediate:{m:'4×6–10',i:'3×10–15'},advanced:{m:'4×5–8',i:'3×12–15'}}[level]||{m:'4×6–10',i:'3×10–15'};
   var rn=goal==='strength'?'RIR 1–2':'RIR 2–3';
   var hasM=equip==='fullgym', full=equip!=='bw'&&equip!=='home';
@@ -2887,12 +2940,14 @@ function buildOnboardingPlan(s){
     sessions.push(mkSess('Lower A',fx([X.sq,X.lp,X.le,X.rd,X.lc,X.ad,X.ab,X.ca,X.pl])));
     if(days>=3) sessions.push(mkSess('Upper B',fx([X.pv,X.rh,X.la,X.rc,X.b2,X.sl,X.t2,X.fp])));
     if(days>=4) sessions.push(mkSess('Lower B',fx([X.sq,X.rd,X.lc,X.le,X.ad,X.ca,X.pl])));
+    if(days>=5) sessions.push(mkSess('Upper C (Pump)',fx([X.cf,X.rc,X.sl,X.b1,X.t1,X.fp])));
   } else if(split==='brosplit'){
     sessions.push(mkSess('Brust',  fx([X.cm,X.ci,X.cf,X.t1,X.t2])));
     sessions.push(mkSess('Rücken', fx([X.pv,X.rh,X.la,X.rc,X.b1,X.b2,X.fp])));
     sessions.push(mkSess('Schulter',fx([X.sp,X.sl,X.fp])));
     sessions.push(mkSess('Beine',  fx([X.sq,X.lp,X.le,X.rd,X.lc,X.ad,X.ca,X.pl])));
     if(days>=5) sessions.push(mkSess('Arms',fx([X.b1,X.b2,X.t1,X.t2])));
+    if(days>=6) sessions.push(mkSess('Schwachstellen',fx([X.sl,X.cf,X.lc,X.ca])));
   } else { // PPL
     sessions.push(mkSess('Push A',fx([X.cm,X.ci,X.cf,X.sp,X.sl,X.t1,X.t2])));
     sessions.push(mkSess('Pull A',fx([X.pv,X.la,X.rh,X.rc,X.b1,X.b2,X.fp])));
