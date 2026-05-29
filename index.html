@@ -1100,16 +1100,41 @@ function renderCoachCard(){
   const el_=el('coachCard'); if(!el_) return;
   const vol=weeklyMuscleSets();
   if(!Object.keys(vol).length){ el_.innerHTML='<div style="color:var(--t3);font-size:13px">Starte dein erstes Workout – der Coach lernt mit jedem Satz.</div>'; return; }
-  const rows=Object.entries(VOLUME_LM).map(([m,lm])=>{
-    const sets=vol[m]||0;
-    const [status,color]=sets<lm.mev?['unter MEV','var(--orange)']:sets<=lm.mav?['optimal','var(--green)']:sets<=lm.mrv?['hoch','var(--gold)']:['> MRV','var(--accent)'];
-    const pct=Math.min(100,(sets/lm.mrv)*100);
-    return `<div class="coach-bar">
-      <div class="coach-bar-label"><span style="text-transform:uppercase;letter-spacing:1px;color:var(--t2);font-size:11px">${m}</span><span style="color:${color};font-weight:600;font-size:11px">${sets} Sätze · ${status}</span></div>
-      <div class="coach-bar-track"><div class="coach-bar-fill" style="width:${pct}%;background:${color}"></div></div>
-    </div>`;
+
+  // Check für Übertraining
+  var overMRV = [], underMEV = [], optimal = [];
+  Object.entries(VOLUME_LM).forEach(function(pair){
+    var m=pair[0], lm=pair[1], sets=vol[m]||0;
+    if(sets > lm.mrv) overMRV.push({m:m,sets:sets,mrv:lm.mrv});
+    else if(sets > 0 && sets < lm.mev) underMEV.push({m:m,sets:sets,mev:lm.mev});
+    else if(sets >= lm.mev && sets <= lm.mav) optimal.push(m);
+  });
+
+  // Warn-Banner falls > MRV
+  var warnHtml = '';
+  if(overMRV.length){
+    warnHtml = '<div style="background:rgba(230,57,57,.1);border:1px solid rgba(230,57,57,.3);border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:var(--t2);line-height:1.5">'
+      +'⚠️ <strong style="color:var(--accent)">Übertraining-Risiko</strong><br>'
+      + overMRV.map(function(x){return '<strong style="color:var(--t1)">'+x.m+'</strong> mit '+x.sets+' Sätzen über MRV ('+x.mrv+').';}).join('<br>')
+      +'<br><span style="color:var(--t3);font-size:11px">Tipp: Reduziere die Anzahl der Sessions oder Sätze diese Woche.</span>'
+      +'</div>';
+  }
+
+  const rows=Object.entries(VOLUME_LM).map(function(pair){
+    var m=pair[0], lm=pair[1], sets=vol[m]||0;
+    var status, color;
+    if(sets<lm.mev){ status='unter MEV'; color='var(--orange)'; }
+    else if(sets<=lm.mav){ status='optimal'; color='var(--green)'; }
+    else if(sets<=lm.mrv){ status='hoch'; color='var(--gold)'; }
+    else { status='> MRV'; color='var(--accent)'; }
+    var pct=Math.min(100,(sets/lm.mrv)*100);
+    return '<div class="coach-bar">'
+      +'<div class="coach-bar-label"><span style="text-transform:uppercase;letter-spacing:1px;color:var(--t2);font-size:11px">'+m+'</span><span style="color:'+color+';font-weight:600;font-size:11px">'+sets+' Sätze · '+status+'</span></div>'
+      +'<div class="coach-bar-track"><div class="coach-bar-fill" style="width:'+pct+'%;background:'+color+'"></div></div>'
+      +'</div>';
   }).join('');
-  el_.innerHTML=rows+`<div style="margin-top:10px;font-size:10px;color:var(--t3);line-height:1.5">Israetel MEV/MAV/MRV-Modell · Ziel: MEV–MAV für Hypertrophie</div>`;
+
+  el_.innerHTML=warnHtml+rows+'<div style="margin-top:10px;font-size:10px;color:var(--t3);line-height:1.5">Israetel MEV/MAV/MRV-Modell · Ziel: MEV–MAV für Hypertrophie</div>';
 }
 
 // ── 13. PLAN RENDER ─────────────────────────────────────
@@ -1316,26 +1341,178 @@ function renderLog(){
 }
 
 // ── 16. WORKOUT SESSION ─────────────────────────────────
-function startWorkout(dayId){
-  if(!dayId) return;
-  const day=AppState.plan.find(d=>d.id===dayId);
-  if(!day||!Array.isArray(day.ex)||!day.ex.length){ toast('Keine Übungen für diesen Tag'); return; }
-  AppState.activeSession={
-    dayId, dayName:day.name,
-    exercises:day.ex.map(e=>{
-      const sug=coachSuggestion(e.n,e.s);
-      const rng=parseRepRange(e.s);
-      const nSets=rng?rng.sets:3;
-      const isTimed=!!(e.timed||/\d+s/.test(e.s)||/plank/i.test(e.n));
-      const w=sug.weight!=null?String(sug.weight):'';
-      const r=sug.reps!=null?String(sug.reps):'';
-      return { n:e.n, s:e.s, isTimed, coach:sug,
-        sets:Array.from({length:nSets},()=>({w, r, secs:'', rpe:'', done:false})), done:false };
+// ── PRE-WORKOUT VOLUMEN-CHECK ─────────────────────────────
+// Schaut vor jedem Workout: würde diese Session einen Muskel über MRV bringen?
+// Falls ja: Schlage konkrete Anpassungen vor BEVOR der User trainiert.
+function analyzePreWorkoutVolume(day){
+  if(!day || !Array.isArray(day.ex) || !day.ex.length) return null;
+
+  // Aktuelles Wochenvolumen (was schon gemacht wurde)
+  var currentVol = weeklyMuscleSets();
+  // Volumen das diese Session HINZUFÜGEN würde
+  var sessionVol = {};
+  day.ex.forEach(function(ex){
+    var match = String(ex.s||'').match(/^(\d+)/);
+    var sets = match ? parseInt(match[1],10) : 3;
+    musclesFor(ex.n).forEach(function(entry){
+      sessionVol[entry.m] = (sessionVol[entry.m]||0) + sets * (entry.w||1.0);
+    });
+  });
+
+  // Prüfe: welche Muskeln gehen über MRV nach dieser Session?
+  var overflows = [];
+  Object.keys(sessionVol).forEach(function(muscle){
+    var lm = VOLUME_LM[muscle];
+    if(!lm) return;
+    var afterSession = (currentVol[muscle]||0) + sessionVol[muscle];
+    if(afterSession > lm.mrv){
+      overflows.push({
+        muscle: muscle,
+        current: Math.round((currentVol[muscle]||0)*2)/2,
+        adding: Math.round(sessionVol[muscle]*2)/2,
+        after:   Math.round(afterSession*2)/2,
+        mrv:     lm.mrv,
+        excess:  Math.round((afterSession - lm.mrv)*2)/2
+      });
+    }
+  });
+
+  if(!overflows.length) return null;
+
+  // Finde Übungen die hauptsächlich diese Muskeln treffen → können reduziert werden
+  var suggestions = [];
+  overflows.forEach(function(of){
+    // Welche Übungen in dieser Session treffen den Muskel?
+    var hitExercises = day.ex.map(function(ex,idx){
+      var muscles = musclesFor(ex.n);
+      var hit = muscles.find(function(m){return m.m===of.muscle;});
+      if(!hit) return null;
+      var match = String(ex.s||'').match(/^(\d+)/);
+      var sets = match ? parseInt(match[1],10) : 3;
+      return {idx:idx, name:ex.n, range:ex.s, sets:sets, contribution:sets*hit.w, isPrimary:hit.w>=0.8};
+    }).filter(Boolean).sort(function(a,b){return b.contribution-a.contribution;});
+
+    // Schlage konkret vor: 1 Satz weniger bei x Übungen ODER eine Übung weglassen
+    var setsToRemove = Math.ceil(of.excess);
+    // Suche eine Übung deren Sätze gestrichen werden können
+    var dropEx = hitExercises.find(function(e){return e.sets >= setsToRemove && !e.isPrimary;})
+              || hitExercises[hitExercises.length-1]; // letzte = oft Isolation
+    if(dropEx){
+      suggestions.push({
+        muscle: of.muscle,
+        excess: of.excess,
+        action: 'reduce',
+        exerciseIdx: dropEx.idx,
+        exerciseName: dropEx.name,
+        currentSets: dropEx.sets,
+        newSets: Math.max(1, dropEx.sets - setsToRemove)
+      });
+    }
+  });
+
+  return {overflows: overflows, suggestions: suggestions, sessionVol: sessionVol};
+}
+
+function showPreWorkoutDialog(dayId, day, analysis){
+  // Build modal HTML
+  var modalId = 'preWorkoutModal';
+  var existing = el(modalId);
+  if(existing) existing.remove();
+
+  var modal = document.createElement('div');
+  modal.id = modalId;
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:600;display:flex;align-items:flex-end;backdrop-filter:blur(4px)';
+
+  var muscleNames = {brust:'Brust',ruecken:'Rücken',schulter:'Schulter',bizeps:'Bizeps',trizeps:'Trizeps',quads:'Quads',hams:'Hamstring',adduktoren:'Adduktoren',abduktoren:'Abduktoren',wade:'Wade',core:'Core'};
+
+  var overflowHtml = analysis.overflows.map(function(of){
+    return '<div style="background:rgba(230,57,57,.1);border:1px solid rgba(230,57,57,.3);border-radius:10px;padding:12px;margin-bottom:8px">'
+      +'<div style="font-size:13px;font-weight:600;color:var(--accent);margin-bottom:4px">⚠️ '+(muscleNames[of.muscle]||of.muscle)+' über MRV</div>'
+      +'<div style="font-size:12px;color:var(--t2);line-height:1.5">Diese Woche bisher: <strong style="color:var(--t1)">'+of.current+'</strong> Sätze. Diese Session bringt: <strong style="color:var(--t1)">+'+of.adding+'</strong>. Total: <strong style="color:var(--accent)">'+of.after+'</strong> (MRV: '+of.mrv+').</div>'
+      +'</div>';
+  }).join('');
+
+  var suggestionsHtml = analysis.suggestions.map(function(s){
+    return '<div style="background:var(--card2);border-radius:10px;padding:12px;margin-bottom:8px;font-size:13px;line-height:1.5">'
+      +'💡 <strong style="color:var(--t1)">'+esc(s.exerciseName)+'</strong>: '
+      +'<span style="color:var(--t2)">'+s.currentSets+' → <strong style="color:var(--green)">'+s.newSets+' Sätze</strong> (für '+(muscleNames[s.muscle]||s.muscle)+' optimal)</span>'
+      +'</div>';
+  }).join('');
+
+  modal.innerHTML = '<div style="background:var(--card);border-radius:20px 20px 0 0;padding:24px 20px 40px;width:100%;max-height:85vh;overflow-y:auto">'
+    +'<div style="width:36px;height:4px;background:var(--border2);border-radius:2px;margin:0 auto 18px"></div>'
+    +'<div style="font-size:20px;font-weight:700;margin-bottom:4px">🧠 Smart Coach Empfehlung</div>'
+    +'<div style="font-size:13px;color:var(--t2);margin-bottom:18px">Dein Wochenvolumen würde nach dieser Session über dem optimalen Bereich liegen.</div>'
+    + overflowHtml
+    +'<div style="font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin:18px 0 10px">Vorschlag der KI</div>'
+    + suggestionsHtml
+    +'<div style="display:flex;gap:10px;margin-top:20px">'
+    +'<button id="pw-skip"  class="btn bo" style="flex:1">Trotzdem voll trainieren</button>'
+    +'<button id="pw-apply" class="btn bp" style="flex:2">✓ Anpassen & starten</button>'
+    +'</div>'
+    +'<button id="pw-cancel" class="btn bg2" style="margin-top:8px;font-size:12px;padding:10px">Abbrechen</button>'
+    +'</div>';
+
+  document.body.appendChild(modal);
+
+  el('pw-skip').addEventListener('click', function(){
+    modal.remove();
+    proceedWithWorkout(dayId, day, false);
+  });
+  el('pw-apply').addEventListener('click', function(){
+    modal.remove();
+    proceedWithWorkout(dayId, day, true, analysis.suggestions);
+  });
+  el('pw-cancel').addEventListener('click', function(){ modal.remove(); });
+}
+
+function proceedWithWorkout(dayId, day, applyAdjustments, suggestions){
+  // Optional: Adjust the session's exercises based on suggestions
+  var exercises = day.ex.map(function(e){ return Object.assign({},e); });
+  if(applyAdjustments && suggestions){
+    suggestions.forEach(function(s){
+      if(exercises[s.exerciseIdx]){
+        // Update set count in the rep range string
+        var oldS = exercises[s.exerciseIdx].s||'';
+        exercises[s.exerciseIdx].s = oldS.replace(/^\d+/, s.newSets);
+        exercises[s.exerciseIdx].note = (exercises[s.exerciseIdx].note||'') + ' [KI-Anpassung: '+s.currentSets+'→'+s.newSets+' Sätze]';
+      }
+    });
+  }
+  // Build active session
+  AppState.activeSession = {
+    dayId: dayId,
+    dayName: day.name + (applyAdjustments?' (KI-optimiert)':''),
+    exercises: exercises.map(function(e){
+      var sug = coachSuggestion(e.n, e.s);
+      var rng = parseRepRange(e.s);
+      var nSets = rng ? rng.sets : 3;
+      var isTimed = !!(e.timed || /\d+s/.test(e.s||'') || /plank/i.test(e.n));
+      var w = sug.weight!=null ? String(sug.weight) : '';
+      var r = sug.reps!=null ? String(sug.reps) : '';
+      return {n:e.n, s:e.s, isTimed:isTimed, coach:sug,
+        sets:Array.from({length:nSets},function(){return {w:w,r:r,secs:'',rpe:'',done:false};}), done:false};
     }),
     currentIdx:0, startTs:Date.now(), restEndTs:0
   };
   AppState.saveSession();
   navigate('workout');
+  if(applyAdjustments) toast('🧠 Plan KI-optimiert für heute');
+}
+
+function startWorkout(dayId){
+  if(!dayId) return;
+  var day = AppState.plan.find(function(d){return d.id===dayId;});
+  if(!day || !Array.isArray(day.ex) || !day.ex.length){
+    toast('Keine Übungen für diesen Tag'); return;
+  }
+  // Volumen-Check vor dem Workout
+  var analysis = analyzePreWorkoutVolume(day);
+  if(analysis && analysis.overflows.length){
+    showPreWorkoutDialog(dayId, day, analysis);
+  } else {
+    proceedWithWorkout(dayId, day, false);
+  }
 }
 
 let _abortPending=false;
@@ -1569,9 +1746,22 @@ function parseRepRange(s){
 }
 
 function lastSessionSetsFor(exName){
+  // 1. Exakte Namens-Übereinstimmung
   for(let i=AppState.history.length-1;i>=0;i--){
     const sets=(AppState.history[i].sets||[]).filter(x=>x.ex===exName);
     if(sets.length) return sets;
+  }
+  // 2. Fallback: Suche in der gleichen Übungsfamilie
+  // Beispiel: "Klimmzüge" → wenn keine History, prüfe "Latzug (Untergriff eng)"
+  var fam = findFamilyFor(exName);
+  if(fam && fam.variants){
+    var variantNames = fam.variants.map(function(v){return v.n;});
+    for(let i=AppState.history.length-1;i>=0;i--){
+      const sets=(AppState.history[i].sets||[]).filter(function(x){
+        return variantNames.indexOf(x.ex)>=0;
+      });
+      if(sets.length) return sets;
+    }
   }
   return [];
 }
@@ -1647,14 +1837,16 @@ function coachSuggestion(exName, targetStr){
   var hitTop = range ? allR.every(function(r){return r>=range.hi;}) : false;
   var failedLow = range ? allR.some(function(r){return r<range.lo;}) : false;
 
-  // RPE > 9: Halten
-  if(avgRpe !== null && avgRpe > 9){
-    return {weight:minW, reps:range?range.lo:allR[0], hint:'Letztes Mal RPE>9 – Gewicht halten, Technik priorisieren.'+(sleepNote?' '+sleepNote:'')};
-  }
-  // Failed low: Deload −7%
+  // PRIORITÄT 1 – Failed low: Wenn untere Wdh-Grenze verfehlt → Deload −7%
+  // (kommt VOR RPE-Check: wer die Mindest-Wdh nicht schafft, muss deloaden,
+  //  sonst bleibt man dauerhaft auf zu schwerem Gewicht hängen)
   if(failedLow){
     var w = Math.round(minW * 0.93 * 2)/2;
-    return {weight:w, reps:range?range.lo:allR[0], hint:'Untere Wdh-Grenze nicht erreicht → −7% Deload.'};
+    return {weight:w, reps:range?range.lo:allR[0], hint:'Untere Wdh-Grenze verfehlt → −7% Deload. Nächstes Mal wieder aufbauen.'};
+  }
+  // PRIORITÄT 2 – RPE > 9 (aber Wdh im Soll): Gewicht halten, Technik
+  if(avgRpe !== null && avgRpe > 9){
+    return {weight:minW, reps:range?range.lo:allR[0], hint:'Hohe Anstrengung (RPE>9) – Gewicht halten, sauber ausführen.'+(sleepNote?' '+sleepNote:'')};
   }
   // Top range: +2.5 kg (schlafabhängig)
   if(hitTop){
@@ -1814,19 +2006,20 @@ const MUSCLE_MAP=[
   [/adduk/i,                           [{m:'adduktoren',w:1.0}]],
   [/abduk|clamshell/i,                 [{m:'abduktoren',w:1.0}]],
   [/waden|calf|wadenheben/i,           [{m:'wade',w:1.0}]],
-  // Brust – Compound zählt Trizeps nur 0.4 (sekundär)
-  [/bank|chest press|brust/i,          [{m:'brust',w:1.0},{m:'trizeps',w:0.3}]],
+  // Brust – Compound zählt Trizeps nur 0.25 (EMG-Forschung Schoenfeld)
+  [/bank|chest press|brust/i,          [{m:'brust',w:1.0},{m:'trizeps',w:0.25}]],
   [/kabelfly|pec deck|flys|fly/i,      [{m:'brust',w:1.0}]],
-  [/dip/i,                             [{m:'brust',w:0.7},{m:'trizeps',w:0.7}]],
+  [/dip/i,                             [{m:'brust',w:0.7},{m:'trizeps',w:0.5}]],
   // Schulter – Compound zählt Trizeps sekundär
-  [/schulterdr|overhead press|military|push press/i, [{m:'schulter',w:1.0},{m:'trizeps',w:0.3}]],
+  [/schulterdr|overhead press|military|push press/i, [{m:'schulter',w:1.0},{m:'trizeps',w:0.25}]],
   [/seitheb|lateral raise/i,           [{m:'schulter',w:1.0}]],
   [/face pull|rear delt/i,             [{m:'schulter',w:1.0}]],
   // Trizeps direkt – volles Gewicht
   [/trizeps|pushdown|french|skull|overhead ext/i, [{m:'trizeps',w:1.0}]],
-  // Rücken – Compound zählt Bizeps nur 0.4 (sekundär)
-  [/klimm|latzug|pulldown|pullover/i,  [{m:'ruecken',w:1.0},{m:'bizeps',w:0.4}]],
-  [/rudern|row/i,                      [{m:'ruecken',w:1.0},{m:'bizeps',w:0.4}]],
+  // Rücken – Compound zählt Bizeps nur 0.25 (EMG-Forschung)
+  [/klimm|latzug|pulldown/i,           [{m:'ruecken',w:1.0},{m:'bizeps',w:0.25}]],
+  [/rudern|row/i,                      [{m:'ruecken',w:1.0},{m:'bizeps',w:0.25}]],
+  [/pullover/i,                        [{m:'ruecken',w:1.0}]],
   // Bizeps direkt – volles Gewicht
   [/bizeps|curl|hammer curl|incline curl/i, [{m:'bizeps',w:1.0}]],
   [/plank|crunch|dead bug|hanging|ab wheel|core/i, [{m:'core',w:1.0}]]
@@ -1895,6 +2088,7 @@ function applyVariant(newName, newRange){
     return;
   }
   _variantConfirm=false;
+  var oldName = cur.n;
   cur.n=newName; cur.s=newRange||cur.s;
   cur.isTimed=!!(newName&&/plank/i.test(newName));
   cur.coach=coachSuggestion(newName,cur.s);
@@ -1903,7 +2097,18 @@ function applyVariant(newName, newRange){
   const w=cur.coach.weight!=null?String(cur.coach.weight):'';
   const r=cur.coach.reps!=null?String(cur.coach.reps):'';
   cur.sets=Array.from({length:nSets},()=>({w,r,secs:'',rpe:'',done:false}));
-  AppState.saveSession(); toast('Übung → '+newName); renderWorkout();
+
+  // PERSISTIERE den Tausch auch in AppState.plan, damit er beim nächsten Start erhalten bleibt
+  var day = AppState.plan.find(function(d){return d.id===s.dayId;});
+  if(day && Array.isArray(day.ex)){
+    var idx = day.ex.findIndex(function(e){return e.n===oldName;});
+    if(idx>=0){
+      day.ex[idx] = {n:newName, s:newRange||cur.s, note:'Manuell gewählt', timed:cur.isTimed||undefined};
+      AppState.save();
+    }
+  }
+
+  AppState.saveSession(); toast('Übung dauerhaft → '+newName); renderWorkout();
 }
 
 function changeVariantBy(delta){
