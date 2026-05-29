@@ -2332,9 +2332,13 @@ function saveProfile(){
     const kg=el('profKfaGoal'); if(kg&&kg.value) u.kfaGoal=parseFloat(kg.value)||u.kfaGoal;
     // Recalculate derived
     if(u.weight&&u.height){
-      u.ffmi=+((u.weight*(1-u.kfa/100))/((u.height/100)**2)).toFixed(1);
-      const bmr=Math.round(88.36+13.4*u.weight+4.8*u.height-5.7*(u.age||30));
-      u.kcalTarget=Math.round(bmr*1.55-500);
+      var lbm = u.weight*(1-(u.kfa||20)/100);
+      u.ffmi=+(lbm/((u.height/100)**2)).toFixed(1);
+      // Katch-McArdle (genauer bei bekanntem Körperfett) statt Mifflin
+      var bmr = u.kfa ? Math.round(370 + 21.6*lbm)
+                      : Math.round(88.36+13.4*u.weight+4.8*u.height-5.7*(u.age||30));
+      // Recomp/Cut: leichtes Defizit −300 (statt −500), schont Muskeln
+      u.kcalTarget=Math.round(bmr*1.55-300);
     }
     AppState.save();
     updateProfPreview();
