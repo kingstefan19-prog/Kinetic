@@ -1745,24 +1745,48 @@ function parseRepRange(s){
   return null;
 }
 
+// ── Equipment-Typ einer Übung erkennen ───────────────────────────────────
+// Verhindert dass z.B. Kabel-Pullover-Gewicht (55kg) auf einarmiges KH-Rudern
+// übertragen wird. Gleiche Familie ≠ gleiches Gewicht!
+function equipmentType(exName){
+  var n = String(exName||'').toLowerCase();
+  // Einarmige Kurzhantel-Übungen (niedrigstes Gewicht) – höchste Priorität
+  if(/einarm|single.?arm|einarmig/i.test(n)) return 'db_single';
+  // Kurzhantel beidseitig – VOR cable/press (matcht auch "(kh sitzend)")
+  if(/\(kh|kurzhantel|dumbbell/i.test(n)) return 'db';
+  // Langhantel (matcht auch "(lh untergriff)")
+  if(/\(lh|langhantel|barbell|kreuzheb|kniebeug|military|pendlay/i.test(n)) return 'barbell';
+  // Körpergewicht
+  if(/klimm|^dip|liegestütz|pull.?up|plank|bodyweight|nordic/i.test(n)) return 'bodyweight';
+  // Kabel / Maschine
+  if(/kabel|cable|seilzug|pulldown|latzug|pushdown|maschine|pec deck|pullover|beinpresse|beinstrecker|beinbeuger|adduktion|abduktion/i.test(n)) return 'cable_machine';
+  return 'other';
+}
+
 function lastSessionSetsFor(exName){
-  // 1. Exakte Namens-Übereinstimmung
+  // 1. Exakte Namens-Übereinstimmung (immer am besten)
   for(let i=AppState.history.length-1;i>=0;i--){
     const sets=(AppState.history[i].sets||[]).filter(x=>x.ex===exName);
     if(sets.length) return sets;
   }
-  // 2. Fallback: Suche in der gleichen Übungsfamilie
-  // Beispiel: "Klimmzüge" → wenn keine History, prüfe "Latzug (Untergriff eng)"
+  // 2. Fallback: gleiche Familie ABER nur kompatibles Equipment
+  // Beispiel: "Einarmiges KH-Rudern" darf NICHT das Gewicht von "Kabel-Pullover" erben
   var fam = findFamilyFor(exName);
   if(fam && fam.variants){
-    var variantNames = fam.variants.map(function(v){return v.n;});
-    for(let i=AppState.history.length-1;i>=0;i--){
-      const sets=(AppState.history[i].sets||[]).filter(function(x){
-        return variantNames.indexOf(x.ex)>=0;
-      });
-      if(sets.length) return sets;
+    var targetEquip = equipmentType(exName);
+    var compatibleVariants = fam.variants
+      .map(function(v){return v.n;})
+      .filter(function(name){ return equipmentType(name) === targetEquip; });
+    if(compatibleVariants.length){
+      for(let i=AppState.history.length-1;i>=0;i--){
+        const sets=(AppState.history[i].sets||[]).filter(function(x){
+          return compatibleVariants.indexOf(x.ex)>=0;
+        });
+        if(sets.length) return sets;
+      }
     }
   }
+  // 3. Kein kompatibler Treffer → kein Gewicht vorschlagen (sicherer als falsches Gewicht)
   return [];
 }
 
