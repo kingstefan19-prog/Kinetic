@@ -1038,8 +1038,16 @@ function renderSmartNotifs(){
     notifs.push({icon:'😴', title:'Wenig Schlaf', body:'Nur '+lastSleep.h+'h – Progression heute automatisch reduziert.', type:'sleep'});
   }
 
+  // BACKUP-ERINNERUNG – schützt vor Datenverlust bei Gerätewechsel
+  var workoutCount = (AppState.history||[]).length;
+  var lastBackup = DB.get('lastBackupCount', 0);
+  if(workoutCount >= 3 && workoutCount - lastBackup >= 5){
+    notifs.push({icon:'💾', title:'Backup empfohlen', body:'Du hast '+(workoutCount-lastBackup)+' neue Workouts seit dem letzten Export. Sichere deine Daten: Profil → Daten → Exportieren.', type:'warn', backup:true});
+  }
+
   c.innerHTML = notifs.slice(0,3).map(function(n){
-    return '<div class="sm-banner sm-'+n.type+'">'
+    var clickAttr = n.backup ? ' onclick="navigate(\'data\')" style="cursor:pointer"' : '';
+    return '<div class="sm-banner sm-'+n.type+'"'+clickAttr+'>'
       +'<div class="sm-icon">'+n.icon+'</div>'
       +'<div class="sm-body"><strong>'+esc(n.title)+'</strong>'+esc(n.body)+'</div>'
       +'</div>';
@@ -2486,6 +2494,9 @@ function exportData(){
     const data=JSON.stringify({version:2,ts:Date.now(),state:{user:AppState.user,streak:AppState.streak,plan:AppState.plan,history:AppState.history,prs:AppState.prs,weightLog:AppState.weightLog,sleepLog:AppState.sleepLog,meals:AppState.meals}},null,2);
     const a=document.createElement('a'); a.href='data:application/json;charset=utf-8,'+encodeURIComponent(data);
     a.download=`kinetic-backup-${new Date().toISOString().split('T')[0]}.json`; a.click();
+    // Backup-Erinnerung zurücksetzen
+    DB.set('lastBackupCount', (AppState.history||[]).length);
+    toast('✅ Backup gespeichert! Bewahre die Datei sicher auf.');
   } catch(e){ toast('Export fehlgeschlagen'); }
 }
 function importData(input){
