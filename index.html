@@ -1852,7 +1852,6 @@ function coachSuggestion(exName, targetStr){
   var range = parseRepRange(targetStr);
   var last = lastSessionSetsFor(exName);
   var sleep = recentSleepQuality();
-  var sleepMod = sleep ? sleep.mod : 1.0;
   var sleepNote = sleep ? sleep.note : '';
 
   if(!last.length){
@@ -1861,50 +1860,71 @@ function coachSuggestion(exName, targetStr){
     return {weight:null, reps:range?range.lo:null, hint:note};
   }
 
-  var allW = last.map(function(x){return +(x.w)||0;});
-  var minW = Math.min.apply(null, allW);
+  var allW = last.map(function(x){return +(x.w)||0;}).filter(function(w){return w>0;});
   var allR = last.map(function(x){return +(x.r)||0;});
   var allRpe = last.map(function(x){return +(x.rpe)||0;}).filter(Boolean);
   var avgRpe = allRpe.length ? allRpe.reduce(function(a,b){return a+b;},0)/allRpe.length : null;
-  var hitTop = range ? allR.every(function(r){return r>=range.hi;}) : false;
-  var failedLow = range ? allR.some(function(r){return r<range.lo;}) : false;
 
-  // PRIORITÄT 1 – Failed low: Wenn untere Wdh-Grenze verfehlt → Deload −7%
-  // (kommt VOR RPE-Check: wer die Mindest-Wdh nicht schafft, muss deloaden,
-  //  sonst bleibt man dauerhaft auf zu schwerem Gewicht hängen)
+  // ── ARBEITSGEWICHT statt Minimum ──
+  // Nutze das häufigste (Modus) bzw. höchste Arbeitsgewicht, nicht den Aufwärmsatz.
+  // Beispiel: 100,110,110,110 → Arbeitsgewicht 110 (nicht 100!)
+  var workW = allW.length ? Math.max.apply(null, allW) : 0;
+  if(allW.length >= 3){
+    // Modus: das am häufigsten geloggte Gewicht ist das echte Arbeitsgewicht
+    var freq = {};
+    allW.forEach(function(w){ freq[w] = (freq[w]||0)+1; });
+    var modeW = workW, modeCount = 0;
+    Object.keys(freq).forEach(function(w){
+      if(freq[w] > modeCount || (freq[w]===modeCount && +w>modeW)){ modeCount = freq[w]; modeW = +w; }
+    });
+    workW = modeW;
+  }
+  // Nur Sätze mit Arbeitsgewicht für Wdh-Analyse (Aufwärmsätze ignorieren)
+  var workReps = [];
+  last.forEach(function(x){ if((+(x.w)||0) >= workW) workReps.push(+(x.r)||0); });
+  if(!workReps.length) workReps = allR;
+
+  // ── Mehrheits-Logik statt Alles-oder-nichts ──
+  var hitTopCount = range ? workReps.filter(function(r){return r>=range.hi;}).length : 0;
+  var hitTop = range ? (hitTopCount >= Math.ceil(workReps.length/2)) : false; // Mehrheit reicht
+  // failedLow nur wenn MEHRERE Sätze die Grenze verfehlen (nicht 1 Ermüdungssatz)
+  var failedCount = range ? workReps.filter(function(r){return r<range.lo;}).length : 0;
+  var failedLow = range ? (failedCount >= 2 || (workReps.length<=2 && failedCount>=1)) : false;
+
+  // PRIORITÄT 1 – Failed low (mehrere Sätze unter Grenze) → Deload −7%
   if(failedLow){
-    var w = Math.round(minW * 0.93 * 2)/2;
-    return {weight:w, reps:range?range.lo:allR[0], hint:'Untere Wdh-Grenze verfehlt → −7% Deload. Nächstes Mal wieder aufbauen.'};
+    var w = Math.round(workW * 0.93 * 2)/2;
+    return {weight:w, reps:range?range.lo:workReps[0], hint:'Mehrere Sätze unter Wdh-Ziel → −7% Deload. Sauber wieder aufbauen.'};
   }
-  // PRIORITÄT 2 – RPE > 9 (aber Wdh im Soll): Gewicht halten, Technik
+  // PRIORITÄT 2 – RPE > 9 (aber Wdh im Soll): halten
   if(avgRpe !== null && avgRpe > 9){
-    return {weight:minW, reps:range?range.lo:allR[0], hint:'Hohe Anstrengung (RPE>9) – Gewicht halten, sauber ausführen.'+(sleepNote?' '+sleepNote:'')};
+    return {weight:workW, reps:range?range.hi:workReps[0], hint:'Hohe Anstrengung (RPE>9) – Gewicht halten, Technik sauber.'+(sleepNote&&sleep.q!=='ok'?' '+sleepNote:'')};
   }
-  // Top range: +2.5 kg (schlafabhängig)
+  // PRIORITÄT 3 – Obere Grenze (Mehrheit) erreicht → +Gewicht
   if(hitTop){
-    var inc = minW<40 ? 1.25 : 2.5;
-    // Bei schlechtem Schlaf nur kleinere Steigerung
+    var inc = workW<40 ? 1.25 : 2.5;
     if(sleep && sleep.q==='bad') inc = Math.max(1.25, inc * 0.5);
-    var newW = Math.round((minW + inc) * 2)/2;
-    var topNote = 'Obere Grenze geknackt → +'+inc+' kg, Range neu starten.';
+    var newW = Math.round((workW + inc) * 2)/2;
+    var topNote = 'Obere Grenze geschafft → +'+inc+' kg, Range neu starten.';
     if(sleepNote && sleep.q !== 'ok') topNote += ' ' + sleepNote;
-    return {weight:newW, reps:range?range.lo:allR[0], hint:topNote};
+    return {weight:newW, reps:range?range.lo:workReps[0], hint:topNote};
   }
-  // Normal: +1 Wdh anpeilen, mit Schlaf-Modulation
-  var targetReps = Math.min(range?range.hi:allR[0]+1, Math.max.apply(null,allR)+1);
+  // PRIORITÄT 4 – Normal: +1 Wdh anpeilen
+  var maxR = Math.max.apply(null, workReps);
+  var targetReps = Math.min(range?range.hi:maxR+1, maxR+1);
   var hint = 'Gleiches Gewicht – +1 Wdh anpeilen.';
   if(avgRpe !== null && avgRpe <= 7){
-    hint = 'RPE niedrig – ggf. +'+(minW<40?1.25:2.5)+' kg statt +1 Wdh.';
+    hint = 'RPE niedrig (≤7) – ggf. +'+(workW<40?1.25:2.5)+' kg statt nur +1 Wdh.';
   }
-  // Schlaf-Boost / -Bremse
+  // Schlaf-Modulation
   if(sleep){
     if(sleep.q==='top') hint += ' ' + sleepNote;
     else if(sleep.q==='bad'){
-      var redW = Math.round(minW * 0.95 * 2)/2;
-      return {weight:redW, reps:targetReps, hint:'Schlafmangel → −5% heute. ' + sleepNote};
+      var redW = Math.round(workW * 0.95 * 2)/2;
+      return {weight:redW, reps:targetReps, hint:'Schlafmangel → −5% heute, Substanz erhalten. ' + sleepNote};
     }
   }
-  return {weight:minW, reps:targetReps, hint:hint};
+  return {weight:workW, reps:targetReps, hint:hint};
 }
 
 // ── 18. EXERCISE FAMILIES (vollständig inkl. Bein/Adduktoren/Abduktoren) ─
