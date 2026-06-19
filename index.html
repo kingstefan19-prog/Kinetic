@@ -800,7 +800,20 @@ const AppState = {
         DB.set('plan', this.plan);
         log.info('Plan auf Version ' + PLAN_VERSION + ' aktualisiert');
       } else {
+        // Bestehender Plan: Dubletten je Tag entfernen (Reparatur alter Daten)
+        var cleaned = false;
+        savedPlan.forEach(function(day){
+          if(!day || !Array.isArray(day.ex)) return;
+          var seen = {}, deduped = [];
+          day.ex.forEach(function(e){
+            var key = (e.n||'').toLowerCase().trim();
+            if(key && !seen[key]){ seen[key]=1; deduped.push(e); }
+            else if(key){ cleaned = true; }
+          });
+          if(deduped.length !== day.ex.length) day.ex = deduped;
+        });
         this.plan = savedPlan;
+        if(cleaned){ DB.set('plan', this.plan); log.info('Doppelte Übungen entfernt'); }
       }
     } catch(e){ log.error('AppState.load',e); this.plan = defaultPlan(); }
   },
@@ -1634,7 +1647,24 @@ function renderWorkout(){
           <div style="color:var(--t2);margin-top:4px;font-size:13px">Ziel: ${esc(cur.s)}${isTimed?' · <span style="color:var(--blue)">⏱ Zeitübung</span>':''}</div>
           ${last?`<div style="color:var(--t3);font-size:11px;margin-top:6px">Letztes Mal: ${last.w} kg × ${last.r}${last.rpe?' @ RPE '+last.rpe:''}</div>`:''}
           ${pr?`<div style="color:var(--gold);font-size:11px;margin-top:2px">🏆 PR: ${pr} kg</div>`:''}
-          ${cur.coach&&cur.coach.hint?`<div style="margin-top:10px;padding:8px 10px;background:rgba(10,132,255,.10);border-left:3px solid var(--blue);border-radius:6px;font-size:12px;color:var(--t1)">🧠 <b>Coach:</b> ${wrapTerms(cur.coach.hint)}${cur.coach.weight!=null?' <span style="color:var(--blue);font-weight:600">→ '+cur.coach.weight+' kg × '+cur.coach.reps+'</span>':''}</div>`:''}
+          ${(function(){
+            // Prominentes Progressions-Banner wenn Steigerung empfohlen
+            var c = cur.coach;
+            if(!c) return '';
+            var isIncrease = c.weight!=null && last && c.weight > (+last.w||0);
+            var isDeload = c.hint && /Deload/i.test(c.hint);
+            if(isIncrease){
+              return '<div style="margin-top:10px;padding:11px 13px;background:rgba(52,199,89,.14);border:1px solid rgba(52,199,89,.4);border-radius:10px;font-size:13px;color:var(--t1);font-weight:600">'
+                +'🔼 <b style="color:var(--green)">Heute steigern!</b> '+(+last.w)+' → <b style="color:var(--green)">'+c.weight+' kg</b> × '+c.reps+' Wdh anpeilen'
+                +'<div style="font-size:11px;color:var(--t2);font-weight:400;margin-top:4px">'+wrapTerms(c.hint)+'</div></div>';
+            }
+            if(isDeload){
+              return '<div style="margin-top:10px;padding:11px 13px;background:rgba(255,159,10,.12);border:1px solid rgba(255,159,10,.35);border-radius:10px;font-size:13px;color:var(--t1)">'
+                +'🔽 <b style="color:var(--orange)">Deload heute:</b> '+c.weight+' kg × '+c.reps+'<div style="font-size:11px;color:var(--t2);margin-top:4px">'+wrapTerms(c.hint)+'</div></div>';
+            }
+            // Standard blauer Coach-Hinweis
+            return '<div style="margin-top:10px;padding:8px 10px;background:rgba(10,132,255,.10);border-left:3px solid var(--blue);border-radius:6px;font-size:12px;color:var(--t1)">🧠 <b>Coach:</b> '+wrapTerms(c.hint)+(c.weight!=null?' <span style="color:var(--blue);font-weight:600">→ '+c.weight+' kg × '+c.reps+'</span>':'')+'</div>';
+          })()}
           ${tip?`<div style="margin-top:10px;padding:8px 10px;background:rgba(10,132,255,.06);border-left:3px solid rgba(10,132,255,.3);border-radius:6px;font-size:12px;color:var(--t2);line-height:1.5"><b style="color:var(--blue)">Technik:</b> ${esc(tip)}</div>`:''}
           ${varHtml}
         </div>
@@ -2133,6 +2163,9 @@ function findFamilyFor(exName){
 function applyVariant(newName, newRange){
   const s=AppState.activeSession; if(!s) return;
   const cur=s.exercises[s.currentIdx]; if(!cur) return;
+  // DUBLETTEN-SCHUTZ: Übung darf nicht schon in der Session sein
+  var dupe = s.exercises.some(function(e,i){ return i!==s.currentIdx && e.n.toLowerCase()===newName.toLowerCase(); });
+  if(dupe){ toast('⚠️ '+newName+' ist bereits in dieser Session'); return; }
   if(cur.sets.some(st=>st.done)&&!_variantConfirm){
     _variantConfirm=true;
     toast('Sätze bereits gemacht – nochmal tippen zum Wechseln');
