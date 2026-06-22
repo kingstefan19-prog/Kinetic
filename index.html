@@ -1651,19 +1651,34 @@ function renderWorkout(){
             // Prominentes Progressions-Banner wenn Steigerung empfohlen
             var c = cur.coach;
             if(!c) return '';
-            var isIncrease = c.weight!=null && last && c.weight > (+last.w||0);
+            var lastW = last ? (+last.w||0) : 0;
+            var lastR = last ? (+last.r||0) : 0;
+            var isBW = (typeof equipmentType==='function') && equipmentType(cur.n)==='bodyweight' && !/plank|nordic/i.test(cur.n);
+            var isWeightIncrease = c.weight!=null && last && c.weight > lastW && !isBW;
+            var isRepIncrease = isBW && last && c.reps && c.reps > lastR;
             var isDeload = c.hint && /Deload/i.test(c.hint);
-            if(isIncrease){
+            var addWeightHint = isBW && c.hint && /Zusatzgewicht/i.test(c.hint);
+
+            if(addWeightHint){
               return '<div style="margin-top:10px;padding:11px 13px;background:rgba(52,199,89,.14);border:1px solid rgba(52,199,89,.4);border-radius:10px;font-size:13px;color:var(--t1);font-weight:600">'
-                +'🔼 <b style="color:var(--green)">Heute steigern!</b> '+(+last.w)+' → <b style="color:var(--green)">'+c.weight+' kg</b> × '+c.reps+' Wdh anpeilen'
+                +'🎖️ <b style="color:var(--green)">Zusatzgewicht-Zeit!</b><div style="font-size:11px;color:var(--t2);font-weight:400;margin-top:4px">'+wrapTerms(c.hint)+'</div></div>';
+            }
+            if(isRepIncrease){
+              return '<div style="margin-top:10px;padding:11px 13px;background:rgba(52,199,89,.14);border:1px solid rgba(52,199,89,.4);border-radius:10px;font-size:13px;color:var(--t1);font-weight:600">'
+                +'🔼 <b style="color:var(--green)">Mehr Wiederholungen!</b> '+lastR+' → <b style="color:var(--green)">'+c.reps+' Wdh</b> anpeilen'
+                +'<div style="font-size:11px;color:var(--t2);font-weight:400;margin-top:4px">'+wrapTerms(c.hint)+'</div></div>';
+            }
+            if(isWeightIncrease){
+              return '<div style="margin-top:10px;padding:11px 13px;background:rgba(52,199,89,.14);border:1px solid rgba(52,199,89,.4);border-radius:10px;font-size:13px;color:var(--t1);font-weight:600">'
+                +'🔼 <b style="color:var(--green)">Heute steigern!</b> '+lastW+' → <b style="color:var(--green)">'+c.weight+' kg</b> × '+c.reps+' Wdh anpeilen'
                 +'<div style="font-size:11px;color:var(--t2);font-weight:400;margin-top:4px">'+wrapTerms(c.hint)+'</div></div>';
             }
             if(isDeload){
               return '<div style="margin-top:10px;padding:11px 13px;background:rgba(255,159,10,.12);border:1px solid rgba(255,159,10,.35);border-radius:10px;font-size:13px;color:var(--t1)">'
-                +'🔽 <b style="color:var(--orange)">Deload heute:</b> '+c.weight+' kg × '+c.reps+'<div style="font-size:11px;color:var(--t2);margin-top:4px">'+wrapTerms(c.hint)+'</div></div>';
+                +'🔽 <b style="color:var(--orange)">Deload heute:</b> '+(c.weight!=null?c.weight+' kg × ':'')+c.reps+'<div style="font-size:11px;color:var(--t2);margin-top:4px">'+wrapTerms(c.hint)+'</div></div>';
             }
             // Standard blauer Coach-Hinweis
-            return '<div style="margin-top:10px;padding:8px 10px;background:rgba(10,132,255,.10);border-left:3px solid var(--blue);border-radius:6px;font-size:12px;color:var(--t1)">🧠 <b>Coach:</b> '+wrapTerms(c.hint)+(c.weight!=null?' <span style="color:var(--blue);font-weight:600">→ '+c.weight+' kg × '+c.reps+'</span>':'')+'</div>';
+            return '<div style="margin-top:10px;padding:8px 10px;background:rgba(10,132,255,.10);border-left:3px solid var(--blue);border-radius:6px;font-size:12px;color:var(--t1)">🧠 <b>Coach:</b> '+wrapTerms(c.hint)+(c.weight!=null?' <span style="color:var(--blue);font-weight:600">→ '+c.weight+' kg × '+c.reps+'</span>':(c.reps?' <span style="color:var(--blue);font-weight:600">→ '+c.reps+' Wdh</span>':''))+'</div>';
           })()}
           ${tip?`<div style="margin-top:10px;padding:8px 10px;background:rgba(10,132,255,.06);border-left:3px solid rgba(10,132,255,.3);border-radius:6px;font-size:12px;color:var(--t2);line-height:1.5"><b style="color:var(--blue)">Technik:</b> ${esc(tip)}</div>`:''}
           ${varHtml}
@@ -1920,6 +1935,35 @@ function coachSuggestion(exName, targetStr){
   // failedLow nur wenn MEHRERE Sätze die Grenze verfehlen (nicht 1 Ermüdungssatz)
   var failedCount = range ? workReps.filter(function(r){return r<range.lo;}).length : 0;
   var failedLow = range ? (failedCount >= 2 || (workReps.length<=2 && failedCount>=1)) : false;
+
+  // ── KÖRPERGEWICHTS-ÜBUNGEN: Progression über WIEDERHOLUNGEN ──
+  // Bei Klimmzügen/Dips/Liegestützen kann man das Körpergewicht nicht erhöhen.
+  // Daher: erst Reps hochtreiben. Erst bei sehr hohen Reps (≥ obere Grenze + Puffer)
+  // einen Hinweis auf Zusatzgewicht geben.
+  var isBodyweight = equipmentType(exName) === 'bodyweight' && !/plank|nordic/i.test(exName);
+  if(isBodyweight){
+    var maxRbw = Math.max.apply(null, workReps);
+    var topR = range ? range.hi : 12;
+    // Failed low → leichtere Variante statt Gewicht runter
+    if(failedLow){
+      return {weight:workW||null, reps:range?range.lo:workReps[0], hint:'Wdh-Ziel verfehlt – nutze "↓ Leichter" für eine einfachere Variante (z.B. Negativ-Wdh) oder reduziere die Satzzahl.'};
+    }
+    // Reps deutlich über oberer Grenze → Zusatzgewicht empfehlen
+    if(maxRbw >= topR + 3){
+      var addW = workW > 0 ? workW + 2.5 : 2.5;
+      return {weight:(workW>0?addW:null), reps:topR, hint:'Stark! '+maxRbw+' Wdh geschafft. Jetzt Zusatzgewicht anschnallen (+2,5 kg Gürtel/Weste) und wieder bei '+topR+' Wdh starten.'};
+    }
+    // Obere Grenze (Mehrheit) erreicht → +1-2 Wdh
+    if(hitTop){
+      return {weight:workW||null, reps:Math.min(topR+2, maxRbw+1), hint:'Obere Grenze geschafft → +1–2 Wdh draufpacken. Körpergewicht-Progression läuft über Wiederholungen.'};
+    }
+    // Normal → +1 Wdh
+    var bwTarget = Math.min(topR, maxRbw + 1);
+    var bwHint = 'Gleiche Übung – +1 Wdh anpeilen (Körpergewicht-Progression).';
+    if(sleep && sleep.q==='bad') bwHint = 'Schlafmangel – heute Wdh halten, sauber ausführen. ' + sleepNote;
+    else if(sleep && sleep.q==='top') bwHint += ' ' + sleepNote;
+    return {weight:workW||null, reps:bwTarget, hint:bwHint};
+  }
 
   // PRIORITÄT 1 – Failed low (mehrere Sätze unter Grenze) → Deload −7%
   if(failedLow){
