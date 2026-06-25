@@ -266,6 +266,9 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
     <div class="chart-wrap" id="weightChart"><div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--t3);font-size:13px">Noch keine Einträge</div></div>
   </div>
 
+  <div class="sh"><div class="sh-t">💪 Kraft-Fortschritt · E1RM</div></div>
+  <div class="c" id="strengthCard"><div style="color:var(--t3);font-size:13px">Logge Workouts – dein geschätztes 1RM (E1RM) pro Übung erscheint hier.</div></div>
+
   <div class="sh"><div class="sh-t">🧠 Smart Coach · Wochenvolumen</div></div>
   <div class="c" id="coachCard"><div style="color:var(--t3);font-size:13px">Starte dein erstes Workout – der Coach lernt mit jedem Satz.</div></div>
 </section>
@@ -1011,7 +1014,45 @@ function refreshDash(){
     renderCoachCard();
     renderSmartNotifs();
     renderWeightChart();
+    renderStrengthCard();
   } catch(e){ log.error('refreshDash',e); }
+}
+
+// ── E1RM-Fortschritt pro Übung (Top-Lifts mit Mini-Sparkline) ─────────────
+function renderStrengthCard(){
+  var wrap=el('strengthCard'); if(!wrap) return;
+  // Alle Übungen mit ≥2 E1RM-Datenpunkten sammeln
+  var names={};
+  (AppState.history||[]).forEach(function(s){ (s.sets||[]).forEach(function(x){ if(x.ex&&x.w&&x.r) names[x.ex]=true; }); });
+  var lifts=Object.keys(names).map(function(ex){
+    return {ex:ex, hist:e1rmHistory(ex), trend:liftTrend(ex)};
+  }).filter(function(l){ return l.hist.length>=2; });
+  if(!lifts.length){
+    wrap.innerHTML='<div style="color:var(--t3);font-size:13px">Noch zu wenig Daten – ab dem 2. Logging einer Übung erscheint hier der E1RM-Trend.</div>';
+    return;
+  }
+  // Nach aktuellem E1RM sortieren, Top 6
+  lifts.sort(function(a,b){ return b.trend.last - a.trend.last; });
+  lifts=lifts.slice(0,6);
+
+  wrap.innerHTML=lifts.map(function(l){
+    var vals=l.hist.slice(-10).map(function(p){return p.e1rm;});
+    var min=Math.min.apply(null,vals), max=Math.max.apply(null,vals);
+    var W=80,H=24,n=vals.length;
+    var xS=n>1?W/(n-1):0;
+    var yS=function(v){ return H-2-((v-min)/((max-min)||1))*(H-4); };
+    var pts=vals.map(function(v,i){return (i*xS).toFixed(1)+','+yS(v).toFixed(1);}).join(' ');
+    var t=l.trend;
+    var col=t.trend==='up'?'var(--green)':t.trend==='down'?'var(--accent)':t.trend==='plateau'?'var(--orange)':'var(--t2)';
+    var arrow=t.trend==='up'?'▲ +'+t.pct+'%':t.trend==='down'?'▼ '+t.pct+'%':t.trend==='plateau'?'▬ Plateau':'▬';
+    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">'
+      +'<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(l.ex)+'</div>'
+      +'<div style="font-size:11px;color:'+col+';font-weight:600;margin-top:2px">'+arrow+'</div></div>'
+      +'<svg viewBox="0 0 '+W+' '+H+'" style="width:80px;height:24px;flex-shrink:0"><polyline points="'+pts+'" fill="none" stroke="'+col+'" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+      +'<div style="text-align:right;flex-shrink:0;width:64px"><div style="font-size:15px;font-weight:700;color:var(--blue)">'+t.last+'</div><div style="font-size:9px;color:var(--t3)">kg E1RM</div></div>'
+      +'</div>';
+  }).join('')
+  +'<div style="margin-top:8px;font-size:10px;color:var(--t3);line-height:1.5">E1RM = geschätztes 1-Wdh-Maximum (Epley). Bester Satz je Session · Quelle: deine geloggten Workouts</div>';
 }
 
 // ── 10. SMART NOTIFICATIONS ─────────────────────────────
@@ -1019,12 +1060,18 @@ function renderSmartNotifs(){
   var c = el('smartNotifs'); if(!c) return;
   var notifs = [];
 
-  // Readiness Score (täglicher KPI)
-  var score = readinessScore();
-  var scoreData = score>=85 ? {icon:'🟢',title:'Bereit für Top-Workout',body:'Readiness '+score+'/100 – aggressive Progression heute möglich.',type:'pr'}
-                : score>=65 ? {icon:'🟡',title:'Normaler Trainingstag',body:'Readiness '+score+'/100 – plane wie gewohnt.',type:'sleep'}
-                            : {icon:'🔴',title:'Vorsicht heute',body:'Readiness '+score+'/100 – reduziere Volumen oder leichte Session.',type:'warn'};
-  notifs.push(scoreData);
+  // Readiness Score (täglicher KPI) – datenbasiert
+  var rd = readinessScore();
+  if(!rd.hasData){
+    notifs.push({icon:'📊', title:'Readiness – noch keine Daten', body:'Logge Schlaf (Profil → Schlaf & Recovery) und ein paar Workouts, dann berechnet KINETIC deine Tagesform.', type:'sleep'});
+  } else {
+    var score = rd.score;
+    var factorStr = rd.factors.length ? ' · '+rd.factors.join(' · ') : '';
+    var scoreData = score>=85 ? {icon:'🟢',title:'Bereit für Top-Workout',body:'Readiness '+score+'/100 – aggressive Progression heute möglich.'+factorStr,type:'pr'}
+                  : score>=65 ? {icon:'🟡',title:'Normaler Trainingstag',body:'Readiness '+score+'/100 – plane wie gewohnt.'+factorStr,type:'sleep'}
+                              : {icon:'🔴',title:'Vorsicht heute',body:'Readiness '+score+'/100 – reduziere Volumen oder leichte Session.'+factorStr,type:'warn'};
+    notifs.push(scoreData);
+  }
 
   // Deload-Empfehlung
   var deload = needsDeload();
@@ -1045,10 +1092,10 @@ function renderSmartNotifs(){
     }
   });
 
-  // Schlaf-Warnung
+  // Schlaf-Warnung (Quelle: deine eigene Eingabe im Profil)
   var lastSleep = (AppState.sleepLog||[]).slice(-1)[0];
   if(lastSleep && lastSleep.h <= 5){
-    notifs.push({icon:'😴', title:'Wenig Schlaf', body:'Nur '+lastSleep.h+'h – Progression heute automatisch reduziert.', type:'sleep'});
+    notifs.push({icon:'😴', title:'Wenig Schlaf', body:'Du hast '+lastSleep.h+'h eingetragen – Progression heute automatisch reduziert.', type:'sleep'});
   }
 
   // BACKUP-ERINNERUNG – schützt vor Datenverlust bei Gerätewechsel
@@ -1155,7 +1202,20 @@ function renderCoachCard(){
       +'</div>';
   }).join('');
 
-  el_.innerHTML=warnHtml+rows+'<div style="margin-top:10px;font-size:10px;color:var(--t3);line-height:1.5">Israetel MEV/MAV/MRV-Modell · Ziel: MEV–MAV für Hypertrophie</div>';
+  // Volumen-Progression: konkrete Satz-Empfehlungen fürs Mesozyklus
+  var advice = volumeProgressionAdvice();
+  var adviceHtml = '';
+  if(advice.length){
+    var addList = advice.filter(function(a){return a.action==='add';}).slice(0,3);
+    var redList = advice.filter(function(a){return a.action==='reduce';}).slice(0,3);
+    adviceHtml = '<div style="margin-top:12px;padding:10px 12px;background:var(--card2);border-radius:10px;font-size:12px;color:var(--t2);line-height:1.6">'
+      +'<strong style="color:var(--t1);font-size:11px;letter-spacing:.5px">📈 Volumen-Progression</strong><br>'
+      + addList.map(function(a){return '➕ '+esc(a.msg);}).join('<br>')
+      + (addList.length&&redList.length?'<br>':'')
+      + redList.map(function(a){return '➖ '+esc(a.msg);}).join('<br>')
+      +'</div>';
+  }
+  el_.innerHTML=warnHtml+rows+adviceHtml+'<div style="margin-top:10px;font-size:10px;color:var(--t3);line-height:1.5">Israetel MEV/MAV/MRV-Modell · Ziel: MEV–MAV für Hypertrophie</div>';
 }
 
 // ── 13. PLAN RENDER ─────────────────────────────────────
@@ -1327,12 +1387,14 @@ function renderLog(){
         return (s.w||'?')+' kg × '+(s.r||'?');
       }).join(' · ');
       var hasPR=sets.some(function(s){return s.pr;});
+      var bestE=sessionBestE1rm(sets, exName);
+      var e1Html=bestE>0?'<span style="color:var(--blue);font-weight:600">E1RM '+(Math.round(bestE*10)/10)+'</span>':(sets.length+' Sätze');
       return '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)">'
         +'<div>'
         +'<div style="font-size:13px;font-weight:500">'+esc(exName)+(hasPR?' <span style="color:var(--gold);font-size:10px">PR 🏆</span>':'')+'</div>'
         +'<div style="font-size:11px;color:var(--t3);margin-top:2px">'+setsStr+'</div>'
         +'</div>'
-        +'<div style="font-size:11px;color:var(--t3)">'+sets.length+' Sätze</div>'
+        +'<div style="font-size:11px;color:var(--t3);text-align:right">'+e1Html+'</div>'
         +'</div>';
     }).join('');
 
@@ -1646,6 +1708,16 @@ function renderWorkout(){
           <div style="font-size:20px;font-weight:700;margin-top:6px">${esc(cur.n)}</div>
           <div style="color:var(--t2);margin-top:4px;font-size:13px">Ziel: ${esc(cur.s)}${isTimed?' · <span style="color:var(--blue)">⏱ Zeitübung</span>':''}</div>
           ${last?`<div style="color:var(--t3);font-size:11px;margin-top:6px">Letztes Mal: ${last.w} kg × ${last.r}${last.rpe?' @ RPE '+last.rpe:''}</div>`:''}
+          ${(function(){
+            if(isTimed) return '';
+            var t=liftTrend(cur.n);
+            if(!t.last) return '';
+            var arrow = t.trend==='up'?'<span style="color:var(--green)">▲ +'+t.pct+'%</span>'
+                      : t.trend==='down'?'<span style="color:var(--accent)">▼ '+t.pct+'%</span>'
+                      : t.trend==='plateau'?'<span style="color:var(--orange)">▬ Plateau</span>'
+                      : '<span style="color:var(--t3)">▬</span>';
+            return '<div style="color:var(--t3);font-size:11px;margin-top:2px">E1RM: <b style="color:var(--blue)">'+t.last+' kg</b> '+arrow+'</div>';
+          })()}
           ${pr?`<div style="color:var(--gold);font-size:11px;margin-top:2px">🏆 PR: ${pr} kg</div>`:''}
           ${(function(){
             // Prominentes Progressions-Banner wenn Steigerung empfohlen
@@ -1843,6 +1915,143 @@ function lastSessionSetsFor(exName){
   return [];
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// E1RM-ENGINE (geschätztes 1-Wdh-Maximum) – Kern-Kennzahl wie Strong/Boostcamp
+// ═══════════════════════════════════════════════════════════════════════════
+// Epley-Formel: E1RM = Gewicht × (1 + Wdh/30). Bei 1 Wdh = Gewicht selbst.
+// Über ~12 Wdh wird die Schätzung unzuverlässig → dort cappen.
+function e1rm(w, r){
+  w = +w||0; r = +r||0;
+  if(w<=0 || r<=0) return 0;
+  if(r===1) return w;
+  if(r>12) r = 12;
+  return w * (1 + r/30);
+}
+
+// Bestes (höchstes) E1RM einer Übung innerhalb einer Session
+function sessionBestE1rm(sets, exName){
+  var best = 0;
+  (sets||[]).forEach(function(s){
+    if(s.ex!==exName) return;
+    var e = e1rm(s.w, s.r);
+    if(e>best) best = e;
+  });
+  return best;
+}
+
+// E1RM-Verlauf einer Übung über die gesamte History → [{ts, e1rm}]
+// Liest aus den gespeicherten Sätzen, funktioniert daher auch für Alt-Daten.
+function e1rmHistory(exName){
+  var out = [];
+  (AppState.history||[]).forEach(function(sess){
+    var best = sessionBestE1rm(sess.sets, exName);
+    if(best>0) out.push({ts:sess.ts, e1rm:Math.round(best*10)/10});
+  });
+  return out;
+}
+
+// Aktuelles (zuletzt erreichtes) E1RM einer Übung
+function currentE1rm(exName){
+  var h = e1rmHistory(exName);
+  return h.length ? h[h.length-1].e1rm : 0;
+}
+
+// Trend einer Übung anhand des E1RM-Verlaufs
+// → {trend:'new'|'up'|'flat'|'plateau'|'down', pct, last, prev, sessions, plateau}
+function liftTrend(exName){
+  var h = e1rmHistory(exName);
+  if(h.length<2) return {trend:'new', pct:0, sessions:h.length, plateau:false};
+  var last = h[h.length-1].e1rm;
+  var prev = h[h.length-2].e1rm;
+  var deltaPct = prev>0 ? (last-prev)/prev*100 : 0;
+  // Plateau: über die letzten 3 Sessions weniger als +1 % Gesamtanstieg
+  var plateau = false;
+  if(h.length>=3){
+    var ref = h[h.length-3].e1rm;
+    var gain = ref>0 ? (last-ref)/ref*100 : 0;
+    if(gain < 1.0) plateau = true;
+  }
+  var regress = last < prev*0.97; // >3 % Abfall = Rückschritt
+  return {
+    trend: regress ? 'down' : plateau ? 'plateau' : deltaPct>0.5 ? 'up' : 'flat',
+    pct: Math.round(deltaPct*10)/10,
+    last: last, prev: prev, sessions: h.length, plateau: plateau
+  };
+}
+
+// Übungen die seit ≥3 Sessions kein neues E1RM mehr erreicht haben
+function stalledLifts(){
+  var seen = {};
+  (AppState.history||[]).forEach(function(sess){
+    (sess.sets||[]).forEach(function(s){
+      if(s.ex && s.w && s.r) seen[s.ex] = true;
+    });
+  });
+  var stalled = [];
+  Object.keys(seen).forEach(function(ex){
+    var t = liftTrend(ex);
+    if(t.sessions>=3 && t.plateau) stalled.push(ex);
+  });
+  return stalled;
+}
+
+// ── Equipment-bewusste Gewichtsschritte (statt flacher 1,25/2,5) ──────────
+function plateStep(exName){
+  var t = equipmentType(exName);
+  if(t==='db' || t==='db_single') return 2;     // KH meist in 2-kg-Schritten
+  return 2.5;                                    // LH/Maschine/Kabel: 1,25er je Seite / Stack
+}
+// Gewichtssprung: prozentual (~2,5 % Compound, ~2 % Rest), auf Scheibenschritt gerundet
+function incrementFor(workW, exName){
+  var t = equipmentType(exName);
+  var pct = (t==='barbell') ? 0.025 : 0.02;
+  var step = plateStep(exName);
+  var inc = Math.max(step, Math.round((workW*pct)/step)*step);
+  return inc;
+}
+// Empfohlenes Gewicht für Ziel-Wdh bei Ziel-RIR, abgeleitet aus aktuellem E1RM
+function loadForReps(exName, reps, targetRIR){
+  var e = currentE1rm(exName);
+  if(e<=0 || !reps) return 0;
+  if(targetRIR==null) targetRIR = 2;
+  var effReps = reps + targetRIR;        // Wdh bis Versagen
+  if(effReps>12) effReps = 12;
+  var w = e / (1 + effReps/30);
+  var step = plateStep(exName);
+  return Math.round(w/step)*step;
+}
+
+// ── RPE-Trend über die letzten Sessions (Frühwarnsignal für Ermüdung) ─────
+function recentRpeTrend(){
+  var h = (AppState.history||[]).filter(function(e){
+    return (e.sets||[]).some(function(s){return s.rpe;});
+  });
+  if(h.length<2) return null;
+  function avgRpe(sess){
+    var rs = (sess.sets||[]).map(function(s){return +s.rpe||0;}).filter(Boolean);
+    return rs.length ? rs.reduce(function(a,b){return a+b;},0)/rs.length : null;
+  }
+  var lastA = avgRpe(h[h.length-1]);
+  var prevAvgs = h.slice(-4,-1).map(avgRpe).filter(function(x){return x!=null;});
+  if(lastA==null || !prevAvgs.length) return null;
+  var prevA = prevAvgs.reduce(function(a,b){return a+b;},0)/prevAvgs.length;
+  return {last:Math.round(lastA*10)/10, prev:Math.round(prevA*10)/10, delta:Math.round((lastA-prevA)*10)/10};
+}
+
+// ── Volumen-Progression: Satz-Empfehlung übers Mesozyklus (MEV→MAV→MRV) ───
+function volumeProgressionAdvice(){
+  var vol = weeklyMuscleSets();
+  var advice = [];
+  Object.keys(VOLUME_LM).forEach(function(m){
+    var lm = VOLUME_LM[m], sets = vol[m]||0;
+    if(sets<=0) return;
+    if(sets > lm.mrv)      advice.push({m:m, action:'reduce', msg:m+': über MRV ('+sets+'/'+lm.mrv+') – nächste Woche −2–3 Sätze.'});
+    else if(sets < lm.mev) advice.push({m:m, action:'add', msg:m+': unter MEV ('+sets+'/'+lm.mev+') – +2 Sätze diese Woche.'});
+    else if(sets < lm.mav) advice.push({m:m, action:'add', msg:m+': Spielraum bis MAV ('+sets+'/'+lm.mav+') – nächste Woche +1 Satz.'});
+  });
+  return advice;
+}
+
 // ── Helper: aktuelle Schlaf-Qualität (letzte 3 Tage gewichtet) ───────────
 function recentSleepQuality(){
   var logs = (AppState.sleepLog||[]).slice(-3);
@@ -1864,32 +2073,54 @@ function currentTrainingWeek(){
 
 // ── Helper: Deload nötig? (alle 6 Wochen oder bei Stagnation) ─────────────
 function needsDeload(){
-  var lastDeload = DB.get('lastDeloadWeek', 0);
   var thisWeek = currentTrainingWeek();
-  // Auto: alle 6 Wochen
-  if(thisWeek - lastDeload >= 6) return {reason:'6-Wochen-Zyklus erreicht – Deload empfohlen'};
-  // Stagnation: 3 Sessions ohne Volumensteigerung
-  var h = AppState.history.slice(-3);
-  if(h.length>=3 && h[2].volume <= h[0].volume * 0.95) return {reason:'Stagnation – Deload-Woche aktivieren?'};
+  // 1. Zeit-basiert: jede 6. Trainingswoche (zyklisch, ohne State)
+  if(thisWeek>0 && thisWeek % 6 === 0) return {reason:'6-Wochen-Zyklus erreicht'};
+  // 2. Kraft-Stagnation: mehrere Hauptlifts ohne E1RM-Fortschritt
+  var stalled = stalledLifts();
+  if(stalled.length >= 2) return {reason:stalled.length+' Übungen stagnieren ('+stalled.slice(0,2).join(', ')+')'};
+  // 3. Ermüdung: RPE-Trend stark steigend bei hohem Wochenvolumen
+  var rpeT = recentRpeTrend();
+  var since = Date.now()-7*24*3600*1000;
+  var wkSessions = (AppState.history||[]).filter(function(e){return e.ts>=since;}).length;
+  if(rpeT && rpeT.delta>=1.5 && wkSessions>=4) return {reason:'RPE stark gestiegen ('+rpeT.prev+'→'+rpeT.last+') bei hohem Volumen – Ermüdung'};
   return null;
 }
 
-// ── Helper: Readiness-Score (0–100) basierend auf Schlaf + letzten Workouts ──
+// ── Helper: Readiness-Score datenbasiert (Schlaf + RPE-Trend + Trainingsdichte)
+// Gibt {score, hasData, factors} zurück. hasData=false → ehrlich "keine Daten"
+// statt eines erfundenen Baseline-Werts.
 function readinessScore(){
-  var score = 80; // baseline
-  // Schlaf
+  var score = 75;          // neutraler Ausgangspunkt
+  var hasData = false;
+  var factors = [];
+
+  // Schlaf (nur wenn tatsächlich geloggt)
   var sleep = recentSleepQuality();
   if(sleep){
-    if(sleep.q==='top') score += 15;
-    else if(sleep.q==='low') score -= 15;
-    else if(sleep.q==='bad') score -= 30;
+    hasData = true;
+    if(sleep.q==='top'){      score += 15; factors.push('😴 Schlaf top (+15)'); }
+    else if(sleep.q==='ok'){  score += 5;  factors.push('😴 Schlaf ok (+5)'); }
+    else if(sleep.q==='low'){ score -= 10; factors.push('😴 wenig Schlaf (−10)'); }
+    else if(sleep.q==='bad'){ score -= 25; factors.push('⚠️ Schlafmangel (−25)'); }
   }
+
   // Trainingsdichte letzte 3 Tage
   var since = Date.now() - 3*24*3600*1000;
-  var recentWorkouts = (AppState.history||[]).filter(function(e){return e.ts>=since;}).length;
-  if(recentWorkouts >= 3) score -= 10;  // viel trainiert
-  if(recentWorkouts === 0) score += 5;   // gut erholt
-  return Math.max(0, Math.min(100, score));
+  var recent = (AppState.history||[]).filter(function(e){return e.ts>=since;}).length;
+  var total  = (AppState.history||[]).length;
+  if(recent >= 3){ score -= 12; factors.push('🔁 3+ Sessions/3T (−12)'); hasData = true; }
+  else if(recent === 0 && total){ score += 5; factors.push('🌿 gut erholt (+5)'); hasData = true; }
+
+  // RPE-Trend (steigender RPE = aufkommende Ermüdung)
+  var rpeT = recentRpeTrend();
+  if(rpeT){
+    hasData = true;
+    if(rpeT.delta >= 1){      score -= 12; factors.push('📈 RPE steigt (−12)'); }
+    else if(rpeT.delta <= -1){ score += 6; factors.push('📉 RPE sinkt (+6)'); }
+  }
+
+  return {score:Math.max(0, Math.min(100, Math.round(score))), hasData:hasData, factors:factors};
 }
 
 // ── 17. PROGRESSION ALGORITHM (mit Schlaf + Periodisierung) ──────────────
@@ -1976,8 +2207,8 @@ function coachSuggestion(exName, targetStr){
   }
   // PRIORITÄT 3 – Obere Grenze (Mehrheit) erreicht → +Gewicht
   if(hitTop){
-    var inc = workW<40 ? 1.25 : 2.5;
-    if(sleep && sleep.q==='bad') inc = Math.max(1.25, inc * 0.5);
+    var inc = incrementFor(workW, exName);
+    if(sleep && sleep.q==='bad') inc = Math.max(plateStep(exName), Math.round(inc*0.5/plateStep(exName))*plateStep(exName));
     var newW = Math.round((workW + inc) * 2)/2;
     var topNote = 'Obere Grenze geschafft → +'+inc+' kg, Range neu starten.';
     if(sleepNote && sleep.q !== 'ok') topNote += ' ' + sleepNote;
@@ -1988,7 +2219,18 @@ function coachSuggestion(exName, targetStr){
   var targetReps = Math.min(range?range.hi:maxR+1, maxR+1);
   var hint = 'Gleiches Gewicht – +1 Wdh anpeilen.';
   if(avgRpe !== null && avgRpe <= 7){
-    hint = 'RPE niedrig (≤7) – ggf. +'+(workW<40?1.25:2.5)+' kg statt nur +1 Wdh.';
+    hint = 'RPE niedrig (≤7) – ggf. +'+incrementFor(workW, exName)+' kg statt nur +1 Wdh.';
+  }
+  // Plateau-Hinweis: E1RM seit mehreren Sessions flach → Reiz variieren
+  var trend = liftTrend(exName);
+  if(trend.plateau && trend.sessions>=3){
+    hint += ' ⚠️ E1RM seit '+trend.sessions+' Sessions flach – Variante wechseln (↑ Schwerer) oder Extra-Satz.';
+  }
+  // RPE-Autoregulation: was würde das Ziel-Wdh bei RIR 2 aus dem E1RM bedeuten?
+  var arReps = range ? range.hi : targetReps;
+  var arW = loadForReps(exName, arReps, 2);
+  if(arW>0 && Math.abs(arW - workW) >= plateStep(exName)){
+    hint += ' 🎯 Autoreg: '+arW+' kg für '+arReps+' @ RIR 2 (aus E1RM).';
   }
   // Schlaf-Modulation
   if(sleep){
