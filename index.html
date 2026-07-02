@@ -376,18 +376,6 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
     </div>
   </div>
 
-  <div class="sh"><div class="sh-t">📷 KI Foto-Analyse</div></div>
-  <button onclick="document.getElementById('foodPhotoInput').click()"
-    style="display:flex;align-items:center;gap:12px;width:100%;padding:14px 16px;background:rgba(230,57,57,.06);border:1.5px dashed rgba(230,57,57,.35);border-radius:14px;color:var(--t1);cursor:pointer;margin-bottom:10px;font-family:var(--f);text-align:left">
-    <span style="font-size:26px">📷</span>
-    <span>
-      <strong style="display:block;font-size:14px;font-weight:600">Mahlzeit fotografieren</strong>
-      <span style="font-size:11px;color:var(--t2)">KI erkennt Kalorien & Makros automatisch</span>
-    </span>
-  </button>
-  <input type="file" id="foodPhotoInput" accept="image/*" capture="environment" style="display:none" onchange="analyzeFood(this)">
-  <div id="foodAiResult"></div>
-
   <div class="sh"><div class="sh-t">Mahlzeit eintragen</div></div>
   <div class="c" style="padding:12px">
     <div style="display:grid;grid-template-columns:1fr 60px 60px 60px;gap:6px;margin-bottom:8px">
@@ -453,23 +441,6 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 
   <div class="sh"><div class="sh-t">💪 Kraft-Benchmarks</div></div>
   <div class="c" id="benchmarkList"><div style="color:var(--t3);font-size:13px">Logge Workouts für Benchmark-Vergleiche.</div></div>
-
-  <div class="sh"><div class="sh-t">🤖 KI-Coach</div></div>
-  <button class="voice-btn" id="voiceBtn" onclick="toggleVoice()">
-    <span style="font-size:26px">🎙️</span>
-    <span style="flex:1;text-align:left">
-      <strong style="display:block;font-size:14px">Voice Coach</strong>
-      <span id="voiceSub" style="font-size:11px;color:var(--t2);font-weight:400">Stell eine Frage per Sprache</span>
-    </span>
-    <div class="voice-dot"></div>
-  </button>
-  <div class="c">
-    <textarea id="aiQuestion" style="width:100%;background:var(--card2);border:1.5px solid var(--border2);border-radius:10px;padding:12px;color:var(--t1);font-family:var(--f);font-size:13px;resize:none;height:76px;outline:none;margin-bottom:10px;transition:border-color .15s;line-height:1.5" placeholder="Frage stellen (z.B. Was esse ich nach dem Spiel? Wann Deload?)"></textarea>
-    <button id="aiAskBtn" onclick="askCoach()" class="btn bo" style="margin-bottom:10px">Fragen →</button>
-    <div id="aiAnswer" style="font-size:13px;color:var(--t2);line-height:1.7;display:none"></div>
-  </div>
-  <button id="aiAnalysisBtn" onclick="getAnalysis()" class="btn bp" style="margin-bottom:10px">🧠 Persönliche Analyse starten</button>
-  <div id="aiAnalysisResult" style="font-size:13px;color:var(--t2);line-height:1.7;display:none;padding:14px;background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:10px"></div>
 
   <div class="sh"><div class="sh-t">📖 Trainings-Glossar</div></div>
   <div class="c" style="padding:0">
@@ -681,6 +652,19 @@ const safeCall = (fn, ...args) => {
   catch(e){ log.error('safeCall:', fn.name, e); return null; }
 };
 function el(id){ return document.getElementById(id); }
+// Lokales Datum als YYYY-MM-DD (toISOString wäre UTC → abends falscher Tag)
+function localDateStr(d){
+  d = d || new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+// Mahlzeiten sind Tages-Daten: alles was nicht von heute ist, fliegt raus.
+// (Alt-Einträge ohne Datum gelten als veraltet.)
+function pruneMeals(){
+  var today = localDateStr();
+  var before = AppState.meals.length;
+  AppState.meals = AppState.meals.filter(function(m){ return m && m.d === today; });
+  if(AppState.meals.length !== before) AppState.save();
+}
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 
 // ── 2. TIMER REGISTRY ───────────────────────────────────
@@ -786,9 +770,11 @@ const AppState = {
       this.user          = Object.assign({name:'',age:31,weight:106.6,height:190,kfa:17.3,kfaGoal:14,ffmi:27.2,kcalTarget:3225}, DB.get('user',{}));
       this.streak        = DB.get('streak', 0);
       this.lastStreakDate = DB.get('lastStreakDate', null);
-      this.meals         = DB.get('meals', []);
+      this.meals         = (DB.get('meals', [])||[]).filter(function(m){ return m && m.d === localDateStr(); });
       this.history       = DB.get('history', []);
       this.prs           = DB.get('prs', {});
+      // PRs auf E1RM-Basis neu berechnen (selbstheilend, deckt Alt-Daten ab)
+      this.prs           = recomputePRs(this.history);
       this.weightLog     = DB.get('weightLog', []);
       this.sleepLog      = DB.get('sleepLog', []);
       this.activeSession = DB.get('activeSession', null);
@@ -982,16 +968,16 @@ function renderHeroStats(){
   const u=AppState.user;
   const bmi=u.weight&&u.height?(u.weight/((u.height/100)**2)).toFixed(1):'—';
   row.innerHTML=[
-    {v:AppState.streak,  l:'Streak 🔥'},
-    {v:u.weight+'kg',    l:'Gewicht'},
-    {v:u.kfa+'%',        l:'KFA'},
-    {v:u.ffmi||'26.6',   l:'FFMI'},
-    {v:bmi,              l:'BMI'}
+    {v:AppState.streak,          l:'Streak 🔥'},
+    {v:u.weight?u.weight+'kg':'—', l:'Gewicht'},
+    {v:u.kfa?u.kfa+'%':'—',      l:'KFA'},
+    {v:u.ffmi||'—',              l:'FFMI'},
+    {v:bmi,                      l:'BMI'}
   ].map(s=>`<div class="hs-pill"><div class="hs-val">${esc(s.v)}</div><div class="hs-lbl">${esc(s.l)}</div></div>`).join('');
 
   const meta=el('heroMeta'); if(!meta) return;
   const nameTag=u.name?' · <strong style="color:var(--accent)">'+esc(u.name)+'</strong>':'';
-  meta.innerHTML=u.height+' cm · '+u.weight+' kg · KFA '+u.kfa+'% · FFMI '+u.ffmi+'<br>'
+  meta.innerHTML=(u.height||'—')+' cm · '+(u.weight||'—')+' kg · KFA '+(u.kfa||'—')+'% · FFMI '+(u.ffmi||'—')+'<br>'
     +'🔥 <span id="streakDays">'+AppState.streak+'</span> Tage Streak'+nameTag;
 }
 
@@ -1002,10 +988,12 @@ function refreshDash(){
     const dw=el('dashWeight'); if(dw) dw.innerHTML=u.weight+'<span class="su"> kg</span>';
     const ds=el('dashStreak'); if(ds) ds.textContent=AppState.streak;
     // weight delta
+    // weightLog: Index 0 = neuester Eintrag. delta<0 = abgenommen.
     const wl=AppState.weightLog; const delta=wl.length>=2?wl[0].w-wl[wl.length-1].w:0;
-    const dd=el('dashWeightDelta'); if(dd) dd.textContent=delta!==0?(delta>0?'↓ '+delta.toFixed(1)+' kg verloren':'↑ '+Math.abs(delta).toFixed(1)+' kg zugenommen'):'Startgewicht';
+    const dd=el('dashWeightDelta'); if(dd) dd.textContent=delta!==0?(delta<0?'↓ '+Math.abs(delta).toFixed(1)+' kg verloren':'↑ '+delta.toFixed(1)+' kg zugenommen'):'Startgewicht';
     const dsi=el('dashStreakInfo'); if(dsi) dsi.textContent=AppState.streak>0?`${AppState.streak} Tage in Folge aktiv`:'Heute das erste Training starten!';
-    // kcal
+    // kcal (nur heutige Mahlzeiten – prune falls Mitternacht überschritten)
+    pruneMeals();
     const todayKcal=AppState.meals.reduce((a,m)=>a+(m.kcal||0),0);
     const dk=el('dashKcal'); if(dk) dk.textContent=Math.round(todayKcal);
     const dkt=el('dashKcalTarget'); if(dkt) dkt.textContent=` / ${u.kcalTarget||2870} kcal`;
@@ -1073,24 +1061,27 @@ function renderSmartNotifs(){
     notifs.push(scoreData);
   }
 
-  // Deload-Empfehlung
-  var deload = needsDeload();
-  if(deload){
-    notifs.push({icon:'😌', title:'Deload empfohlen', body:deload.reason+' – diese Woche −40% Volumen, −10% Gewicht.', type:'warn'});
+  // Deload: aktiv-Status oder Empfehlung (antippbar → wirklich anwenden)
+  if(deloadActive()){
+    var until = new Date(DB.get('deloadUntil',0)).toLocaleDateString('de',{day:'2-digit',month:'2-digit'});
+    notifs.push({icon:'😌', title:'Deload aktiv bis '+until, body:'Gewichte −10%, RIR 4–5, keine Satz-Steigerungen. Tippen zum vorzeitigen Beenden.', type:'sleep', action:'endDeload'});
+  } else {
+    var deload = needsDeload();
+    if(deload){
+      notifs.push({icon:'😌', title:'Deload empfohlen – tippen zum Aktivieren', body:deload.reason+' – 1 Woche −10% Gewicht, reduziertes Volumen.', type:'warn', action:'startDeload'});
+    }
   }
 
-  // PR-Erkennung
-  Object.entries(AppState.prs||{}).forEach(function(pair){
-    var ex=pair[0], w=pair[1];
-    var h = AppState.history;
-    if(h.length >= 2){
-      var prev = h[h.length-2].sets || [];
-      var prevPR = prev.find(function(s){return s.ex===ex && s.w;});
-      if(prevPR && w > prevPR.w){
-        notifs.push({icon:'🏆', title:'Neuer PR!', body:esc(ex)+': '+prevPR.w+' → '+w+' kg', type:'pr'});
-      }
-    }
-  });
+  // PR-Erkennung: pr-Flags der letzten Session (in finishWorkout gesetzt)
+  var lastSess = (AppState.history||[]).slice(-1)[0];
+  if(lastSess){
+    var prSets = (lastSess.sets||[]).filter(function(s){return s.pr;});
+    var seen = {};
+    prSets.forEach(function(s){
+      if(seen[s.ex]) return; seen[s.ex]=1;
+      notifs.push({icon:'🏆', title:'Neuer PR!', body:esc(s.ex)+': '+(AppState.prs[s.ex]||'')+' kg E1RM', type:'pr'});
+    });
+  }
 
   // Schlaf-Warnung (Quelle: deine eigene Eingabe im Profil)
   var lastSleep = (AppState.sleepLog||[]).slice(-1)[0];
@@ -1106,7 +1097,10 @@ function renderSmartNotifs(){
   }
 
   c.innerHTML = notifs.slice(0,3).map(function(n){
-    var clickAttr = n.backup ? ' onclick="navigate(\'data\')" style="cursor:pointer"' : '';
+    var clickAttr = n.backup ? ' onclick="navigate(\'data\')" style="cursor:pointer"'
+                  : n.action==='startDeload' ? ' onclick="startDeload()" style="cursor:pointer"'
+                  : n.action==='endDeload'   ? ' onclick="endDeload()" style="cursor:pointer"'
+                  : '';
     return '<div class="sm-banner sm-'+n.type+'"'+clickAttr+'>'
       +'<div class="sm-icon">'+n.icon+'</div>'
       +'<div class="sm-body"><strong>'+esc(n.title)+'</strong>'+esc(n.body)+'</div>'
@@ -1117,7 +1111,9 @@ function renderSmartNotifs(){
 // ── 11. WEIGHT CHART ────────────────────────────────────
 function renderWeightChart(){
   const wrap=el('weightChart'); if(!wrap) return;
-  const wl=AppState.weightLog.slice(-14);
+  // weightLog ist neueste-zuerst (unshift) → neueste 14 nehmen, für den Chart
+  // chronologisch drehen (links alt, rechts neu)
+  const wl=AppState.weightLog.slice(0,14).reverse();
   if(!wl.length){ wrap.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--t3);font-size:13px">Noch keine Einträge</div>'; return; }
   const vals=wl.map(e=>e.w), W=320,H=120,PAD=20;
   const min=Math.min(...vals)-1, max=Math.max(...vals)+1;
@@ -1357,7 +1353,7 @@ function renderLog(){
       +prKeys.map(function(ex){
         return '<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px">'
           +'<span style="color:var(--t2)">'+esc(ex)+'</span>'
-          +'<span style="font-weight:700;color:var(--gold)">'+prs[ex]+' kg</span>'
+          +'<span style="font-weight:700;color:var(--gold)">'+prs[ex]+' kg E1RM</span>'
           +'</div>';
       }).join('')
       +'</div>';
@@ -1565,7 +1561,7 @@ function proceedWithWorkout(dayId, day, applyAdjustments, suggestions){
   // Build active session
   AppState.activeSession = {
     dayId: dayId,
-    dayName: day.name + (applyAdjustments?' (KI-optimiert)':''),
+    dayName: day.name + (applyAdjustments?' (optimiert)':''),
     exercises: exercises.map(function(e){
       var sug = coachSuggestion(e.n, e.s);
       var rng = parseRepRange(e.s);
@@ -1580,7 +1576,7 @@ function proceedWithWorkout(dayId, day, applyAdjustments, suggestions){
   };
   AppState.saveSession();
   navigate('workout');
-  if(applyAdjustments) toast('🧠 Plan KI-optimiert für heute');
+  if(applyAdjustments) toast('🧠 Plan für heute optimiert (Volumen-Check)');
 }
 
 function startWorkout(dayId){
@@ -1706,7 +1702,7 @@ function renderWorkout(){
         <div class="c">
           <div class="sl">Aktuelle Übung</div>
           <div style="font-size:20px;font-weight:700;margin-top:6px">${esc(cur.n)}</div>
-          <div style="color:var(--t2);margin-top:4px;font-size:13px">Ziel: ${esc(cur.s)}${isTimed?' · <span style="color:var(--blue)">⏱ Zeitübung</span>':''}</div>
+          <div style="color:var(--t2);margin-top:4px;font-size:13px">Ziel: ${esc(cur.s)}${isTimed?' · <span style="color:var(--blue)">⏱ Zeitübung</span>':' · <span style="color:var(--violet)">RIR '+targetRIR()+' · Wo '+mesoWeek()+'</span>'}</div>
           ${last?`<div style="color:var(--t3);font-size:11px;margin-top:6px">Letztes Mal: ${last.w} kg × ${last.r}${last.rpe?' @ RPE '+last.rpe:''}</div>`:''}
           ${(function(){
             if(isTimed) return '';
@@ -1718,7 +1714,7 @@ function renderWorkout(){
                       : '<span style="color:var(--t3)">▬</span>';
             return '<div style="color:var(--t3);font-size:11px;margin-top:2px">E1RM: <b style="color:var(--blue)">'+t.last+' kg</b> '+arrow+'</div>';
           })()}
-          ${pr?`<div style="color:var(--gold);font-size:11px;margin-top:2px">🏆 PR: ${pr} kg</div>`:''}
+          ${pr?`<div style="color:var(--gold);font-size:11px;margin-top:2px">🏆 Best-E1RM: ${pr} kg</div>`:''}
           ${(function(){
             // Prominentes Progressions-Banner wenn Steigerung empfohlen
             var c = cur.coach;
@@ -1837,9 +1833,12 @@ function finishWorkout(){
       if(ex.isTimed&&st.secs){ sets.push({ex:ex.n,secs:parseInt(st.secs,10),pr:false}); return; }
       if(w>0&&r>0){
         volume+=w*r;
+        const rpe=parseFloat(st.rpe)||null;
+        // PR = neues Best-E1RM (97,5×10 schlägt 100×1 – Kraft zählt, nicht nur Last)
+        const setE1=Math.round(e1rm(w,r,rpe)*10)/10;
         let pr=false;
-        if(!AppState.prs[ex.n]||w>AppState.prs[ex.n]){ AppState.prs[ex.n]=w; pr=true; }
-        sets.push({ex:ex.n,w,r,rpe:parseFloat(st.rpe)||null,pr});
+        if(setE1>(AppState.prs[ex.n]||0)){ AppState.prs[ex.n]=setE1; pr=true; }
+        sets.push({ex:ex.n,w,r,rpe,pr});
       }
     });
   });
@@ -1918,12 +1917,17 @@ function lastSessionSetsFor(exName){
 // ═══════════════════════════════════════════════════════════════════════════
 // E1RM-ENGINE (geschätztes 1-Wdh-Maximum) – Kern-Kennzahl wie Strong/Boostcamp
 // ═══════════════════════════════════════════════════════════════════════════
-// Epley-Formel: E1RM = Gewicht × (1 + Wdh/30). Bei 1 Wdh = Gewicht selbst.
-// Über ~12 Wdh wird die Schätzung unzuverlässig → dort cappen.
-function e1rm(w, r){
-  w = +w||0; r = +r||0;
+// Epley-Formel: E1RM = Gewicht × (1 + Wdh/30).
+// RPE-Korrektur (RTS/Tuchscherer): geloggte Wdh sind meist NICHT bis Versagen.
+// Effektive Wdh = Wdh + RIR = Wdh + (10 − RPE). Ohne RPE: Wdh wie geloggt.
+// Über ~12 effektive Wdh wird die Schätzung unzuverlässig → dort cappen.
+function e1rm(w, r, rpe){
+  w = +w||0; r = +r||0; rpe = +rpe||0;
   if(w<=0 || r<=0) return 0;
-  if(r===1) return w;
+  if(rpe>=5 && rpe<=10){
+    r += Math.min(4, 10 - rpe);   // max +4 Wdh Korrektur (RPE<6 unzuverlässig)
+  }
+  if(r<=1) return w;
   if(r>12) r = 12;
   return w * (1 + r/30);
 }
@@ -1933,10 +1937,23 @@ function sessionBestE1rm(sets, exName){
   var best = 0;
   (sets||[]).forEach(function(s){
     if(s.ex!==exName) return;
-    var e = e1rm(s.w, s.r);
+    var e = e1rm(s.w, s.r, s.rpe);
     if(e>best) best = e;
   });
   return best;
+}
+
+// PRs aus der kompletten History neu berechnen (E1RM-basiert, selbstheilend)
+function recomputePRs(history){
+  var prs = {};
+  (history||[]).forEach(function(sess){
+    (sess.sets||[]).forEach(function(s){
+      if(!s.ex || !s.w || !s.r) return;
+      var e = Math.round(e1rm(s.w, s.r, s.rpe)*10)/10;
+      if(e > (prs[s.ex]||0)) prs[s.ex] = e;
+    });
+  });
+  return prs;
 }
 
 // E1RM-Verlauf einer Übung über die gesamte History → [{ts, e1rm}]
@@ -2010,11 +2027,11 @@ function incrementFor(workW, exName){
   return inc;
 }
 // Empfohlenes Gewicht für Ziel-Wdh bei Ziel-RIR, abgeleitet aus aktuellem E1RM
-function loadForReps(exName, reps, targetRIR){
+function loadForReps(exName, reps, rir){
   var e = currentE1rm(exName);
   if(e<=0 || !reps) return 0;
-  if(targetRIR==null) targetRIR = 2;
-  var effReps = reps + targetRIR;        // Wdh bis Versagen
+  if(rir==null) rir = targetRIR();       // Default: RIR der aktuellen Meso-Woche
+  var effReps = reps + rir;              // Wdh bis Versagen
   if(effReps>12) effReps = 12;
   var w = e / (1 + effReps/30);
   var step = plateStep(exName);
@@ -2038,8 +2055,34 @@ function recentRpeTrend(){
   return {last:Math.round(lastA*10)/10, prev:Math.round(prevA*10)/10, delta:Math.round((lastA-prevA)*10)/10};
 }
 
+// ── Deload-System: nicht nur empfehlen, sondern AKTIVIEREN ────────────────
+function deloadActive(){ return DB.get('deloadUntil', 0) > Date.now(); }
+function startDeload(){
+  DB.set('deloadUntil', Date.now() + 7*24*3600*1000);
+  DB.set('lastDeloadWeek', currentTrainingWeek());
+  toast('😌 Deload-Woche aktiv: −10% Gewicht, reduziertes Volumen');
+  refreshDash();
+}
+function endDeload(){
+  DB.set('deloadUntil', 0);
+  toast('💪 Deload beendet – neuer Block startet');
+  refreshDash();
+}
+
+// ── Meso-Woche & Ziel-RIR-Periodisierung (RP-Modell: RIR 3→3→2→2→1→Deload) ─
+function mesoWeek(){
+  var lastDeload = DB.get('lastDeloadWeek', 0);
+  return Math.max(1, currentTrainingWeek() - lastDeload);
+}
+function targetRIR(){
+  if(deloadActive()) return 4;
+  var w = ((mesoWeek()-1) % 6) + 1;
+  return w<=2 ? 3 : w<=4 ? 2 : 1;
+}
+
 // ── Volumen-Progression: Satz-Empfehlung übers Mesozyklus (MEV→MAV→MRV) ───
 function volumeProgressionAdvice(){
+  if(deloadActive()) return [];   // im Deload keine Steigerungs-Empfehlungen
   var vol = weeklyMuscleSets();
   var advice = [];
   Object.keys(VOLUME_LM).forEach(function(m){
@@ -2073,9 +2116,11 @@ function currentTrainingWeek(){
 
 // ── Helper: Deload nötig? (alle 6 Wochen oder bei Stagnation) ─────────────
 function needsDeload(){
-  var thisWeek = currentTrainingWeek();
-  // 1. Zeit-basiert: jede 6. Trainingswoche (zyklisch, ohne State)
-  if(thisWeek>0 && thisWeek % 6 === 0) return {reason:'6-Wochen-Zyklus erreicht'};
+  if(deloadActive()) return null;             // läuft bereits
+  var sinceDeload = mesoWeek();
+  if(sinceDeload < 2) return null;            // frisch nach Deload: Signale noch verzerrt
+  // 1. Zeit-basiert: 6 Trainingswochen seit letztem Deload
+  if(sinceDeload >= 6) return {reason:'6-Wochen-Zyklus erreicht'};
   // 2. Kraft-Stagnation: mehrere Hauptlifts ohne E1RM-Fortschritt
   var stalled = stalledLifts();
   if(stalled.length >= 2) return {reason:stalled.length+' Übungen stagnieren ('+stalled.slice(0,2).join(', ')+')'};
@@ -2134,6 +2179,18 @@ function coachSuggestion(exName, targetStr){
     var note = 'Erstes Mal – starte mit RPE 7 (≈3 RIR).';
     if(sleepNote) note += ' ' + sleepNote;
     return {weight:null, reps:range?range.lo:null, hint:note};
+  }
+
+  // ── DELOAD AKTIV: −10% aufs Arbeitsgewicht, keine Progression ──
+  if(deloadActive()){
+    var allWd = last.map(function(x){return +(x.w)||0;}).filter(function(w){return w>0;});
+    var dW = allWd.length ? Math.max.apply(null, allWd) : 0;
+    if(dW>0){
+      var step0 = plateStep(exName);
+      var deloadW = Math.max(step0, Math.round((dW*0.9)/step0)*step0);
+      return {weight:deloadW, reps:range?range.lo:null, hint:'😌 Deload aktiv: −10% ('+dW+' → '+deloadW+' kg), RIR 4–5, Technik-Fokus. Progression pausiert.'};
+    }
+    return {weight:null, reps:range?range.lo:null, hint:'😌 Deload aktiv: lockere Ausführung, 2–3 Wdh Reserve lassen.'};
   }
 
   var allW = last.map(function(x){return +(x.w)||0;}).filter(function(w){return w>0;});
@@ -2226,11 +2283,12 @@ function coachSuggestion(exName, targetStr){
   if(trend.plateau && trend.sessions>=3){
     hint += ' ⚠️ E1RM seit '+trend.sessions+' Sessions flach – Variante wechseln (↑ Schwerer) oder Extra-Satz.';
   }
-  // RPE-Autoregulation: was würde das Ziel-Wdh bei RIR 2 aus dem E1RM bedeuten?
+  // RPE-Autoregulation: Ziel-Gewicht aus E1RM + Ziel-RIR der aktuellen Meso-Woche
+  var tRIR = targetRIR();
   var arReps = range ? range.hi : targetReps;
-  var arW = loadForReps(exName, arReps, 2);
-  if(arW>0 && Math.abs(arW - workW) >= plateStep(exName)){
-    hint += ' 🎯 Autoreg: '+arW+' kg für '+arReps+' @ RIR 2 (aus E1RM).';
+  var arW = loadForReps(exName, arReps, tRIR);
+  if(arW>0 && Math.abs(arW - workW) > plateStep(exName)){
+    hint += ' 🎯 Autoreg (Woche '+mesoWeek()+', Ziel-RIR '+tRIR+'): '+arW+' kg für '+arReps+' Wdh.';
   }
   // Schlaf-Modulation
   if(sleep){
@@ -2542,6 +2600,7 @@ const FORM_TIPS={
 // ── 20. NUTRITION ───────────────────────────────────────
 function refreshNutrition(){
   try {
+    pruneMeals();
     const u=AppState.user, target=u.kcalTarget||2870;
     const total=AppState.meals.reduce((a,m)=>({kcal:a.kcal+(m.kcal||0),p:a.p+(m.p||0),kh:a.kh+(m.kh||0),f:a.f+(m.f||0)}),{kcal:0,p:0,kh:0,f:0});
     const pct=Math.min(100,(total.kcal/target)*100);
@@ -2574,97 +2633,31 @@ function renderMealList(){
       +'<button data-del-meal="'+i+'" style="background:none;border:none;color:var(--t3);font-size:16px;cursor:pointer;padding:4px">✕</button>'
       +'</div>';
   }).join('');
-  // Bind delete via delegation
-  ml.addEventListener('click', function(ev){
+  // Bind delete via delegation – onclick (nicht addEventListener), sonst
+  // stapeln sich bei jedem Render Listener und ein Klick löscht mehrere Meals
+  ml.onclick=function(ev){
     const btn=ev.target.closest('[data-del-meal]');
     if(btn){ deleteMeal(parseInt(btn.dataset.delMeal,10)); }
-  });
+  };
 }
 
 function addMeal(){
   const name=((el('mName')||{value:''}).value||'').trim();
   const kcal=parseFloat((el('mKcal')||{value:''}).value)||0;
   if(!name||!kcal){ toast('Name und Kalorien erforderlich'); return; }
-  AppState.meals.push({name,kcal,p:parseFloat((el('mP')||{}).value)||0,kh:parseFloat((el('mKH')||{}).value)||0,f:parseFloat((el('mF')||{}).value)||0,time:new Date().toLocaleTimeString('de',{hour:'2-digit',minute:'2-digit'})});
+  AppState.meals.push({name,kcal,p:parseFloat((el('mP')||{}).value)||0,kh:parseFloat((el('mKH')||{}).value)||0,f:parseFloat((el('mF')||{}).value)||0,d:localDateStr(),time:new Date().toLocaleTimeString('de',{hour:'2-digit',minute:'2-digit'})});
   AppState.save();
   ['mName','mKcal','mP','mKH','mF'].forEach(id=>{const e=el(id);if(e)e.value='';});
   refreshNutrition(); toast('✅ Mahlzeit eingetragen');
 }
 
 function quickMeal(name,kcal,p,kh,f){
-  AppState.meals.push({name,kcal,p,kh,f,time:new Date().toLocaleTimeString('de',{hour:'2-digit',minute:'2-digit'})});
+  AppState.meals.push({name,kcal,p,kh,f,d:localDateStr(),time:new Date().toLocaleTimeString('de',{hour:'2-digit',minute:'2-digit'})});
   AppState.save(); refreshNutrition(); toast('✅ '+name);
 }
 
 function deleteMeal(idx){
   AppState.meals.splice(idx,1); AppState.save(); refreshNutrition();
-}
-
-// ── 21. KI FOTO-ANALYSE ─────────────────────────────────
-async function analyzeFood(input){
-  const file=input&&input.files&&input.files[0]; if(!file) return;
-  const reader=new FileReader();
-  reader.onload=async function(e){
-    const imgData=e.target.result;
-    const res=el('foodAiResult'); if(!res) return;
-    res.innerHTML='<div style="text-align:center;padding:20px;color:var(--t2)">⏳ KI analysiert Mahlzeit…</div>';
-    try {
-      const base64=imgData.split(',')[1], mediaType=file.type||'image/jpeg';
-      const prompt='Analysiere dieses Essen-Foto. Gib NUR JSON zurueck (kein Text davor/danach):\n{"name":"Mahlzeit-Name (Deutsch)","kcal":Zahl,"protein_g":Zahl,"carbs_g":Zahl,"fat_g":Zahl,"confidence":"hoch|mittel|niedrig","hinweis":"kurze Notiz"}\nSchaetze realistisch fuer sichtbare Portion.';
-      const text=await callClaude(prompt, base64, mediaType);
-      let meal;
-      try { meal=JSON.parse(text.replace(/```json|```/g,'').trim()); }
-      catch(pe){ meal={name:'Mahlzeit',kcal:400,protein_g:20,carbs_g:40,fat_g:15,confidence:'niedrig',hinweis:'Bitte manuell korrigieren'}; }
-
-      // Build HTML without nested template literals
-      const macroHTML=[
-        ['kcal',meal.kcal,'',''],
-        ['Protein',meal.protein_g,'g','var(--accent)'],
-        ['KH',meal.carbs_g,'g','var(--blue)'],
-        ['Fett',meal.fat_g,'g','var(--orange)']
-      ].map(function(row){
-        const l=row[0],v=row[1],u=row[2],c=row[3];
-        return '<div style="text-align:center;padding:8px;background:var(--card2);border-radius:8px">'
-          +'<div style="font-size:16px;font-weight:700;'+(c?'color:'+c:'')+'">'+(v||0)+(u||'')+'</div>'
-          +'<div style="font-size:9px;color:var(--t3);margin-top:2px;text-transform:uppercase">'+l+'</div>'
-          +'</div>';
-      }).join('');
-
-      const safeName=esc(meal.name||'Mahlzeit');
-      res.innerHTML='<div style="background:rgba(52,199,89,.07);border:1px solid rgba(52,199,89,.2);border-radius:14px;padding:14px;margin-bottom:10px">'
-        +'<img src="'+imgData+'" style="width:100%;max-height:140px;object-fit:cover;border-radius:8px;margin-bottom:10px">'
-        +'<div style="font-size:16px;font-weight:700;margin-bottom:8px">'+safeName+'</div>'
-        +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px">'+macroHTML+'</div>'
-        +'<div style="font-size:11px;color:var(--t3);margin-bottom:10px">Konfidenz: '+esc(meal.confidence||'')+'  ·  '+esc(meal.hinweis||'')+'</div>'
-        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'
-        +'<button id="foodConfirmBtn" class="btn bp" style="padding:11px;font-size:13px">✓ Eintragen</button>'
-        +'<button id="foodDiscardBtn" class="btn bo" style="padding:11px;font-size:13px">✕ Verwerfen</button>'
-        +'</div></div>';
-
-      // Bind via addEventListener – no onclick strings
-      const confirmBtn=el('foodConfirmBtn');
-      const discardBtn=el('foodDiscardBtn');
-      if(confirmBtn) confirmBtn.addEventListener('click', function(){
-        confirmFoodAI(meal.kcal, meal.protein_g, meal.carbs_g, meal.fat_g, meal.name||'Mahlzeit');
-      });
-      if(discardBtn) discardBtn.addEventListener('click', function(){
-        res.innerHTML='';
-      });
-
-    } catch(err){
-      log.error('analyzeFood',err);
-      res.innerHTML='<div style="color:var(--accent);font-size:13px;padding:10px">Analysefehler – bitte manuell eintragen.</div>';
-    }
-  };
-  reader.readAsDataURL(file);
-  input.value='';
-}
-
-function confirmFoodAI(kcal,p,kh,f,name){
-  AppState.meals.push({name,kcal,p,kh,f,aiAnalyzed:true,time:new Date().toLocaleTimeString('de',{hour:'2-digit',minute:'2-digit'})});
-  AppState.save();
-  const r=el('foodAiResult'); if(r) r.innerHTML='';
-  refreshNutrition(); toast('✅ '+name+' eingetragen');
 }
 
 // ── 22. PROFILE ─────────────────────────────────────────
@@ -2714,9 +2707,10 @@ function loadProfileInputs(){
 function logSleep(h,btn){
   $$('.sleep-btn').forEach(b=>b.classList.remove('sel'));
   if(btn) btn.classList.add('sel');
-  const today=new Date().toISOString().split('T')[0];
+  const today=localDateStr();
   const idx=AppState.sleepLog.findIndex(s=>s.d===today);
   if(idx>=0) AppState.sleepLog[idx].h=h; else AppState.sleepLog.push({h,d:today});
+  if(AppState.sleepLog.length>30) AppState.sleepLog=AppState.sleepLog.slice(-30);
   AppState.save();
   const msgs={4:'😴 Wenig Schlaf – Progression heute verlangsamt.',5:'⚠️ Unterdurchschnittlich – Volumen leicht reduziert.',6:'😐 Ausreichend – normale Progression.',7:'✅ Gut – volle Progression.',8:'🌟 Optimal! Aggressivere Progression.'};
   const fb=el('sleepFeedback'); if(fb) fb.textContent=msgs[h]||'';
@@ -2730,7 +2724,7 @@ function renderBenchmarks(){
     const pr=AppState.prs[ex];
     if(!pr) return `<div class="bench-row"><div style="font-size:14px;font-weight:500;flex:1">${esc(ex)}</div><span class="bench-pct bench-avg">Noch nicht geloggt</span></div>`;
     const [cls,lbl]=pr>=std.elite?['bench-elite','🏆 Elite']:pr>=std.adv?['bench-good','⭐ Fortgeschritten']:['bench-avg','📈 Aufbau'];
-    return `<div class="bench-row"><div style="font-size:14px;font-weight:500;flex:1">${esc(ex)}</div><div style="text-align:right"><div style="font-size:12px;color:var(--t2)">${pr} kg</div><span class="bench-pct ${cls}">${lbl}</span></div></div>`;
+    return `<div class="bench-row"><div style="font-size:14px;font-weight:500;flex:1">${esc(ex)}</div><div style="text-align:right"><div style="font-size:12px;color:var(--t2)">${pr} kg E1RM</div><span class="bench-pct ${cls}">${lbl}</span></div></div>`;
   }).join('');
   c.innerHTML=rows||'<div style="color:var(--t3);font-size:13px">Logge Workouts für Vergleiche.</div>';
 }
@@ -2740,97 +2734,15 @@ function refreshDataPage(){
   safeCall(loadProfileInputs);
   safeCall(renderBenchmarks);
   safeCall(renderGlossarPreview);
-  const today=new Date().toISOString().split('T')[0];
+  const today=localDateStr();
   const s=AppState.sleepLog.find(x=>x.d===today);
   if(s) $$('.sleep-btn').forEach(b=>{ if(parseInt(b.textContent)===s.h) b.classList.add('sel'); });
-}
-
-// ── 26. AI COACH ────────────────────────────────────────
-function aiProfile(){
-  var u=AppState.user;
-  return 'Athlet: '+(u.name||'Stefan')+' · '+(u.height||190)+'cm · '+(u.weight||108)+'kg'
-    +' · KFA '+(u.kfa||20.1)+'% · FFMI '+(u.ffmi||26.6)+' · Bio-Alter 32'
-    +' · Skelettmuskel 48.9kg · Magermasse 86.3kg'
-    +' · Ziel-KFA '+(u.kfaGoal||14)+'%'
-    +' · Wochenplan: Mo Push A / Mi Pull A / Do Legs / Sa Push+Pull B'
-    +' · Fußball: Di+Fr Training + So Spiel'
-    +' · BMR '+(u.kcalTarget?u.kcalTarget+500:2734)+' kcal · Kalorienziel '+(u.kcalTarget||2870)+' kcal'
-    +' · Fortgeschritten · Ziel: Recomp (Fett ab, Muskel halten)';
-}
-
-async function callClaude(prompt, imgBase64, mediaType){
-  if(!mediaType) mediaType='image/jpeg';
-  var msgContent=imgBase64
-    ?[{type:'image',source:{type:'base64',media_type:mediaType,data:imgBase64}},{type:'text',text:prompt}]
-    :prompt;
-  var body=JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:msgContent}]});
-  function extractText(d){ try{ return (d&&d.content&&d.content[0]&&d.content[0].text)||''; }catch(e){ return ''; } }
-  try {
-    var r1=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:body});
-    if(r1.ok){ var t1=extractText(await r1.json()); if(t1) return t1; }
-  } catch(e1){}
-  try {
-    var r2=await fetch('https://corsproxy.io/?'+encodeURIComponent('https://api.anthropic.com/v1/messages'),{method:'POST',headers:{'Content-Type':'application/json'},body:body});
-    if(r2.ok){ var t2=extractText(await r2.json()); if(t2) return t2; }
-  } catch(e2){}
-  return '⚠️ KI momentan nicht erreichbar. Bitte online sein und erneut versuchen.';
-}
-
-async function getAnalysis(){
-  var btn=el('aiAnalysisBtn'), res=el('aiAnalysisResult'); if(!res) return;
-  if(btn){ btn.disabled=true; btn.textContent='⏳ Analysiere…'; }
-  res.style.display='block'; res.innerHTML='<span style="color:var(--t3)">⏳ Verbinde mit KI-Coach…</span>';
-  var prompt='Elite-Athletik-Coach (KINETIC App, angelehnt an MCI von Tim Gabel). Analysiere auf Deutsch, max 5 Sätze, motivierend & präzise. Nutze <strong> für Schlüsselpunkte.\n'+aiProfile();
-  var t=await callClaude(prompt);
-  res.innerHTML=t;
-  if(btn){ btn.disabled=false; btn.textContent='🧠 Analyse neu starten'; }
-}
-
-async function askCoach(){
-  var qEl=el('aiQuestion'); var q=qEl?(qEl.value||'').trim():''; if(!q) return;
-  var btn=el('aiAskBtn'), res=el('aiAnswer'); if(!res) return;
-  if(btn){ btn.disabled=true; btn.textContent='⏳'; }
-  res.style.display='block'; res.innerHTML='<span style="color:var(--t3)">⏳ Denke nach…</span>';
-  var prompt='Elite-Coach (KINETIC/MCI-Stil). Deutsch, max 4 Sätze, direkt & hilfreich. Nutze <strong> für Schlüsselpunkte.\n'+aiProfile()+'\nFrage: '+q;
-  var t=await callClaude(prompt);
-  res.innerHTML=t;
-  if(btn){ btn.disabled=false; btn.textContent='Fragen →'; }
-  if(window.speechSynthesis) speakText(t.replace(/<[^>]*>/g,''));
-}
-
-// ── 27. VOICE COACH ─────────────────────────────────────
-let _voiceRec=null, _isListening=false;
-function toggleVoice(){
-  if(!('webkitSpeechRecognition' in window||'SpeechRecognition' in window)){ toast('Spracherkennung nicht verfügbar (Chrome/Safari)'); return; }
-  _isListening?stopVoice():startVoice();
-}
-function startVoice(){
-  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  _voiceRec=new SR(); _voiceRec.lang='de-DE'; _voiceRec.continuous=false; _voiceRec.interimResults=false;
-  _voiceRec.onstart=()=>{ _isListening=true; const b=el('voiceBtn'); if(b){b.classList.add('listening');} const s=el('voiceSub'); if(s) s.textContent='Höre zu…'; };
-  _voiceRec.onresult=async e=>{ const q=e.results[0][0].transcript; stopVoice(); const qa=el('aiQuestion'); if(qa) qa.value=q; await askCoach(); };
-  _voiceRec.onerror=()=>{ stopVoice(); toast('Sprachfehler – nochmal versuchen'); };
-  _voiceRec.onend=()=>stopVoice();
-  _voiceRec.start();
-}
-function stopVoice(){
-  _isListening=false; if(_voiceRec) try{_voiceRec.stop();}catch(e){}
-  const b=el('voiceBtn'); if(b) b.classList.remove('listening');
-  const s=el('voiceSub'); if(s) s.textContent='Stell eine Frage per Sprache';
-}
-function speakText(text){
-  if(!('speechSynthesis' in window)) return;
-  window.speechSynthesis.cancel();
-  const u=new SpeechSynthesisUtterance(text); u.lang='de-DE'; u.rate=0.95;
-  const voices=window.speechSynthesis.getVoices();
-  const deV=voices.find(v=>v.lang.startsWith('de')); if(deV) u.voice=deV;
-  window.speechSynthesis.speak(u);
 }
 
 // ── 28. EXPORT / IMPORT ─────────────────────────────────
 function exportData(){
   try {
-    const data=JSON.stringify({version:2,ts:Date.now(),state:{user:AppState.user,streak:AppState.streak,plan:AppState.plan,history:AppState.history,prs:AppState.prs,weightLog:AppState.weightLog,sleepLog:AppState.sleepLog,meals:AppState.meals}},null,2);
+    const data=JSON.stringify({version:2,ts:Date.now(),state:{user:AppState.user,streak:AppState.streak,lastStreakDate:AppState.lastStreakDate,plan:AppState.plan,history:AppState.history,prs:AppState.prs,weightLog:AppState.weightLog,sleepLog:AppState.sleepLog,meals:AppState.meals}},null,2);
     const a=document.createElement('a'); a.href='data:application/json;charset=utf-8,'+encodeURIComponent(data);
     a.download=`kinetic-backup-${new Date().toISOString().split('T')[0]}.json`; a.click();
     // Backup-Erinnerung zurücksetzen
@@ -2847,9 +2759,11 @@ function importData(input){
       const s=data.state||data;
       if(s.user) AppState.user=Object.assign(AppState.user,s.user);
       if(s.streak!==undefined) AppState.streak=s.streak;
+      if(s.lastStreakDate!==undefined) AppState.lastStreakDate=s.lastStreakDate;
       if(Array.isArray(s.plan)&&s.plan.length) AppState.plan=s.plan;
       if(Array.isArray(s.history)) AppState.history=s.history;
-      if(s.prs) AppState.prs=s.prs;
+      // PRs aus History neu berechnen (E1RM-basiert) statt Alt-Werte zu übernehmen
+      AppState.prs=recomputePRs(AppState.history);
       if(Array.isArray(s.weightLog)) AppState.weightLog=s.weightLog;
       if(Array.isArray(s.sleepLog)) AppState.sleepLog=s.sleepLog;
       if(Array.isArray(s.meals)) AppState.meals=s.meals;
@@ -2922,9 +2836,9 @@ var GLOSSAR = [
     term: 'E1RM',
     full: 'Estimated One Rep Max',
     emoji: '🏆',
-    def: 'Das geschätzte maximale Gewicht, das du für genau 1 Wiederholung heben könntest – auch wenn du es nie ausprobiert hast. KINETIC berechnet das automatisch aus deinen geleisteten Sätzen per Brzycki-Formel.',
-    example: 'Du machst Bankdrücken mit 80 kg × 8 Wdh → KINETIC berechnet dein E1RM auf ~104 kg. Nächste Woche: 80 kg × 9 Wdh → E1RM steigt auf ~106 kg. Fortschritt bestätigt! ✅',
-    formula: 'E1RM = Gewicht × (1 + Wdh / 30)'
+    def: 'Das geschätzte maximale Gewicht, das du für genau 1 Wiederholung heben könntest – auch wenn du es nie ausprobiert hast. KINETIC berechnet das automatisch aus deinen geleisteten Sätzen per Epley-Formel. Loggst du zusätzlich RPE, wird deine Wdh-Reserve (RIR) eingerechnet – das macht die Schätzung deutlich genauer.',
+    example: 'Bankdrücken 80 kg × 8 Wdh @ RPE 8 (2 Wdh Reserve) → E1RM ≈ 107 kg. Nächste Woche 80 kg × 9 @ RPE 8 → E1RM steigt. Fortschritt bestätigt! ✅',
+    formula: 'E1RM = Gewicht × (1 + (Wdh + RIR) / 30)'
   },
   {
     term: 'RPE',
@@ -3191,7 +3105,7 @@ function generatePlan(){
   AppState.plan=plan; DB.set('plan',plan); DB.set('planVersion',PLAN_VERSION); AppState.save();
   // Render result
   var gn={recomp:'Recomp',bulk:'Muskelaufbau',cut:'Definition',strength:'Kraft',athlete:'Athletisch'};
-  var sn={auto:'KI-optimiert',ppl:'Push/Pull/Legs',upperlower:'Upper/Lower',fullbody:'Ganzkörper',brosplit:'Bro-Split'};
+  var sn={auto:'Smart-optimiert',ppl:'Push/Pull/Legs',upperlower:'Upper/Lower',fullbody:'Ganzkörper',brosplit:'Bro-Split'};
   var vt={beginner:'5–10',intermediate:'10–15',advanced:'15–20'};
   var rc=el('ob-result-content'); if(!rc) return;
   rc.innerHTML='<div style="text-align:center;margin-bottom:20px">'
@@ -3326,6 +3240,13 @@ function buildOnboardingPlan(s){
     else              plan.push({id:id,type:'flex',  name:'Ruhe / Aktiv',   sub:'Regeneration · Mobility · Spaziergang',ex:[]});
   }
   return plan;
+}
+
+// ── SERVICE WORKER (Offline-Fähigkeit) ──────────────────
+if('serviceWorker' in navigator && (location.protocol==='https:' || location.hostname==='localhost')){
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('sw.js').catch(function(e){ log.info('SW nicht verfügbar', e); });
+  });
 }
 
 // ── PWA INSTALL PROMPT ──────────────────────────────────
