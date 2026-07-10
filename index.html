@@ -363,7 +363,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
       <div style="text-align:center;padding:10px;background:var(--card2);border-radius:10px">
         <div style="font-size:22px;font-weight:700;color:var(--accent)" id="ernP">0</div>
-        <div style="font-size:9px;color:var(--t3);margin-top:3px;letter-spacing:1px;text-transform:uppercase">Protein g</div>
+        <div style="font-size:9px;color:var(--t3);margin-top:3px;letter-spacing:1px;text-transform:uppercase" id="ernPLbl">Protein g</div>
       </div>
       <div style="text-align:center;padding:10px;background:var(--card2);border-radius:10px">
         <div style="font-size:22px;font-weight:700;color:var(--blue)" id="ernKH">0</div>
@@ -2719,6 +2719,14 @@ function refreshNutrition(){
       else{ebadge.textContent='Über Ziel';ebadge.style.color='var(--orange)';ebadge.style.background='rgba(255,149,0,.15)';}
     }
     const ep=el('ernP'); if(ep) ep.textContent=Math.round(total.p);
+    // Protein-Ziel: 2,0 g/kg Körpergewicht (Morton 2018 Meta-Analyse; für
+    // Recomp/Diät oberes Ende sinnvoll). Grün wenn erreicht.
+    const pTarget=u.weight?Math.round(u.weight*2):0;
+    const epl=el('ernPLbl');
+    if(epl && pTarget){
+      epl.textContent='Protein / '+pTarget+' g';
+      if(ep) ep.style.color = total.p>=pTarget ? 'var(--green)' : 'var(--accent)';
+    }
     const ekh=el('ernKH'); if(ekh) ekh.textContent=Math.round(total.kh);
     const ef=el('ernF'); if(ef) ef.textContent=Math.round(total.f);
     renderMealList();
