@@ -437,6 +437,29 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
       <button class="sleep-btn" onclick="logSleep(8,this)">8h+<span style="display:block;font-size:9px;color:var(--green);margin-top:2px">Top</span></button>
     </div>
     <div id="sleepFeedback" style="font-size:12px;color:var(--t2);min-height:16px;line-height:1.5;margin-top:6px"></div>
+
+    <!-- Wearable Morgen-Check-in (Luna Band ready) -->
+    <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:14px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="font-size:16px">⌚</span>
+        <div>
+          <div style="font-size:13px;font-weight:600">Wearable-Daten (Luna Band, Whoop, Oura …)</div>
+          <div style="font-size:11px;color:var(--t3)">Morgens HRV eintragen → Coach passt dein Training an</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end">
+        <div>
+          <div style="font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-bottom:4px">HRV (ms)</div>
+          <input id="wb-hrv" class="li" type="number" placeholder="z.B. 55" style="width:100%;padding:10px;font-size:14px">
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-bottom:4px">Ruhepuls</div>
+          <input id="wb-rhr" class="li" type="number" placeholder="z.B. 52" style="width:100%;padding:10px;font-size:14px">
+        </div>
+        <button onclick="logWearable()" class="btn bp" style="width:auto;padding:10px 16px;margin:0;font-size:13px">✓</button>
+      </div>
+      <div id="hrvFeedback" style="font-size:11px;color:var(--t2);margin-top:8px;line-height:1.5"></div>
+    </div>
   </div>
 
   <div class="sh"><div class="sh-t">💪 Kraft-Benchmarks</div></div>
@@ -763,6 +786,7 @@ const AppState = {
   prs: {},
   weightLog: [],       // [{w,d}]
   sleepLog: [],        // [{h,d}]
+  wearableLog: [],     // [{d, hrv, rhr}] – Luna Band / Wearable Morgen-Daten
   editMode: false,
 
   load(){
@@ -777,6 +801,7 @@ const AppState = {
       this.prs           = recomputePRs(this.history);
       this.weightLog     = DB.get('weightLog', []);
       this.sleepLog      = DB.get('sleepLog', []);
+      this.wearableLog   = DB.get('wearableLog', []);
       this.activeSession = DB.get('activeSession', null);
 
       // Plan-Versionierung: alten Plan ersetzen wenn neue Version
@@ -817,6 +842,7 @@ const AppState = {
       DB.set('prs', this.prs);
       DB.set('weightLog', this.weightLog);
       DB.set('sleepLog', this.sleepLog);
+      DB.set('wearableLog', this.wearableLog);
     } catch(e){ log.error('AppState.save',e); }
   },
   saveSession(){ DB.set('activeSession', this.activeSession); }
@@ -889,7 +915,7 @@ function defaultPlan(){
         // ABDUKTOREN 3 Sätze (Außenseite - Hüftstabilität!)
         {n:'Abduktionsmaschine (sitzend)',  s:'3×12–15', note:'Außenseite & Gesäß · langsam öffnen · wichtig für Kniestabilität im Fußball'},
         // WADE 4 Sätze (Sprungkraft für Fußball!)
-        {n:'Wadenheben stehend',            s:'4×12–15', note:'Volle ROM · ganz runter stretchen · 1 Sek oben halten · langsam senken'},
+        {n:'Wadenheben stehend',            s:'4×12–15', note:'Lengthened Partials: 2 Teilwdh unten NACH Muskelversagen anhängen (Kassiano 2023: +7-9% Wachstum) · tiefer Stretch'},
         // CORE 3 Sätze
         {n:'Plank',                         s:'3×60s',   note:'Körper gerade wie Brett · Kern aktiv · Gesäß nicht heben · atmen', timed:true}
       ]
@@ -2106,6 +2132,75 @@ function recentSleepQuality(){
   return            {q:'bad',mod:0.92,note:'⚠️ Schlafmangel → Gewicht reduzieren, Technik priorisieren'};
 }
 
+// ── HRV-Status: heutiger Wert vs. 7-Tage-Baseline (Luna Band / Wearable) ──
+// Wissenschaft: HRV-gesteuertes Training liefert signifikant bessere Anpassungen
+// und günstigere Responder-Verteilung als starre Pläne (Düking et al. 2021, Meta-Analyse)
+function hrvStatus(){
+  var logs = (AppState.wearableLog||[]);
+  if(!logs.length) return null;
+  var today = logs[logs.length-1];
+  // NUR heutige Daten steuern das Training – ein Tage-alter HRV-Wert darf
+  // Readiness/Coach nicht dauerhaft beeinflussen (stale data)
+  if(!today || !today.hrv || today.d !== localDateStr()) return null;
+  // Baseline: Durchschnitt der letzten 7 Einträge VOR heute
+  var prev = logs.slice(-8, -1).filter(function(e){return e.hrv>0;});
+  if(prev.length < 3) return {delta:0, status:'baseline', hrv:today.hrv, note:'HRV-Baseline wird aufgebaut ('+prev.length+'/3 Tage)'};
+  var baseline = prev.reduce(function(a,e){return a+e.hrv;},0)/prev.length;
+  var delta = ((today.hrv - baseline) / baseline) * 100;
+  // Ruhepuls als Zweitsignal: deutlich erhöhter RHR (≥ +7%) = Ermüdungsmarker
+  var rhrPrev = logs.slice(-8, -1).filter(function(e){return e.rhr>0;});
+  var rhrElevated = false;
+  if(today.rhr && rhrPrev.length >= 3){
+    var rhrBase = rhrPrev.reduce(function(a,e){return a+e.rhr;},0)/rhrPrev.length;
+    rhrElevated = today.rhr >= rhrBase * 1.07;
+  }
+  if(delta <= -10 || (delta <= -5 && rhrElevated))
+    return {delta:delta, status:'suppressed', hrv:today.hrv, baseline:Math.round(baseline), note:'📉 HRV '+Math.round(delta)+'% unter Baseline'+(rhrElevated?' + Ruhepuls erhöht':'')+' → Nervensystem belastet'};
+  if(delta >= 8 && !rhrElevated)
+    return {delta:delta, status:'elevated',  hrv:today.hrv, baseline:Math.round(baseline), note:'📈 HRV '+Math.round(delta)+'% über Baseline → top erholt'};
+  return {delta:delta, status:'normal', hrv:today.hrv, baseline:Math.round(baseline), note:rhrElevated?'⚠️ Ruhepuls erhöht – beobachten':''};
+}
+
+// ── Kombinierter Recovery-Status: Schlaf + HRV (Luna-ready) ──────────────
+// HRV hat Vorrang wenn vorhanden – objektiver Marker schlägt subjektiven
+function recoveryStatus(){
+  var sleep = recentSleepQuality();
+  var hrv = hrvStatus();
+  if(!hrv || hrv.status==='baseline'){
+    return sleep; // kein Wearable → wie bisher nur Schlaf
+  }
+  // HRV supprimiert → überschreibt guten Schlaf (objektive Ermüdung)
+  if(hrv.status==='suppressed'){
+    return {q:'bad', mod:0.92, note:hrv.note+' → −5-8% Gewicht heute', hrv:hrv};
+  }
+  // HRV top + Schlaf mind. ok → Boost
+  if(hrv.status==='elevated' && (!sleep || sleep.q==='ok' || sleep.q==='top')){
+    return {q:'top', mod:1.05, note:hrv.note+' → aggressive Progression möglich', hrv:hrv};
+  }
+  // Sonst: Schlaf-Urteil beibehalten, HRV-Info anhängen
+  if(sleep){ sleep.hrv = hrv; return sleep; }
+  return {q:'ok', mod:1.0, note:'', hrv:hrv};
+}
+
+// ── Wearable-Daten loggen (Luna Band Morgen-Check-in) ─────────────────────
+function logWearable(){
+  var hrvEl = el('wb-hrv'), rhrEl = el('wb-rhr');
+  var hrv = hrvEl ? parseFloat(hrvEl.value)||0 : 0;
+  var rhr = rhrEl ? parseFloat(rhrEl.value)||0 : 0;
+  if(!hrv && !rhr){ toast('Bitte mind. HRV eintragen'); return; }
+  if(hrv && (hrv<10 || hrv>200)){ toast('HRV unrealistisch (10–200 ms)'); return; }
+  if(rhr && (rhr<30 || rhr>120)){ toast('Ruhepuls unrealistisch (30–120)'); return; }
+  var today = localDateStr();
+  AppState.wearableLog = (AppState.wearableLog||[]).filter(function(e){return e.d!==today;});
+  AppState.wearableLog.push({d:today, hrv:hrv, rhr:rhr});
+  if(AppState.wearableLog.length > 60) AppState.wearableLog = AppState.wearableLog.slice(-60);
+  AppState.save();
+  var st = hrvStatus();
+  toast(st && st.note ? st.note : '✅ Wearable-Daten gespeichert');
+  safeCall(refreshDash);
+  if(hrvEl) hrvEl.value=''; if(rhrEl) rhrEl.value='';
+}
+
 // ── Helper: aktuelle Trainingswoche seit erstem Workout ──────────────────
 function currentTrainingWeek(){
   var h = AppState.history || [];
@@ -2132,19 +2227,29 @@ function needsDeload(){
   return null;
 }
 
-// ── Helper: Readiness-Score datenbasiert (Schlaf + RPE-Trend + Trainingsdichte)
+// ── Helper: Readiness-Score datenbasiert (Schlaf + HRV + RPE-Trend + Dichte)
 // Gibt {score, hasData, factors} zurück. hasData=false → ehrlich "keine Daten"
-// statt eines erfundenen Baseline-Werts.
+// statt eines erfundenen Baseline-Werts. HRV (Luna Band) ist der objektivste
+// Marker und wird am stärksten gewichtet.
 function readinessScore(){
   var score = 75;          // neutraler Ausgangspunkt
   var hasData = false;
   var factors = [];
 
-  // Schlaf (nur wenn tatsächlich geloggt)
+  // HRV (Wearable) – objektiver Recovery-Marker, stark gewichtet
+  var hrv = hrvStatus();
+  var hrvSuppressed = hrv && hrv.status==='suppressed';
+  if(hrv && hrv.status!=='baseline'){
+    hasData = true;
+    if(hrv.status==='elevated'){   score += 12; factors.push('⌚ HRV top (+12)'); }
+    else if(hrvSuppressed){        score -= 30; factors.push('⌚ HRV supprimiert (−30)'); }
+  }
+
+  // Schlaf (nur wenn geloggt) – Bonus zählt NICHT wenn HRV objektiv supprimiert
   var sleep = recentSleepQuality();
   if(sleep){
     hasData = true;
-    if(sleep.q==='top'){      score += 15; factors.push('😴 Schlaf top (+15)'); }
+    if(sleep.q==='top' && !hrvSuppressed){ score += 15; factors.push('😴 Schlaf top (+15)'); }
     else if(sleep.q==='ok'){  score += 5;  factors.push('😴 Schlaf ok (+5)'); }
     else if(sleep.q==='low'){ score -= 10; factors.push('😴 wenig Schlaf (−10)'); }
     else if(sleep.q==='bad'){ score -= 25; factors.push('⚠️ Schlafmangel (−25)'); }
@@ -2155,7 +2260,7 @@ function readinessScore(){
   var recent = (AppState.history||[]).filter(function(e){return e.ts>=since;}).length;
   var total  = (AppState.history||[]).length;
   if(recent >= 3){ score -= 12; factors.push('🔁 3+ Sessions/3T (−12)'); hasData = true; }
-  else if(recent === 0 && total){ score += 5; factors.push('🌿 gut erholt (+5)'); hasData = true; }
+  else if(recent === 0 && total && !hrvSuppressed){ score += 5; factors.push('🌿 gut erholt (+5)'); hasData = true; }
 
   // RPE-Trend (steigender RPE = aufkommende Ermüdung)
   var rpeT = recentRpeTrend();
@@ -2168,11 +2273,11 @@ function readinessScore(){
   return {score:Math.max(0, Math.min(100, Math.round(score))), hasData:hasData, factors:factors};
 }
 
-// ── 17. PROGRESSION ALGORITHM (mit Schlaf + Periodisierung) ──────────────
+// ── 17. PROGRESSION ALGORITHM (mit Schlaf + HRV + Periodisierung) ─────────
 function coachSuggestion(exName, targetStr){
   var range = parseRepRange(targetStr);
   var last = lastSessionSetsFor(exName);
-  var sleep = recentSleepQuality();
+  var sleep = recoveryStatus(); // Schlaf + HRV kombiniert (Luna-ready)
   var sleepNote = sleep ? sleep.note : '';
 
   if(!last.length){
@@ -2248,7 +2353,7 @@ function coachSuggestion(exName, targetStr){
     // Normal → +1 Wdh
     var bwTarget = Math.min(topR, maxRbw + 1);
     var bwHint = 'Gleiche Übung – +1 Wdh anpeilen (Körpergewicht-Progression).';
-    if(sleep && sleep.q==='bad') bwHint = 'Schlafmangel – heute Wdh halten, sauber ausführen. ' + sleepNote;
+    if(sleep && sleep.q==='bad') bwHint = 'Recovery niedrig – heute Wdh halten, sauber ausführen. ' + sleepNote;
     else if(sleep && sleep.q==='top') bwHint += ' ' + sleepNote;
     return {weight:workW||null, reps:bwTarget, hint:bwHint};
   }
@@ -2295,7 +2400,7 @@ function coachSuggestion(exName, targetStr){
     if(sleep.q==='top') hint += ' ' + sleepNote;
     else if(sleep.q==='bad'){
       var redW = Math.round(workW * 0.95 * 2)/2;
-      return {weight:redW, reps:targetReps, hint:'Schlafmangel → −5% heute, Substanz erhalten. ' + sleepNote};
+      return {weight:redW, reps:targetReps, hint:'Recovery niedrig → −5% heute, Substanz erhalten. ' + sleepNote};
     }
   }
   return {weight:workW, reps:targetReps, hint:hint};
@@ -2592,7 +2697,7 @@ const FORM_TIPS={
   'Abduktionsmaschine (sitzend)':  'Oberschenkelaußenseite & Gesäß. Langsam öffnen – kein Schwung! Kontrolliert zurück.',
   'Seitliches Beinheben (Kabel)':  'Stehend, Kabel am Knöchel. Bein seitlich bis Hüfthöhe. Kern stabilisieren.',
   // WADE
-  'Wadenheben stehend':            'Volle ROM: Ganz runter stretchen, ganz hoch auf Zehenspitzen. 1 Sek halten oben.',
+  'Wadenheben stehend':            'Volle ROM + Lengthened Partials: Nach dem letzten vollen Satz 2-3 Teilwdh in der unteren (gedehnten) Hälfte. Forschung 2025: +7-9% mehr Wachstum.',
   // CORE
   'Plank':                         'Körper gerade wie Brett. Gesäß nicht heben oder senken. Kern aktiv anspannen. Atmen!',
 };
@@ -2737,12 +2842,20 @@ function refreshDataPage(){
   const today=localDateStr();
   const s=AppState.sleepLog.find(x=>x.d===today);
   if(s) $$('.sleep-btn').forEach(b=>{ if(parseInt(b.textContent)===s.h) b.classList.add('sel'); });
+  // HRV-Status anzeigen (Luna Band)
+  var fb=el('hrvFeedback');
+  if(fb){
+    var st=hrvStatus();
+    if(!st) fb.textContent='Noch keine Wearable-Daten. Trage morgens deinen HRV-Wert vom Luna Band ein.';
+    else if(st.status==='baseline') fb.textContent='📊 '+st.note;
+    else fb.innerHTML='Heute: <b>'+st.hrv+' ms</b> · Baseline: '+st.baseline+' ms · '+(st.note||'✅ im Normalbereich');
+  }
 }
 
 // ── 28. EXPORT / IMPORT ─────────────────────────────────
 function exportData(){
   try {
-    const data=JSON.stringify({version:2,ts:Date.now(),state:{user:AppState.user,streak:AppState.streak,lastStreakDate:AppState.lastStreakDate,plan:AppState.plan,history:AppState.history,prs:AppState.prs,weightLog:AppState.weightLog,sleepLog:AppState.sleepLog,meals:AppState.meals}},null,2);
+    const data=JSON.stringify({version:2,ts:Date.now(),state:{user:AppState.user,streak:AppState.streak,lastStreakDate:AppState.lastStreakDate,plan:AppState.plan,history:AppState.history,prs:AppState.prs,weightLog:AppState.weightLog,sleepLog:AppState.sleepLog,wearableLog:AppState.wearableLog,meals:AppState.meals}},null,2);
     const a=document.createElement('a'); a.href='data:application/json;charset=utf-8,'+encodeURIComponent(data);
     a.download=`kinetic-backup-${new Date().toISOString().split('T')[0]}.json`; a.click();
     // Backup-Erinnerung zurücksetzen
@@ -2766,6 +2879,7 @@ function importData(input){
       AppState.prs=recomputePRs(AppState.history);
       if(Array.isArray(s.weightLog)) AppState.weightLog=s.weightLog;
       if(Array.isArray(s.sleepLog)) AppState.sleepLog=s.sleepLog;
+      if(Array.isArray(s.wearableLog)) AppState.wearableLog=s.wearableLog;
       if(Array.isArray(s.meals)) AppState.meals=s.meals;
       AppState.save(); refreshDash(); renderPlan(); loadProfileInputs();
       toast('✅ Daten importiert!');
