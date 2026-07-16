@@ -480,6 +480,8 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
     <button onclick="downloadApp()" class="btn bg2" style="flex:1;min-width:100%;padding:10px;font-size:13px">⬇ App-Datei herunterladen</button>
   </div>
   <input type="file" id="importInput" accept=".json" style="display:none" onchange="importData(this)">
+  <div id="dataSafetyInfo" style="margin-top:12px;padding:10px 12px;background:var(--card2);border-radius:10px;font-size:11px;color:var(--t3);line-height:1.7"></div>
+  <button onclick="restoreFromSnapshot()" class="btn bg2" style="margin-top:8px;padding:9px;font-size:12px;color:var(--blue)">🛟 Letzte Schattenkopie wiederherstellen</button>
 </section>
 
 </main>
@@ -843,6 +845,7 @@ const AppState = {
       DB.set('weightLog', this.weightLog);
       DB.set('sleepLog', this.sleepLog);
       DB.set('wearableLog', this.wearableLog);
+      if(typeof maybeAutoSnapshot==='function') maybeAutoSnapshot(); // tägliche Schattenkopie
     } catch(e){ log.error('AppState.save',e); }
   },
   saveSession(){ DB.set('activeSession', this.activeSession); }
@@ -958,6 +961,7 @@ function defaultPlan(){
 
 function resetToDefaultPlan(){
   if(!confirm('Plan zurücksetzen? Eigene Änderungen gehen verloren.')) return;
+  if(typeof snapshotState==='function') snapshotState('pre-reset'); // Sicherung
   AppState.plan=defaultPlan();
   AppState.save();
   renderPlan();
@@ -1115,17 +1119,30 @@ function renderSmartNotifs(){
     notifs.push({icon:'😴', title:'Wenig Schlaf', body:'Du hast '+lastSleep.h+'h eingetragen – Progression heute automatisch reduziert.', type:'sleep'});
   }
 
-  // BACKUP-ERINNERUNG – schützt vor Datenverlust bei Gerätewechsel
+  // BACKUP-ERINNERUNG – anzahl- ODER zeitbasiert (schützt vor Gerätewechsel/Verlust)
   var workoutCount = (AppState.history||[]).length;
   var lastBackup = DB.get('lastBackupCount', 0);
-  if(workoutCount >= 3 && workoutCount - lastBackup >= 5){
-    notifs.push({icon:'💾', title:'Backup empfohlen', body:'Du hast '+(workoutCount-lastBackup)+' neue Workouts seit dem letzten Export. Sichere deine Daten: Profil → Daten → Exportieren.', type:'warn', backup:true});
+  var lastBackupTs = DB.get('lastBackupTs', 0);
+  var daysSince = lastBackupTs ? Math.floor((Date.now()-lastBackupTs)/86400000) : 999;
+  var manyNew = workoutCount >= 3 && workoutCount - lastBackup >= 5;
+  var tooOld  = workoutCount >= 3 && daysSince >= 14;
+  if(manyNew || tooOld){
+    var bkReason = manyNew ? (workoutCount-lastBackup)+' neue Workouts seit dem letzten Export'
+                 : (lastBackupTs ? 'letztes Backup vor '+daysSince+' Tagen' : 'noch kein Backup erstellt');
+    notifs.push({icon:'💾', title:'Backup empfohlen', body:bkReason+'. Tippen → Profil/Daten zum Exportieren.', type:'warn', backup:true});
+  }
+
+  // DATEN-WIEDERHERSTELLUNG – Daten leer, aber Schattenkopie vorhanden
+  if(checkForDataRecovery()){
+    var rec = snapshotInfo();
+    notifs.unshift({icon:'🛟', title:'Daten wiederherstellbar', body:'Deine Daten wirken leer, aber eine Schattenkopie vom '+new Date(rec.ts).toLocaleDateString('de')+' mit '+rec.historyCount+' Sessions existiert. Tippen zum Wiederherstellen.', type:'warn', action:'restoreSnapshot'});
   }
 
   c.innerHTML = notifs.slice(0,3).map(function(n){
     var clickAttr = n.backup ? ' onclick="navigate(\'data\')" style="cursor:pointer"'
-                  : n.action==='startDeload' ? ' onclick="startDeload()" style="cursor:pointer"'
-                  : n.action==='endDeload'   ? ' onclick="endDeload()" style="cursor:pointer"'
+                  : n.action==='startDeload'     ? ' onclick="startDeload()" style="cursor:pointer"'
+                  : n.action==='endDeload'       ? ' onclick="endDeload()" style="cursor:pointer"'
+                  : n.action==='restoreSnapshot' ? ' onclick="restoreFromSnapshot()" style="cursor:pointer"'
                   : '';
     return '<div class="sm-banner sm-'+n.type+'"'+clickAttr+'>'
       +'<div class="sm-icon">'+n.icon+'</div>'
@@ -2858,16 +2875,112 @@ function refreshDataPage(){
     else if(st.status==='baseline') fb.textContent='📊 '+st.note;
     else fb.innerHTML='Heute: <b>'+st.hrv+' ms</b> · Baseline: '+st.baseline+' ms · '+(st.note||'✅ im Normalbereich');
   }
+  // Datensicherheits-Status
+  var si=el('dataSafetyInfo');
+  if(si){
+    var snap=snapshotInfo();
+    var lastBk=DB.get('lastBackupTs',0);
+    var persisted=DB.get('storagePersisted',null);
+    si.innerHTML=
+      '🔒 Persistenter Speicher: <b style="color:'+(persisted?'var(--green)':'var(--orange)')+'">'+(persisted?'aktiv – geschützt vor Auto-Löschung':'nicht bestätigt (regelmäßig exportieren!)')+'</b><br>'+
+      '📤 Letztes Datei-Backup: <b style="color:'+(lastBk&&Date.now()-lastBk<14*86400000?'var(--green)':'var(--orange)')+'">'+(lastBk?new Date(lastBk).toLocaleDateString('de'):'noch nie')+'</b><br>'+
+      '🛟 Letzte Schattenkopie: <b>'+(snap?new Date(snap.ts).toLocaleString('de')+' · '+snap.historyCount+' Sessions':'—')+'</b>';
+  }
 }
 
-// ── 28. EXPORT / IMPORT ─────────────────────────────────
+// ── 28. DATENSICHERHEIT (Export / Import / Schattenkopie / Persistenz) ─────
+// Vier Schichten gegen Datenverlust über Jahre:
+//  1) Persistenter Speicher (navigator.storage.persist) → Schutz vor Auto-
+//     Löschung durch den Browser bei Speicherdruck.
+//  2) Tägliche Schattenkopie im selben Gerät → Schutz vor versehentlichem
+//     Reset / Logik-Bug (hilft NICHT bei komplettem Storage-Löschen).
+//  3) Auto-Wiederherstellung, falls Daten leer aber Schattenkopie vorhanden.
+//  4) Zeit- & anzahlbasierte Backup-Erinnerung für den Datei-Export
+//     (einzige Schicht, die ein Gerät/Storage-Verlust übersteht).
+
+// Zentrale (De-)Serialisierung – von Export UND Schattenkopie genutzt
+function buildBackupObject(){
+  return {version:2, ts:Date.now(), state:{
+    user:AppState.user, streak:AppState.streak, lastStreakDate:AppState.lastStreakDate,
+    plan:AppState.plan, history:AppState.history, prs:AppState.prs,
+    weightLog:AppState.weightLog, sleepLog:AppState.sleepLog,
+    wearableLog:AppState.wearableLog, meals:AppState.meals
+  }};
+}
+function applyBackupState(s){
+  if(!s) return false;
+  if(s.user) AppState.user=Object.assign(AppState.user,s.user);
+  if(s.streak!==undefined) AppState.streak=s.streak;
+  if(s.lastStreakDate!==undefined) AppState.lastStreakDate=s.lastStreakDate;
+  if(Array.isArray(s.plan)&&s.plan.length) AppState.plan=s.plan;
+  if(Array.isArray(s.history)) AppState.history=s.history;
+  AppState.prs=recomputePRs(AppState.history); // E1RM-basiert neu berechnen
+  if(Array.isArray(s.weightLog)) AppState.weightLog=s.weightLog;
+  if(Array.isArray(s.sleepLog)) AppState.sleepLog=s.sleepLog;
+  if(Array.isArray(s.wearableLog)) AppState.wearableLog=s.wearableLog;
+  if(Array.isArray(s.meals)) AppState.meals=s.meals;
+  return true;
+}
+
+// Persistenten Speicher anfordern (verhindert Auto-Eviction)
+function requestPersistentStorage(){
+  try{
+    if(navigator.storage && navigator.storage.persist){
+      navigator.storage.persisted().then(function(already){
+        if(already){ DB.set('storagePersisted', true); return; }
+        navigator.storage.persist().then(function(granted){ DB.set('storagePersisted', !!granted); }).catch(function(){});
+      }).catch(function(){});
+    }
+  }catch(e){}
+}
+
+// Schattenkopie schreiben (max ~1×/Tag automatisch, oder erzwungen mit reason)
+function snapshotState(reason){
+  try{
+    var obj = buildBackupObject(); obj.reason = reason||'auto';
+    DB.set('autoSnapshot', obj);
+    DB.set('autoSnapshotTs', obj.ts);
+    return true;
+  }catch(e){ log.error('snapshotState',e); return false; }
+}
+function maybeAutoSnapshot(){
+  try{
+    if((AppState.history||[]).length===0 && (AppState.weightLog||[]).length===0) return;
+    if(Date.now() - DB.get('autoSnapshotTs',0) < 20*3600*1000) return; // ~1×/Tag
+    snapshotState('auto');
+  }catch(e){ log.error('maybeAutoSnapshot',e); }
+}
+function snapshotInfo(){
+  var snap = DB.get('autoSnapshot', null);
+  if(!snap || !snap.state) return null;
+  return {ts:snap.ts, historyCount:(snap.state.history||[]).length, state:snap.state};
+}
+// Nur anbieten, wenn aktuell KEINE History da ist, die Schattenkopie aber welche hat
+function checkForDataRecovery(){
+  if((AppState.history||[]).length>0) return false;
+  var info = snapshotInfo();
+  return !!(info && info.historyCount>0);
+}
+function restoreFromSnapshot(){
+  var info = snapshotInfo();
+  if(!info){ toast('Keine Schattenkopie vorhanden'); return; }
+  if((AppState.history||[]).length>0 &&
+     !confirm('Aktuelle Daten mit der Schattenkopie vom '+new Date(info.ts).toLocaleString('de')+' überschreiben? ('+info.historyCount+' Sessions)')) return;
+  applyBackupState(info.state);
+  AppState.save();
+  toast('🛟 Aus Schattenkopie wiederhergestellt ('+info.historyCount+' Sessions)');
+  refreshDash(); renderPlan(); safeCall(loadProfileInputs); navigate('dash');
+}
+
 function exportData(){
   try {
-    const data=JSON.stringify({version:2,ts:Date.now(),state:{user:AppState.user,streak:AppState.streak,lastStreakDate:AppState.lastStreakDate,plan:AppState.plan,history:AppState.history,prs:AppState.prs,weightLog:AppState.weightLog,sleepLog:AppState.sleepLog,wearableLog:AppState.wearableLog,meals:AppState.meals}},null,2);
+    const data=JSON.stringify(buildBackupObject(),null,2);
     const a=document.createElement('a'); a.href='data:application/json;charset=utf-8,'+encodeURIComponent(data);
     a.download=`kinetic-backup-${new Date().toISOString().split('T')[0]}.json`; a.click();
-    // Backup-Erinnerung zurücksetzen
+    // Backup-Erinnerung zurücksetzen (Anzahl UND Zeit)
     DB.set('lastBackupCount', (AppState.history||[]).length);
+    DB.set('lastBackupTs', Date.now());
+    safeCall(refreshDataPage);
     toast('✅ Backup gespeichert! Bewahre die Datei sicher auf.');
   } catch(e){ toast('Export fehlgeschlagen'); }
 }
@@ -2878,17 +2991,9 @@ function importData(input){
     try {
       const data=JSON.parse(e.target.result);
       const s=data.state||data;
-      if(s.user) AppState.user=Object.assign(AppState.user,s.user);
-      if(s.streak!==undefined) AppState.streak=s.streak;
-      if(s.lastStreakDate!==undefined) AppState.lastStreakDate=s.lastStreakDate;
-      if(Array.isArray(s.plan)&&s.plan.length) AppState.plan=s.plan;
-      if(Array.isArray(s.history)) AppState.history=s.history;
-      // PRs aus History neu berechnen (E1RM-basiert) statt Alt-Werte zu übernehmen
-      AppState.prs=recomputePRs(AppState.history);
-      if(Array.isArray(s.weightLog)) AppState.weightLog=s.weightLog;
-      if(Array.isArray(s.sleepLog)) AppState.sleepLog=s.sleepLog;
-      if(Array.isArray(s.wearableLog)) AppState.wearableLog=s.wearableLog;
-      if(Array.isArray(s.meals)) AppState.meals=s.meals;
+      if(!s || (!s.history && !s.user && !s.weightLog)) throw new Error('kein KINETIC-Backup');
+      snapshotState('pre-import'); // Sicherung vor dem Überschreiben
+      applyBackupState(s);
       AppState.save(); refreshDash(); renderPlan(); loadProfileInputs();
       toast('✅ Daten importiert!');
     } catch(err){ toast('Import fehlgeschlagen – ungültige Datei'); }
@@ -3096,6 +3201,8 @@ function wrapTerms(text){
 function initApp(){
   try { AppState.load(); } catch(e){ log.error('load',e); }
   try { bindEvents(); }    catch(e){ log.error('events',e); }
+  safeCall(requestPersistentStorage);   // Schutz vor Auto-Löschung
+  safeCall(maybeAutoSnapshot);          // Schattenkopie sicherstellen
   safeCall(renderHeroStats);
   safeCall(renderPlan);
   safeCall(refreshDash);
