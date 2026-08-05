@@ -2972,17 +2972,107 @@ function restoreFromSnapshot(){
   refreshDash(); renderPlan(); safeCall(loadProfileInputs); navigate('dash');
 }
 
-function exportData(){
+// ── Datei speichern – robust über Browser & PWA hinweg ────────────────────
+// iOS/Safari kann `download` mit data:-URLs nicht zuverlässig (Dialog
+// "Anzeigen/Laden" läuft ins Leere, v.a. als installierte PWA).
+// Reihenfolge: 1) Web Share ("In Dateien sichern") 2) Blob-Link 3) Text-Notfall
+// Liefert ein Promise mit 'shared' | 'downloaded' | 'aborted' | 'fallback'.
+function saveFile(text, filename, mime){
+  var blob;
+  try { blob = new Blob([text], {type: mime||'application/octet-stream'}); }
+  catch(e){ showTextFallback(text, filename); return Promise.resolve('fallback'); }
+
+  // 1) Web Share API mit Datei – auf iOS der zuverlässige Weg
   try {
-    const data=JSON.stringify(buildBackupObject(),null,2);
-    const a=document.createElement('a'); a.href='data:application/json;charset=utf-8,'+encodeURIComponent(data);
-    a.download=`kinetic-backup-${new Date().toISOString().split('T')[0]}.json`; a.click();
-    // Backup-Erinnerung zurücksetzen (Anzahl UND Zeit)
-    DB.set('lastBackupCount', (AppState.history||[]).length);
-    DB.set('lastBackupTs', Date.now());
-    safeCall(refreshDataPage);
-    toast('✅ Backup gespeichert! Bewahre die Datei sicher auf.');
-  } catch(e){ toast('Export fehlgeschlagen'); }
+    if(typeof File==='function' && navigator.canShare && navigator.share){
+      var file = new File([blob], filename, {type: blob.type});
+      if(navigator.canShare({files:[file]})){
+        return navigator.share({files:[file], title:filename})
+          .then(function(){ return 'shared'; })
+          .catch(function(err){
+            if(err && err.name==='AbortError') return 'aborted';
+            return blobLinkDownload(blob, filename, text);
+          });
+      }
+    }
+  } catch(e){ /* weiter zu Stufe 2 */ }
+
+  return Promise.resolve(blobLinkDownload(blob, filename, text));
+}
+
+function blobLinkDownload(blob, filename, text){
+  try {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = filename; a.rel = 'noopener';
+    a.style.display = 'none';
+    document.body.appendChild(a);   // manche Browser klicken nur im DOM
+    a.click();
+    // spät aufräumen – zu frühes revoke bricht den Download auf iOS ab
+    Timers.set(function(){
+      try { if(a.parentNode) a.parentNode.removeChild(a); URL.revokeObjectURL(url); } catch(e){}
+    }, 20000);
+    return 'downloaded';
+  } catch(e){
+    log.error('blobLinkDownload', e);
+    showTextFallback(text, filename);
+    return 'fallback';
+  }
+}
+
+// Notfall: Daten sichtbar machen, damit nichts verloren geht
+function showTextFallback(text, filename){
+  var old = el('textFallbackModal'); if(old) old.remove();
+  var m = document.createElement('div');
+  m.id = 'textFallbackModal';
+  m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:900;display:flex;align-items:flex-end;backdrop-filter:blur(4px)';
+  m.innerHTML = '<div style="background:var(--card);border-radius:20px 20px 0 0;padding:20px 18px 36px;width:100%;max-height:88vh;overflow-y:auto">'
+    +'<div style="width:36px;height:4px;background:var(--border2);border-radius:2px;margin:0 auto 16px"></div>'
+    +'<div style="font-size:18px;font-weight:700;margin-bottom:6px">📋 Backup manuell sichern</div>'
+    +'<div style="font-size:12px;color:var(--t2);line-height:1.6;margin-bottom:12px">Der automatische Download hat nicht funktioniert. Kopiere den Text und sichere ihn (Notizen, E-Mail an dich selbst, Cloud). Zum Wiederherstellen als <b>'+esc(filename)+'</b> speichern und importieren.</div>'
+    +'<textarea id="tfText" readonly style="width:100%;height:180px;background:var(--card2);border:1px solid var(--border2);border-radius:10px;padding:10px;color:var(--t1);font-family:monospace;font-size:11px;line-height:1.4"></textarea>'
+    +'<button id="tfCopy" class="btn bp" style="margin-top:10px">📋 In Zwischenablage kopieren</button>'
+    +'<button id="tfClose" class="btn bo" style="margin-top:8px">Schließen</button>'
+    +'</div>';
+  document.body.appendChild(m);
+  var ta = el('tfText'); if(ta) ta.value = text;
+  var cp = el('tfCopy');
+  if(cp) cp.addEventListener('click', function(){
+    try {
+      if(ta){ ta.focus(); ta.select(); ta.setSelectionRange(0, text.length); }
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(text)
+          .then(function(){ markBackupDone(); toast('✅ Kopiert – jetzt sicher ablegen!'); })
+          .catch(function(){ toast('Bitte manuell markieren & kopieren'); });
+      } else if(document.execCommand && document.execCommand('copy')){
+        markBackupDone(); toast('✅ Kopiert – jetzt sicher ablegen!');
+      } else { toast('Bitte manuell markieren & kopieren'); }
+    } catch(e){ toast('Bitte manuell markieren & kopieren'); }
+  });
+  var cl = el('tfClose');
+  if(cl) cl.addEventListener('click', function(){ m.remove(); });
+}
+
+// Backup als erledigt vermerken – NUR bei echtem Erfolg aufrufen
+function markBackupDone(){
+  DB.set('lastBackupCount', (AppState.history||[]).length);
+  DB.set('lastBackupTs', Date.now());
+  safeCall(refreshDataPage);
+}
+
+function exportData(){
+  var data, filename;
+  try {
+    data = JSON.stringify(buildBackupObject(), null, 2);
+    filename = 'kinetic-backup-' + localDateStr() + '.json';
+  } catch(e){ log.error('exportData', e); toast('Export fehlgeschlagen'); return; }
+
+  saveFile(data, filename, 'application/json').then(function(result){
+    if(result === 'aborted'){ toast('Backup abgebrochen'); return; }
+    if(result === 'fallback'){ return; }   // Modal erklärt bereits, was zu tun ist
+    markBackupDone();                       // nur nach echtem Speichern
+    toast(result==='shared' ? '✅ Backup gesichert!' : '✅ Backup heruntergeladen!');
+  }).catch(function(e){ log.error('exportData/save', e); toast('Export fehlgeschlagen'); });
 }
 function importData(input){
   const f=input && input.files && input.files[0]; if(!f) return;
@@ -3003,10 +3093,11 @@ function importData(input){
 
 function downloadApp(){
   try {
-    const html=document.documentElement.outerHTML;
-    const a=document.createElement('a'); a.href='data:text/html;charset=utf-8,'+encodeURIComponent(html);
-    a.download='kinetic-athlete-os.html'; a.click();
-    toast('✅ App-Datei wird heruntergeladen');
+    var html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+    saveFile(html, 'kinetic-athlete-os.html', 'text/html').then(function(r){
+      if(r==='aborted') return;
+      if(r!=='fallback') toast('✅ App-Datei gesichert');
+    }).catch(function(){ toast('Download fehlgeschlagen'); });
   } catch(e){ toast('Download fehlgeschlagen'); }
 }
 
