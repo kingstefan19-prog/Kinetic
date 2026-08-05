@@ -830,6 +830,18 @@ const AppState = {
         });
         this.plan = savedPlan;
         if(cleaned){ DB.set('plan', this.plan); log.info('Doppelte Übungen entfernt'); }
+        // Sanfte Migration: 15–20 Wdh bei Seitheben sind praktisch kaum
+        // progressiv steigerbar → auf 12–15. Nur diese Range, Rest bleibt.
+        var migrated = false;
+        this.plan.forEach(function(day){
+          (day.ex||[]).forEach(function(e){
+            if(/seitheb|lateral raise/i.test(e.n||'') && /15\s*[–—-]\s*20/.test(e.s||'')){
+              e.s = String(e.s).replace(/15\s*[–—-]\s*20/, '12–15');
+              migrated = true;
+            }
+          });
+        });
+        if(migrated){ DB.set('plan', this.plan); log.info('Wdh-Bereiche angepasst (Seitheben 12–15)'); }
       }
     } catch(e){ log.error('AppState.load',e); this.plan = defaultPlan(); }
   },
@@ -871,7 +883,7 @@ function defaultPlan(){
         {n:'Kabelflys (untere Rolle)',      s:'3×12–15', note:'Stretch-Fokus · langsam exzentrisch · Peak-Kontraktion · RIR 1'},
         // SCHULTER 7 Sätze (Mo+Sa=14/Wo ✅ MAV)
         {n:'Schulterdrücken (KH sitzend)', s:'4×8–10',  note:'Compound · kein Hohlkreuz · Ellbogen leicht vorne · RIR 2'},
-        {n:'Seitheben (KH)',               s:'3×15–20', note:'3 Sek negativ · Daumen leicht runter · nur bis Schulterhöhe · RIR 1'},
+        {n:'Seitheben (KH)',               s:'3×12–15', note:'3 Sek negativ · Daumen leicht runter · nur bis Schulterhöhe · RIR 1'},
         // TRIZEPS 6 Sätze (Mo+Sa=12/Wo ✅ MAV)
         {n:'Trizeps Pushdown (Seil)',       s:'3×10–12', note:'Ellbogen fixiert · volle Streckung · kein Körperschwung · RIR 2'},
         {n:'Overhead Extension (KH)',       s:'3×10–12', note:'Maximaler Stretch langer Kopf · Ellbogen zeigen nach oben · RIR 2'}
@@ -939,7 +951,7 @@ function defaultPlan(){
         {n:'Schrägbank Bankdrücken (LH)',   s:'3×6–8',   note:'Obere Brust · 2. Frequenz · anderer Winkel als Mo · RIR 2'},
         {n:'Pec Deck / Maschinen-Flys',     s:'3×12–15', note:'Isolation · konstante Spannung · schnelle Ausführung ok · RIR 1'},
         // SCHULTER 4 Sätze (Mo 7 + Sa 4 = 11 – leicht unter MAV, ausreichend)
-        {n:'Seitheben (Kabel)',             s:'4×15–20', note:'Konstante Spannung · langsame Ausführung · kein Schwung · RIR 1'},
+        {n:'Seitheben (Kabel)',             s:'4×12–15', note:'Konstante Spannung · langsame Ausführung · kein Schwung · RIR 1'},
         // TRIZEPS 3 Sätze (Mo 6 + Sa 3 = 9 – Fußball kompensiert Ausdauer-Aspekt)
         {n:'Skull Crushers (LH)',           s:'3×8–10',  note:'Langer Kopf · 2 Sek exzentrisch · Ellbogen parallel · RIR 2'},
         // PULL B – andere Übungen als Mi
@@ -1638,6 +1650,8 @@ function startWorkout(dayId){
 }
 
 let _abortPending=false;
+// Nach dem nächsten renderWorkout() hierhin fokussieren: {idx, field}
+let _focusAfterRender=null;
 function abortWorkout(){
   if(!AppState.activeSession){ navigate('plan'); return; }
   const ab=el('abortBtn');
@@ -1668,6 +1682,14 @@ function lastWeightFor(exName){
 function renderWorkout(){
   const el_=el('workoutContent'); if(!el_) return;
   const s=AppState.activeSession;
+  // Aktuell fokussiertes Eingabefeld merken, damit ein Re-Render (Pausen-
+  // Timer, Satz-Aktion) das Eintippen nicht unterbricht
+  let keepFocus=null;
+  try{
+    const ae=document.activeElement;
+    if(ae && ae.dataset && ae.dataset.setIdx!==undefined && ae.dataset.setField)
+      keepFocus={idx:ae.dataset.setIdx, field:ae.dataset.setField, restore:true};
+  }catch(e){}
   if(!s){
     el_.innerHTML=`<div class="empty"><div class="empty-icon">🏋️</div>
       <div style="font-weight:600;margin-bottom:6px">Kein Training aktiv</div>
@@ -1693,8 +1715,9 @@ function renderWorkout(){
           :`<td><input data-set-idx="${i}" data-set-field="w" type="number" inputmode="decimal" placeholder="kg" value="${st.w||''}" style="width:100%;padding:8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-size:14px"></td>
            <td><input data-set-idx="${i}" data-set-field="r" type="number" inputmode="numeric" placeholder="Wdh" value="${st.r||''}" style="width:100%;padding:8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-size:14px"></td>`
         }
-        <td><input data-set-idx="${i}" data-set-field="rpe" type="number" inputmode="decimal" placeholder="RPE" value="${st.rpe||''}" style="width:70px;padding:8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-size:14px"></td>
+        <td><input data-set-idx="${i}" data-set-field="rpe" type="number" inputmode="decimal" placeholder="RPE" value="${st.rpe||''}" style="width:58px;padding:8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-size:14px"></td>
         <td><button type="button" class="btn ${st.done?'bp':'bg2'}" data-set-done="${i}" style="padding:8px 10px;font-size:12px;margin:0;width:auto">${st.done?'✓':'○'}</button></td>
+        <td>${cur.sets.length>1?`<button type="button" data-set-del="${i}" aria-label="Satz ${i+1} löschen" style="background:none;border:none;color:var(--t3);font-size:15px;cursor:pointer;padding:6px 2px;line-height:1">✕</button>`:''}</td>
       </tr>`).join('');
 
     const restLeft=Math.max(0,Math.floor(((s.restEndTs||0)-Date.now())/1000));
@@ -1704,10 +1727,12 @@ function renderWorkout(){
           <div class="sv" id="restTimer" style="color:var(--accent)">${restLeft}s</div>
           <button type="button" id="restSkip" class="btn bo" style="margin-top:8px;max-width:160px;margin-left:auto;margin-right:auto">Überspringen</button>
         </div>`
-      :`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px">
-          <button type="button" class="btn bg2" data-rest="60"  style="padding:10px 4px;font-size:12px">⏸ 60s</button>
-          <button type="button" class="btn bg2" data-rest="90"  style="padding:10px 4px;font-size:12px">⏸ 90s</button>
-          <button type="button" class="btn bg2" data-rest="180" style="padding:10px 4px;font-size:12px">⏸ 3 Min</button>
+      :`<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-top:10px">
+          ${[60,90,150,180].filter((v,ix,arr)=>arr.indexOf(v)===ix).map(sec=>{
+            const rec = sec===restSecondsFor(cur.n,isTimed);
+            const lbl = sec>=120 ? (sec/60).toFixed(sec%60?1:0).replace('.',',')+' Min' : sec+'s';
+            return `<button type="button" class="btn bg2" data-rest="${sec}" style="padding:10px 2px;font-size:12px${rec?';border-color:var(--blue);color:var(--blue)':''}">⏸ ${lbl}${rec?' ★':''}</button>`;
+          }).join('')}
         </div>`;
 
     // Variant selector
@@ -1802,6 +1827,7 @@ function renderWorkout(){
               ${isTimed?'<th colspan="2" style="font-size:10px;color:var(--t3);font-weight:500;text-align:left">SEKUNDEN</th>':'<th style="font-size:10px;color:var(--t3);font-weight:500;text-align:left">KG</th><th style="font-size:10px;color:var(--t3);font-weight:500;text-align:left">WDH</th>'}
               <th style="font-size:10px;color:var(--t3);font-weight:500;text-align:left">RPE</th>
               <th></th>
+              <th></th>
             </tr></thead>
             <tbody>${setsHtml}</tbody>
           </table>
@@ -1815,24 +1841,69 @@ function renderWorkout(){
         </button>
       </div>`;
 
+    // Fokus setzen bzw. über das Re-Render retten (Pausen-Timer rendert neu –
+    // ohne das würde mitten im Tippen die Tastatur zuklappen)
+    const ft=_focusAfterRender || keepFocus;
+    _focusAfterRender=null;
+    if(ft){
+      const tgt=$('#workoutContent input[data-set-idx="'+ft.idx+'"][data-set-field="'+ft.field+'"]');
+      if(tgt){
+        try{
+          tgt.focus();
+          if(ft.restore && tgt.setSelectionRange){ tgt.setSelectionRange(tgt.value.length, tgt.value.length); }
+          else if(tgt.select){ tgt.select(); }
+        }catch(e){}
+      }
+    }
+
     // Bind events
     const nextBtn=el('nextExBtn'); if(nextBtn) nextBtn.addEventListener('click', nextExercise);
     const addBtn=el('addSetBtn');
-    if(addBtn) addBtn.addEventListener('click',()=>{ cur.sets.push({w:'',r:'',secs:'',rpe:'',done:false}); AppState.saveSession(); renderWorkout(); });
+    if(addBtn) addBtn.addEventListener('click',()=>{
+      // Neuer Satz übernimmt Gewicht des letzten – spart Tippen
+      const prev=cur.sets[cur.sets.length-1]||{};
+      cur.sets.push({w:prev.w||'',r:'',secs:'',rpe:'',done:false});
+      _focusAfterRender={idx:cur.sets.length-1, field:isTimed?'secs':(prev.w?'r':'w')};
+      AppState.saveSession(); renderWorkout();
+    });
+    $$('#workoutContent [data-set-del]').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        const i=parseInt(btn.dataset.setDel,10);
+        if(!cur.sets[i] || cur.sets.length<=1) return;
+        cur.sets.splice(i,1);
+        AppState.saveSession(); renderWorkout(); toast('Satz gelöscht');
+      });
+    });
     $$('#workoutContent [data-diff]').forEach(btn=>btn.addEventListener('click',()=>changeVariantBy(parseInt(btn.dataset.diff,10))));
     const vsel=el('varSel');
     if(vsel) vsel.addEventListener('change',()=>{ const[n,sStr]=vsel.value.split('|'); applyVariant(n,sStr); });
-    $$('#workoutContent input[data-set-idx]').forEach(inp=>{
+    const setInputs=$$('#workoutContent input[data-set-idx]');
+    setInputs.forEach((inp,pos)=>{
       inp.addEventListener('input',()=>{
         const i=parseInt(inp.dataset.setIdx,10), f=inp.dataset.setField;
         if(cur.sets[i]){ cur.sets[i][f]=inp.value; AppState.saveSession(); }
+      });
+      // Enter/"Fertig" springt ins nächste Feld – flüssiges Eintragen
+      inp.addEventListener('keydown',ev=>{
+        if(ev.key!=='Enter') return;
+        ev.preventDefault();
+        const nxt=setInputs[pos+1];
+        if(nxt){ nxt.focus(); if(nxt.select) nxt.select(); } else inp.blur();
       });
     });
     $$('#workoutContent [data-set-done]').forEach(btn=>{
       btn.addEventListener('click',()=>{
         const i=parseInt(btn.dataset.setDone,10); if(!cur.sets[i]) return;
         cur.sets[i].done=!cur.sets[i].done;
-        if(cur.sets[i].done) s.restEndTs=Date.now()+(isTimed?60000:90000);
+        if(cur.sets[i].done){
+          s.restEndTs=Date.now()+restSecondsFor(cur.n, isTimed)*1000;
+          // direkt in die nächste Satz-Zeile springen (erstes leeres Feld)
+          const nxt=cur.sets[i+1];
+          if(nxt){
+            const f = isTimed ? 'secs' : (String(nxt.w||'').trim() ? 'r' : 'w');
+            _focusAfterRender={idx:i+1, field:f};
+          }
+        }
         AppState.saveSession(); renderWorkout();
       });
     });
@@ -2055,17 +2126,66 @@ function stalledLifts(){
   return stalled;
 }
 
-// ── Equipment-bewusste Gewichtsschritte (statt flacher 1,25/2,5) ──────────
-function plateStep(exName){
+// ── Equipment- UND lastabhängige Gewichtsschritte ─────────────────────────
+// Bei leichten Isolationsübungen sind 2,5 kg schnell >10 % Sprung; dort
+// braucht es feinere Stufen (Kabel-Zusatzgewichte, kleine KH-Paare).
+function plateStep(exName, w){
   var t = equipmentType(exName);
-  if(t==='db' || t==='db_single') return 2;     // KH meist in 2-kg-Schritten
-  return 2.5;                                    // LH/Maschine/Kabel: 1,25er je Seite / Stack
+  w = +w || 0;
+  if(t==='db' || t==='db_single')  return (w>0 && w<12) ? 1 : 2;
+  if(t==='cable_machine')          return (w>0 && w<25) ? 1.25 : 2.5;
+  return (w>0 && w<40) ? 1.25 : 2.5;             // LH: leichte Übungen feiner
 }
-// Gewichtssprung: prozentual (~2,5 % Compound, ~2 % Rest), auf Scheibenschritt gerundet
-function incrementFor(workW, exName){
+
+// ── Trainingspause / Detraining ───────────────────────────────────────────
+// Evidenz: Bei Trainierten bleibt Maximalkraft ~2 Wochen weitgehend erhalten
+// und fällt danach zunehmend (Mujika & Padilla 2000/2001; Bosquet-Meta);
+// Muskelmasse folgt etwas später. Beim Wiedereinstieg ist der Schutz vor
+// Muskelkater reduziert (repeated-bout effect lässt nach) → erste Session
+// bewusst konservativ, danach zügiger Wiederaufbau ("muscle memory").
+function daysSinceExercise(exName){
+  var h = AppState.history||[];
+  for(var i=h.length-1;i>=0;i--){
+    if((h[i].sets||[]).some(function(x){return x.ex===exName;}))
+      return Math.floor((Date.now()-h[i].ts)/86400000);
+  }
+  return null;
+}
+function daysSinceLastWorkout(){
+  var h = AppState.history||[];
+  if(!h.length) return null;
+  return Math.floor((Date.now()-h[h.length-1].ts)/86400000);
+}
+// ── Satzpause nach Übungstyp ──────────────────────────────────────────────
+// Evidenz: Mehrgelenkübungen profitieren von ~2–3 Min Pause (Schoenfeld 2016;
+// Grgic-Meta 2017) – kürzere Pausen kosten dort Volumen und damit Reiz.
+// Isolation regeneriert schneller, 60–90 s genügen.
+function isCompoundLift(exName){
+  return /bank|drück|press|kniebeug|squat|kreuzheb|deadlift|rudern|row|klimm|latzug|pulldown|^dip|beinpresse|hip thrust|ausfallschritt|lunge/i.test(String(exName||''));
+}
+function restSecondsFor(exName, isTimed){
+  if(isTimed) return 60;
+  return isCompoundLift(exName) ? 150 : 90;
+}
+
+function layoffAdjustment(exName){
+  var dEx = daysSinceExercise(exName);
+  var dAll = daysSinceLastWorkout();
+  var days = (dEx==null) ? dAll : dEx;
+  if(days==null || days < 10) return null;   // <10 Tage: normale Schwankung
+  if(days < 22) return {days:days, mod:0.95, note:'⏸️ '+days+' Tage Pause → −5 %, sauber wieder einsteigen.'};
+  if(days < 43) return {days:days, mod:0.90, note:'⏸️ '+days+' Tage Pause → −10 %, Technik vor Gewicht.'};
+  if(days < 85) return {days:days, mod:0.80, note:'⏸️ '+Math.round(days/7)+' Wochen Pause → −20 %, 2–3 Wdh Reserve lassen.'};
+  return             {days:days, mod:0.70, note:'⏸️ '+Math.round(days/7)+' Wochen Pause → −30 %, Wiederaufbau über 2–3 Wochen.'};
+}
+
+// Gewichtssprung: prozentual, auf die kleinste Stufe gerundet. Hohe Wdh-Ziele
+// (≥15, typisch Isolation) bekommen kleinere Sprünge, weil dort schon 1–2 kg
+// mehrere Wiederholungen kosten.
+function incrementFor(workW, exName, range){
   var t = equipmentType(exName);
-  var pct = (t==='barbell') ? 0.025 : 0.02;
-  var step = plateStep(exName);
+  var step = plateStep(exName, workW);
+  var pct = (range && range.hi >= 15) ? 0.015 : (t==='barbell' ? 0.025 : 0.02);
   var inc = Math.max(step, Math.round((workW*pct)/step)*step);
   return inc;
 }
@@ -2077,7 +2197,7 @@ function loadForReps(exName, reps, rir){
   var effReps = reps + rir;              // Wdh bis Versagen
   if(effReps>12) effReps = 12;
   var w = e / (1 + effReps/30);
-  var step = plateStep(exName);
+  var step = plateStep(exName, w);
   return Math.round(w/step)*step;
 }
 
@@ -2308,11 +2428,27 @@ function coachSuggestion(exName, targetStr){
     var allWd = last.map(function(x){return +(x.w)||0;}).filter(function(w){return w>0;});
     var dW = allWd.length ? Math.max.apply(null, allWd) : 0;
     if(dW>0){
-      var step0 = plateStep(exName);
+      var step0 = plateStep(exName, dW);
       var deloadW = Math.max(step0, Math.round((dW*0.9)/step0)*step0);
       return {weight:deloadW, reps:range?range.lo:null, hint:'😌 Deload aktiv: −10% ('+dW+' → '+deloadW+' kg), RIR 4–5, Technik-Fokus. Progression pausiert.'};
     }
     return {weight:null, reps:range?range.lo:null, hint:'😌 Deload aktiv: lockere Ausführung, 2–3 Wdh Reserve lassen.'};
+  }
+
+  // ── TRAININGSPAUSE: reduzieren statt weiter steigern ──
+  // Ohne das schlägt die App nach Wochen Pause unverändert +2,5 kg vor.
+  var layoff = layoffAdjustment(exName);
+  if(layoff){
+    var allWp = last.map(function(x){return +(x.w)||0;}).filter(function(w){return w>0;});
+    var pW = allWp.length ? Math.max.apply(null, allWp) : 0;
+    if(pW>0){
+      var stepP = plateStep(exName, pW);
+      var backW = Math.max(stepP, Math.round((pW*layoff.mod)/stepP)*stepP);
+      return {weight:backW, reps:range?range.lo:null,
+              hint:layoff.note+' ('+pW+' → '+backW+' kg). Steigere erst wieder, wenn sich die Technik sicher anfühlt.'};
+    }
+    return {weight:null, reps:range?range.lo:null,
+            hint:layoff.note+' Starte mit weniger Wdh als zuletzt und taste dich heran.'};
   }
 
   var allW = last.map(function(x){return +(x.w)||0;}).filter(function(w){return w>0;});
@@ -2386,9 +2522,10 @@ function coachSuggestion(exName, targetStr){
   }
   // PRIORITÄT 3 – Obere Grenze (Mehrheit) erreicht → +Gewicht
   if(hitTop){
-    var inc = incrementFor(workW, exName);
-    if(sleep && sleep.q==='bad') inc = Math.max(plateStep(exName), Math.round(inc*0.5/plateStep(exName))*plateStep(exName));
-    var newW = Math.round((workW + inc) * 2)/2;
+    var stepH = plateStep(exName, workW);
+    var inc = incrementFor(workW, exName, range);
+    if(sleep && sleep.q==='bad') inc = Math.max(stepH, Math.round(inc*0.5/stepH)*stepH);
+    var newW = Math.round((workW + inc) * 4)/4;   // 0,25er-Raster erlaubt 1,25-Schritte
     var topNote = 'Obere Grenze geschafft → +'+inc+' kg, Range neu starten.';
     if(sleepNote && sleep.q !== 'ok') topNote += ' ' + sleepNote;
     return {weight:newW, reps:range?range.lo:workReps[0], hint:topNote};
@@ -2398,7 +2535,7 @@ function coachSuggestion(exName, targetStr){
   var targetReps = Math.min(range?range.hi:maxR+1, maxR+1);
   var hint = 'Gleiches Gewicht – +1 Wdh anpeilen.';
   if(avgRpe !== null && avgRpe <= 7){
-    hint = 'RPE niedrig (≤7) – ggf. +'+incrementFor(workW, exName)+' kg statt nur +1 Wdh.';
+    hint = 'RPE niedrig (≤7) – ggf. +'+incrementFor(workW, exName, range)+' kg statt nur +1 Wdh.';
   }
   // Plateau-Hinweis: E1RM seit mehreren Sessions flach → Reiz variieren
   var trend = liftTrend(exName);
@@ -2409,7 +2546,7 @@ function coachSuggestion(exName, targetStr){
   var tRIR = targetRIR();
   var arReps = range ? range.hi : targetReps;
   var arW = loadForReps(exName, arReps, tRIR);
-  if(arW>0 && Math.abs(arW - workW) > plateStep(exName)){
+  if(arW>0 && Math.abs(arW - workW) > plateStep(exName, workW)){
     hint += ' 🎯 Autoreg (Woche '+mesoWeek()+', Ziel-RIR '+tRIR+'): '+arW+' kg für '+arReps+' Wdh.';
   }
   // Schlaf-Modulation
@@ -2444,7 +2581,7 @@ const EXERCISE_FAMILIES=[
     {lvl:4,n:'Push Press (LH)',             s:'4×4–6'}
   ]},
   {id:'lateral',name:'Seitheben',variants:[
-    {lvl:1,n:'Seitheben (Kabel)',           s:'3×15–20'},
+    {lvl:1,n:'Seitheben (Kabel)',           s:'3×12–15'},
     {lvl:2,n:'Seitheben (KH)',              s:'3×12–15'},
     {lvl:3,n:'Seitheben (KH)',              s:'4×12–15'}
   ]},
