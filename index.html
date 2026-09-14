@@ -438,27 +438,50 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
     </div>
     <div id="sleepFeedback" style="font-size:12px;color:var(--t2);min-height:16px;line-height:1.5;margin-top:6px"></div>
 
-    <!-- Wearable Morgen-Check-in (Luna Band ready) -->
+    <!-- ⌚ Luna Band · Wearable-Daten -->
     <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:14px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
         <span style="font-size:16px">⌚</span>
         <div>
-          <div style="font-size:13px;font-weight:600">Wearable-Daten (Luna Band, Whoop, Oura …)</div>
-          <div style="font-size:11px;color:var(--t3)">Morgens HRV eintragen → Coach passt dein Training an</div>
+          <div style="font-size:13px;font-weight:600">Luna Band · Wearable-Daten</div>
+          <div style="font-size:11px;color:var(--t3)">Morgens HRV, Ruhepuls &amp; Schlaf → Coach passt dein Training an</div>
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;align-items:end">
         <div>
           <div style="font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-bottom:4px">HRV (ms)</div>
-          <input id="wb-hrv" class="li" type="number" placeholder="z.B. 55" style="width:100%;padding:10px;font-size:14px">
+          <input id="wb-hrv" class="li" type="number" placeholder="55" style="width:100%;padding:10px;font-size:14px">
         </div>
         <div>
           <div style="font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-bottom:4px">Ruhepuls</div>
-          <input id="wb-rhr" class="li" type="number" placeholder="z.B. 52" style="width:100%;padding:10px;font-size:14px">
+          <input id="wb-rhr" class="li" type="number" placeholder="52" style="width:100%;padding:10px;font-size:14px">
         </div>
-        <button onclick="logWearable()" class="btn bp" style="width:auto;padding:10px 16px;margin:0;font-size:13px">✓</button>
+        <div>
+          <div style="font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-bottom:4px">Schlaf (h)</div>
+          <input id="wb-sleep" class="li" type="number" step="0.5" placeholder="7.5" style="width:100%;padding:10px;font-size:14px">
+        </div>
+        <button onclick="logWearable()" class="btn bp" style="width:auto;padding:10px 14px;margin:0;font-size:13px">✓</button>
       </div>
       <div id="hrvFeedback" style="font-size:11px;color:var(--t2);margin-top:8px;line-height:1.5"></div>
+
+      <!-- Kurzbefehl-Anleitung (auto-offen bis erste Daten da sind) -->
+      <button onclick="toggleLunaSetup()" style="display:flex;align-items:center;gap:6px;background:none;border:none;color:var(--blue);font-family:var(--f);font-size:12px;font-weight:600;cursor:pointer;padding:10px 0 4px">
+        <span id="lunaSetupArrow">▸</span> Automatischer Import (iOS-Kurzbefehl) &amp; Bulk-Import
+      </button>
+      <div id="lunaSetupBox" style="display:none;background:var(--card2);border-radius:10px;padding:12px;font-size:12px;color:var(--t2);line-height:1.7">
+        <b style="color:var(--t1)">📲 iOS-Kurzbefehl (einmal einrichten):</b><br>
+        1. App „Kurzbefehle" → neuer Kurzbefehl<br>
+        2. Aktion „Gesundheitsdaten suchen" (HRV, Ruhepuls, Schlaf von heute)<br>
+        3. Aktion „URL öffnen" mit deiner App-Adresse plus<br>
+        <code style="color:var(--blue);font-size:11px">?hrv=[HRV]&amp;rhr=[Puls]&amp;sleep=[Schlaf]</code><br>
+        4. In der Automation „Zur Tageszeit" morgens ausführen lassen – die Werte landen automatisch hier.<br>
+        <div style="border-top:1px solid var(--border);margin:10px 0;padding-top:10px">
+          <b style="color:var(--t1)">📄 Bulk-Import (Baseline sofort aufbauen):</b><br>
+          Eine Zeile pro Tag: <code style="font-size:11px">JJJJ-MM-TT, HRV, Puls, Schlaf</code>
+          <textarea id="wb-bulk" placeholder="2026-09-10, 58, 51, 7.5&#10;2026-09-11, 55, 52, 6.5" style="width:100%;height:74px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;padding:8px;color:var(--t1);font-family:monospace;font-size:11px;margin-top:6px"></textarea>
+          <button onclick="importWearableBulk()" class="btn bo" style="margin-top:6px;padding:8px;font-size:12px">📥 Zeilen importieren</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -809,7 +832,10 @@ const AppState = {
       // Plan-Versionierung: alten Plan ersetzen wenn neue Version
       var savedPlanVer = DB.get('planVersion', 0);
       var savedPlan    = DB.get('plan', null);
-      if(!savedPlan || !Array.isArray(savedPlan) || !savedPlan.length || savedPlanVer < PLAN_VERSION){
+      var planSource = DB.get('planSource', 'default');
+      // Onboarding-Pläne ('custom') werden bei Versionssprüngen NIE überschrieben
+      if(!savedPlan || !Array.isArray(savedPlan) || !savedPlan.length ||
+         (savedPlanVer < PLAN_VERSION && planSource !== 'custom')){
         // Neue Version: frischen Plan laden, Benutzeranpassungen werden überschrieben
         this.plan = defaultPlan();
         DB.set('planVersion', PLAN_VERSION);
@@ -835,13 +861,13 @@ const AppState = {
         var migrated = false;
         this.plan.forEach(function(day){
           (day.ex||[]).forEach(function(e){
-            if(/seitheb|lateral raise/i.test(e.n||'') && /15\s*[–—-]\s*20/.test(e.s||'')){
+            if(/seitheb|lateral raise|face pull/i.test(e.n||'') && /15\s*[–—-]\s*20/.test(e.s||'')){
               e.s = String(e.s).replace(/15\s*[–—-]\s*20/, '12–15');
               migrated = true;
             }
           });
         });
-        if(migrated){ DB.set('plan', this.plan); log.info('Wdh-Bereiche angepasst (Seitheben 12–15)'); }
+        if(migrated){ DB.set('plan', this.plan); log.info('Wdh-Bereiche angepasst (Isolation 12–15)'); }
       }
     } catch(e){ log.error('AppState.load',e); this.plan = defaultPlan(); }
   },
@@ -910,7 +936,7 @@ function defaultPlan(){
         {n:'Bizeps Curl (LH)',              s:'3×8–10',  note:'Kein Schwingen · volle Extension unten · E1RM tracken · RIR 2'},
         {n:'Incline Curl (KH) 45°',         s:'3×12–15', note:'Maximaler Stretch langer Kopf · alternierend · langsam · RIR 1'},
         // REAR DELT 3 Sätze
-        {n:'Face Pulls (Kabel)',            s:'3×15–20', note:'Zu Ohrhöhe · Ellbogen hoch · externe Rotation · NICHT überspringen!'}
+        {n:'Face Pulls (Kabel)',            s:'3×12–15', note:'Zu Ohrhöhe · Ellbogen hoch · externe Rotation · NICHT überspringen!'}
       ]
     },
     {
@@ -975,6 +1001,8 @@ function resetToDefaultPlan(){
   if(!confirm('Plan zurücksetzen? Eigene Änderungen gehen verloren.')) return;
   if(typeof snapshotState==='function') snapshotState('pre-reset'); // Sicherung
   AppState.plan=defaultPlan();
+  DB.set('planSource','default');
+  DB.set('planVersion',PLAN_VERSION);
   AppState.save();
   renderPlan();
   toast('✅ Wissenschaftlich optimierter Plan geladen');
@@ -2129,20 +2157,45 @@ function stalledLifts(){
 // ── Equipment- UND lastabhängige Gewichtsschritte ─────────────────────────
 // Bei leichten Isolationsübungen sind 2,5 kg schnell >10 % Sprung; dort
 // braucht es feinere Stufen (Kabel-Zusatzgewichte, kleine KH-Paare).
+// plateStep = kleinste reale Stufe zum RUNDEN von Vorschlägen.
 function plateStep(exName, w){
   var t = equipmentType(exName);
   w = +w || 0;
-  if(t==='db' || t==='db_single')  return (w>0 && w<12) ? 1 : 2;
+  if(t==='db' || t==='db_single')  return (w>0 && w<10) ? 1 : 2;
   if(t==='cable_machine')          return (w>0 && w<25) ? 1.25 : 2.5;
   return (w>0 && w<40) ? 1.25 : 2.5;             // LH: leichte Übungen feiner
 }
 
+// loadIncrement = der GEWICHTSSPRUNG bei erreichter oberer Wdh-Grenze:
+// ~2–5 % der Last, auf reale Hantel-/Stack-Schritte gelegt. Fixe +2,5 kg
+// wären auf 20 kg Seitheben +12,5 % → Wdh brechen ein → Pseudo-Deload.
+function loadIncrement(w, exName){
+  var t = equipmentType(exName);
+  w = +w || 0;
+  if(t==='db' || t==='db_single'){
+    if(w<10)  return 1;
+    if(w<24)  return 2;
+    return 2.5;
+  }
+  if(t==='cable_machine'){
+    if(w<25)  return 1.25;
+    if(w<=70) return 2.5;
+    return 5;
+  }
+  if(t==='barbell'){
+    if(w<40)   return 1.25;
+    if(w<=100) return 2.5;
+    return 5;
+  }
+  return Math.max(1.25, Math.round((w*0.03)/1.25)*1.25);   // Rest: ~3 %
+}
+
 // ── Trainingspause / Detraining ───────────────────────────────────────────
-// Evidenz: Bei Trainierten bleibt Maximalkraft ~2 Wochen weitgehend erhalten
-// und fällt danach zunehmend (Mujika & Padilla 2000/2001; Bosquet-Meta);
-// Muskelmasse folgt etwas später. Beim Wiedereinstieg ist der Schutz vor
-// Muskelkater reduziert (repeated-bout effect lässt nach) → erste Session
-// bewusst konservativ, danach zügiger Wiederaufbau ("muscle memory").
+// Studienlage: Bei Pausen unter ~4 Wochen bleiben Kraft und Muskelgröße bei
+// Trainierten weitgehend erhalten (Mujika & Padilla; Bosquet-Meta) – erst
+// danach treten Verluste auf, Größe stärker als Kraft. Muscle Memory
+// beschleunigt den Rückgewinn. Der repeated-bout-Schutz vor Muskelkater lässt
+// aber früher nach → beim Wiedereinstieg RPE bewusst niedrig halten.
 function daysSinceExercise(exName){
   var h = AppState.history||[];
   for(var i=h.length-1;i>=0;i--){
@@ -2156,6 +2209,19 @@ function daysSinceLastWorkout(){
   if(!h.length) return null;
   return Math.floor((Date.now()-h[h.length-1].ts)/86400000);
 }
+
+// ── Karenz-Check: wurde beim letzten Mal das Gewicht erhöht? ──────────────
+// Vergleicht die Arbeitsgewichte (Maximum) der letzten beiden Sessions
+// derselben Übung. true → niedrigere Wdh sind Double-Progression-normal.
+function justIncreasedWeight(exName){
+  var h = AppState.history||[], found = [];
+  for(var i=h.length-1; i>=0 && found.length<2; i--){
+    var ws = (h[i].sets||[]).filter(function(x){return x.ex===exName && +x.w>0;})
+                            .map(function(x){return +x.w;});
+    if(ws.length) found.push(Math.max.apply(null, ws));
+  }
+  return found.length===2 && found[0] > found[1];
+}
 // ── Satzpause nach Übungstyp ──────────────────────────────────────────────
 // Evidenz: Mehrgelenkübungen profitieren von ~2–3 Min Pause (Schoenfeld 2016;
 // Grgic-Meta 2017) – kürzere Pausen kosten dort Volumen und damit Reiz.
@@ -2168,27 +2234,16 @@ function restSecondsFor(exName, isTimed){
   return isCompoundLift(exName) ? 150 : 90;
 }
 
-function layoffAdjustment(exName){
+function layoffStatus(exName){
   var dEx = daysSinceExercise(exName);
   var dAll = daysSinceLastWorkout();
   var days = (dEx==null) ? dAll : dEx;
-  if(days==null || days < 10) return null;   // <10 Tage: normale Schwankung
-  if(days < 22) return {days:days, mod:0.95, note:'⏸️ '+days+' Tage Pause → −5 %, sauber wieder einsteigen.'};
-  if(days < 43) return {days:days, mod:0.90, note:'⏸️ '+days+' Tage Pause → −10 %, Technik vor Gewicht.'};
-  if(days < 85) return {days:days, mod:0.80, note:'⏸️ '+Math.round(days/7)+' Wochen Pause → −20 %, 2–3 Wdh Reserve lassen.'};
-  return             {days:days, mod:0.70, note:'⏸️ '+Math.round(days/7)+' Wochen Pause → −30 %, Wiederaufbau über 2–3 Wochen.'};
+  if(days==null || days <= 10) return null;  // ≤10 Tage: normale Schwankung
+  if(days <= 28) return {days:days, mod:1.0,  note:'⏸️ '+days+' Tage Pause → gleiches Gewicht, aber bei RPE 7 bleiben – kein Steigerungsdruck heute.'};
+  if(days <= 56) return {days:days, mod:0.90, note:'⏸️ '+Math.round(days/7)+' Wochen Pause → −10 %, sauber wieder einsteigen.'};
+  return              {days:days, mod:0.80, note:'⏸️ '+Math.round(days/7)+' Wochen Pause → −20 %, Technik vor Last. Muscle Memory bringt dich zügig zurück.'};
 }
 
-// Gewichtssprung: prozentual, auf die kleinste Stufe gerundet. Hohe Wdh-Ziele
-// (≥15, typisch Isolation) bekommen kleinere Sprünge, weil dort schon 1–2 kg
-// mehrere Wiederholungen kosten.
-function incrementFor(workW, exName, range){
-  var t = equipmentType(exName);
-  var step = plateStep(exName, workW);
-  var pct = (range && range.hi >= 15) ? 0.015 : (t==='barbell' ? 0.025 : 0.02);
-  var inc = Math.max(step, Math.round((workW*pct)/step)*step);
-  return inc;
-}
 // Empfohlenes Gewicht für Ziel-Wdh bei Ziel-RIR, abgeleitet aus aktuellem E1RM
 function loadForReps(exName, reps, rir){
   var e = currentE1rm(exName);
@@ -2298,44 +2353,143 @@ function hrvStatus(){
   return {delta:delta, status:'normal', hrv:today.hrv, baseline:Math.round(baseline), note:rhrElevated?'⚠️ Ruhepuls erhöht – beobachten':''};
 }
 
-// ── Kombinierter Recovery-Status: Schlaf + HRV (Luna-ready) ──────────────
-// HRV hat Vorrang wenn vorhanden – objektiver Marker schlägt subjektiven
+// ── Ruhepuls-Status: heutiger RHR vs. 7-Tage-Baseline ────────────────────
+// Ein um ≥5 bpm erhöhter Morgen-Ruhepuls ist ein eigenständiges Frühwarn-
+// signal für Stress/Infekt/Unterrecovery – auch bei unauffälliger HRV.
+function rhrStatus(){
+  var logs = (AppState.wearableLog||[]);
+  if(!logs.length) return null;
+  var today = logs[logs.length-1];
+  if(!today || !today.rhr || today.d !== localDateStr()) return null;
+  var prev = logs.slice(-8, -1).filter(function(e){return e.rhr>0;});
+  if(prev.length < 3) return null;                 // Baseline noch im Aufbau
+  var base = prev.reduce(function(a,e){return a+e.rhr;},0)/prev.length;
+  var delta = today.rhr - base;
+  if(delta >= 5) return {delta:delta, status:'elevated', rhr:today.rhr, baseline:Math.round(base),
+    note:'❤️ Ruhepuls +'+Math.round(delta)+' bpm über Baseline → Frühwarnsignal (Stress/Infekt?) – heute nicht ans Limit'};
+  return {delta:delta, status:'normal', rhr:today.rhr, baseline:Math.round(base), note:''};
+}
+
+// ── Kombinierter Recovery-Status: Schlaf + HRV + Ruhepuls ────────────────
+// Objektiv schlägt subjektiv: supprimierte HRV überschreibt guten Schlaf;
+// ein erhöhter Ruhepuls bremst auch bei unauffälliger HRV.
 function recoveryStatus(){
   var sleep = recentSleepQuality();
   var hrv = hrvStatus();
+  var rhr = rhrStatus();
+  var result;
   if(!hrv || hrv.status==='baseline'){
-    return sleep; // kein Wearable → wie bisher nur Schlaf
-  }
-  // HRV supprimiert → überschreibt guten Schlaf (objektive Ermüdung)
-  if(hrv.status==='suppressed'){
+    result = sleep; // kein HRV-Signal → Schlaf-Urteil
+  } else if(hrv.status==='suppressed'){
+    // HRV supprimiert → überschreibt guten Schlaf (objektive Ermüdung)
     return {q:'bad', mod:0.92, note:hrv.note+' → −5-8% Gewicht heute', hrv:hrv};
+  } else if(hrv.status==='elevated' && (!sleep || sleep.q==='ok' || sleep.q==='top')){
+    result = {q:'top', mod:1.05, note:hrv.note+' → aggressive Progression möglich', hrv:hrv};
+  } else if(sleep){
+    sleep.hrv = hrv; result = sleep;
+  } else {
+    result = {q:'ok', mod:1.0, note:'', hrv:hrv};
   }
-  // HRV top + Schlaf mind. ok → Boost
-  if(hrv.status==='elevated' && (!sleep || sleep.q==='ok' || sleep.q==='top')){
-    return {q:'top', mod:1.05, note:hrv.note+' → aggressive Progression möglich', hrv:hrv};
+  // Ruhepuls-Warnung: dämpft ok/top auf "low", Hinweis immer anhängen
+  if(rhr && rhr.status==='elevated'){
+    if(!result || result.q==='ok' || result.q==='top'){
+      return {q:'low', mod:0.97, note:rhr.note, hrv:hrv, rhrWarn:true};
+    }
+    result.note = (result.note ? result.note+' · ' : '') + rhr.note;
+    result.rhrWarn = true;
   }
-  // Sonst: Schlaf-Urteil beibehalten, HRV-Info anhängen
-  if(sleep){ sleep.hrv = hrv; return sleep; }
-  return {q:'ok', mod:1.0, note:'', hrv:hrv};
+  return result;
 }
 
 // ── Wearable-Daten loggen (Luna Band Morgen-Check-in) ─────────────────────
-function logWearable(){
-  var hrvEl = el('wb-hrv'), rhrEl = el('wb-rhr');
-  var hrv = hrvEl ? parseFloat(hrvEl.value)||0 : 0;
-  var rhr = rhrEl ? parseFloat(rhrEl.value)||0 : 0;
-  if(!hrv && !rhr){ toast('Bitte mind. HRV eintragen'); return; }
-  if(hrv && (hrv<10 || hrv>200)){ toast('HRV unrealistisch (10–200 ms)'); return; }
-  if(rhr && (rhr<30 || rhr>120)){ toast('Ruhepuls unrealistisch (30–120)'); return; }
-  var today = localDateStr();
-  AppState.wearableLog = (AppState.wearableLog||[]).filter(function(e){return e.d!==today;});
-  AppState.wearableLog.push({d:today, hrv:hrv, rhr:rhr});
-  if(AppState.wearableLog.length > 60) AppState.wearableLog = AppState.wearableLog.slice(-60);
+// ── Wearable: gemeinsamer Speicherweg für alle drei Eingabewege ───────────
+// Plausibilität: HRV 10–250 ms · Puls 30–120 · Schlaf 1–16 h. Schlaf wird
+// zusätzlich (auf 0,5 h gerundet) ins sleepLog übernommen. Max. 90 Einträge,
+// chronologisch sortiert.
+function saveWearableEntry(dateStr, hrv, rhr, sleepH, silent){
+  hrv = parseFloat(hrv)||0; rhr = parseFloat(rhr)||0; sleepH = parseFloat(sleepH)||0;
+  if(!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(String(dateStr))) dateStr = localDateStr();
+  if(!hrv && !rhr && !sleepH){ if(!silent) toast('Keine Werte zum Speichern'); return false; }
+  if(hrv && (hrv<10 || hrv>250)){ if(!silent) toast('HRV unrealistisch (10–250 ms)'); return false; }
+  if(rhr && (rhr<30 || rhr>120)){ if(!silent) toast('Ruhepuls unrealistisch (30–120)'); return false; }
+  if(sleepH && (sleepH<1 || sleepH>16)){ if(!silent) toast('Schlaf unrealistisch (1–16 h)'); return false; }
+  var wl = (AppState.wearableLog||[]).filter(function(e){return e && e.d!==dateStr;});
+  wl.push({d:dateStr, hrv:hrv, rhr:rhr, sleep:sleepH});
+  wl.sort(function(a,b){ return a.d<b.d ? -1 : (a.d>b.d ? 1 : 0); });
+  if(wl.length > 90) wl = wl.slice(-90);
+  AppState.wearableLog = wl;
+  if(sleepH){
+    var sh = Math.round(sleepH*2)/2;
+    var idx = AppState.sleepLog.findIndex(function(s){return s.d===dateStr;});
+    if(idx>=0) AppState.sleepLog[idx].h = sh; else AppState.sleepLog.push({h:sh, d:dateStr});
+    AppState.sleepLog.sort(function(a,b){ return a.d<b.d ? -1 : (a.d>b.d ? 1 : 0); });
+    if(AppState.sleepLog.length>30) AppState.sleepLog = AppState.sleepLog.slice(-30);
+  }
   AppState.save();
-  var st = hrvStatus();
-  toast(st && st.note ? st.note : '✅ Wearable-Daten gespeichert');
-  safeCall(refreshDash);
-  if(hrvEl) hrvEl.value=''; if(rhrEl) rhrEl.value='';
+  return true;
+}
+
+// 1) Manuell – Felder im Profil-Tab
+function logWearable(){
+  var hrvEl=el('wb-hrv'), rhrEl=el('wb-rhr'), slEl=el('wb-sleep');
+  var saved = saveWearableEntry(localDateStr(),
+    hrvEl?hrvEl.value:'', rhrEl?rhrEl.value:'', slEl?slEl.value:'', false);
+  if(!saved) return;
+  var st = hrvStatus(); var rs = rhrStatus();
+  toast(st && st.note ? st.note : (rs && rs.note ? rs.note : '✅ Wearable-Daten gespeichert'));
+  safeCall(refreshDash); safeCall(refreshDataPage);
+  if(hrvEl) hrvEl.value=''; if(rhrEl) rhrEl.value=''; if(slEl) slEl.value='';
+}
+
+// 2) URL-Auto-Sync – für einen iOS-Kurzbefehl, der Werte aus Apple Health
+//    anhängt: ?hrv=55&rhr=52&sleep=7.5[&date=YYYY-MM-DD]
+//    Wird in initApp() direkt nach AppState.load() aufgerufen; die Parameter
+//    werden danach entfernt, damit ein Reload nicht doppelt importiert.
+function importWearableFromURL(){
+  try{
+    if(!location.search || location.search.indexOf('=')<0) return;
+    var params = {};
+    location.search.substring(1).split('&').forEach(function(p){
+      var kv = p.split('=');
+      if(kv.length===2) params[decodeURIComponent(kv[0])] = decodeURIComponent(kv[1]);
+    });
+    if(!params.hrv && !params.rhr && !params.sleep) return;
+    var imported = saveWearableEntry(params.date || localDateStr(),
+      params.hrv||'', params.rhr||'', params.sleep||'', true);
+    if(imported) toast('⌚ Wearable-Daten via Kurzbefehl importiert');
+    if(window.history && history.replaceState){
+      history.replaceState(null, '', location.pathname + (location.hash||''));
+    }
+  }catch(e){ log.error('importWearableFromURL', e); }
+}
+
+// 3) Bulk-Import – eine Zeile pro Tag: "JJJJ-MM-TT, HRV, Puls, Schlaf"
+//    Damit steht die 7-Tage-Baseline sofort, statt erst nach einer Woche.
+function importWearableBulk(){
+  var ta = el('wb-bulk'); if(!ta) return;
+  var okCount=0, badCount=0;
+  String(ta.value||'').split('\n').forEach(function(line){
+    line = line.trim(); if(!line) return;
+    var parts = line.split(',').map(function(s){return s.trim();});
+    if(parts.length<2 || !/^\d{4}-\d{2}-\d{2}$/.test(parts[0])){ badCount++; return; }
+    if(saveWearableEntry(parts[0], parts[1]||'', parts[2]||'', parts[3]||'', true)) okCount++;
+    else badCount++;
+  });
+  if(okCount){
+    toast('✅ '+okCount+' Tage importiert'+(badCount?' · '+badCount+' Zeilen übersprungen':''));
+    ta.value=''; safeCall(refreshDash); safeCall(refreshDataPage);
+  } else {
+    toast(badCount ? 'Keine gültige Zeile (Format: JJJJ-MM-TT, HRV, Puls, Schlaf)' : 'Nichts zu importieren');
+  }
+}
+
+// Kurzbefehl-Anleitung ein-/ausklappen; merkt sich bewusstes Schließen
+function toggleLunaSetup(){
+  var box = el('lunaSetupBox'); if(!box) return;
+  var open = box.style.display !== 'none';
+  box.style.display = open ? 'none' : 'block';
+  if(open) DB.set('lunaSetupDismissed', true);
+  var arrow = el('lunaSetupArrow'); if(arrow) arrow.textContent = open ? '▸' : '▾';
 }
 
 // ── Helper: aktuelle Trainingswoche seit erstem Workout ──────────────────
@@ -2380,6 +2534,14 @@ function readinessScore(){
     hasData = true;
     if(hrv.status==='elevated'){   score += 12; factors.push('⌚ HRV top (+12)'); }
     else if(hrvSuppressed){        score -= 30; factors.push('⌚ HRV supprimiert (−30)'); }
+  }
+
+  // Ruhepuls – eigenständiges Frühwarnsignal (nicht doppelt zählen, wenn
+  // die HRV ohnehin schon supprimiert ist)
+  var rhrS = rhrStatus();
+  if(rhrS){
+    hasData = true;
+    if(rhrS.status==='elevated' && !hrvSuppressed){ score -= 12; factors.push('❤️ Ruhepuls +'+Math.round(rhrS.delta)+' bpm (−12)'); }
   }
 
   // Schlaf (nur wenn geloggt) – Bonus zählt NICHT wenn HRV objektiv supprimiert
@@ -2435,13 +2597,17 @@ function coachSuggestion(exName, targetStr){
     return {weight:null, reps:range?range.lo:null, hint:'😌 Deload aktiv: lockere Ausführung, 2–3 Wdh Reserve lassen.'};
   }
 
-  // ── TRAININGSPAUSE: reduzieren statt weiter steigern ──
+  // ── PRIORITÄT 0 – TRAININGSPAUSE: Wiedereinstieg statt Progression ──
   // Ohne das schlägt die App nach Wochen Pause unverändert +2,5 kg vor.
-  var layoff = layoffAdjustment(exName);
+  var layoff = layoffStatus(exName);
   if(layoff){
     var allWp = last.map(function(x){return +(x.w)||0;}).filter(function(w){return w>0;});
     var pW = allWp.length ? Math.max.apply(null, allWp) : 0;
     if(pW>0){
+      if(layoff.mod >= 1){
+        // ≤4 Wochen: Kraft weitgehend erhalten → gleiches Gewicht, kein Push
+        return {weight:pW, reps:range?range.lo:null, hint:layoff.note};
+      }
       var stepP = plateStep(exName, pW);
       var backW = Math.max(stepP, Math.round((pW*layoff.mod)/stepP)*stepP);
       return {weight:backW, reps:range?range.lo:null,
@@ -2511,6 +2677,15 @@ function coachSuggestion(exName, targetStr){
     return {weight:workW||null, reps:bwTarget, hint:bwHint};
   }
 
+  // ── KARENZ NACH GEWICHTSSPRUNG (Double Progression) ──
+  // War die letzte Session schwerer als die davor, sind niedrigere Wdh
+  // erwartbar – ohne diese Regel entsteht eine Endlosschleife aus
+  // Steigern und Deloaden.
+  if(failedLow && justIncreasedWeight(exName)){
+    return {weight:workW, reps:range?range.hi:workReps[0],
+            hint:'Frisch gesteigert – niedrigere Wdh sind hier normal. Gewicht halten und die Wdh schrittweise wieder aufbauen.'};
+  }
+
   // PRIORITÄT 1 – Failed low (mehrere Sätze unter Grenze) → Deload −7%
   if(failedLow){
     var w = Math.round(workW * 0.93 * 2)/2;
@@ -2523,7 +2698,7 @@ function coachSuggestion(exName, targetStr){
   // PRIORITÄT 3 – Obere Grenze (Mehrheit) erreicht → +Gewicht
   if(hitTop){
     var stepH = plateStep(exName, workW);
-    var inc = incrementFor(workW, exName, range);
+    var inc = loadIncrement(workW, exName);
     if(sleep && sleep.q==='bad') inc = Math.max(stepH, Math.round(inc*0.5/stepH)*stepH);
     var newW = Math.round((workW + inc) * 4)/4;   // 0,25er-Raster erlaubt 1,25-Schritte
     var topNote = 'Obere Grenze geschafft → +'+inc+' kg, Range neu starten.';
@@ -2535,7 +2710,7 @@ function coachSuggestion(exName, targetStr){
   var targetReps = Math.min(range?range.hi:maxR+1, maxR+1);
   var hint = 'Gleiches Gewicht – +1 Wdh anpeilen.';
   if(avgRpe !== null && avgRpe <= 7){
-    hint = 'RPE niedrig (≤7) – ggf. +'+incrementFor(workW, exName, range)+' kg statt nur +1 Wdh.';
+    hint = 'RPE niedrig (≤7) – ggf. +'+loadIncrement(workW, exName)+' kg statt nur +1 Wdh.';
   }
   // Plateau-Hinweis: E1RM seit mehreren Sessions flach → Reiz variieren
   var trend = liftTrend(exName);
@@ -2831,6 +3006,11 @@ const FORM_TIPS={
   'Rudern (LH Untergriff)':        '45° Vorbeuge. Rücken gerade. Stange zum Nabel – nicht zur Brust. Schulterblätter zusammen.',
   'Seilzugrudern (eng)':           'Volle Streckung vorne für Stretch. Schulterblätter hinten zusammenziehen. Aufrecht sitzen.',
   'Face Pulls (Kabel)':            'Zu Ohrhöhe ziehen. Ellbogen hoch halten. Externe Rotation der Schulter! Pflichtübung.',
+  'Kabelflys (untere Rolle)':      'Von unten nach oben führen. Arme leicht gebeugt fixiert. Am Endpunkt 1 Sek zusammendrücken.',
+  'Schrägbank Bankdrücken (LH)':   '30–45° Lehne. Stange zur oberen Brust. Schulterblätter fest – anderer Winkel als Montag.',
+  'Pec Deck / Maschinen-Flys':     'Ellbogen leicht gebeugt auf Polsterhöhe. Konstante Spannung, vorne 1 Sek halten.',
+  'Einarmiges KH-Rudern':          'Knie und Hand aufgestützt. Ellbogen eng zur Hüfte ziehen, oben Rücken bewusst anspannen.',
+  'Kabel-Pullover (stehend)':      'Arme fast gestreckt, Bogen von oben zur Hüfte. Lat arbeitet – nicht der Trizeps.',
   'Bizeps Curl (LH)':              'Kein Schwingen! Ellbogen fixiert. Volle Extension unten für maximalen Stretch.',
   'Incline Curl (KH) 45°':         'Maximaler Stretch des langen Bizepskopfes. Schultern bleiben zurück. Abwechselnd.',
   'Hammer Curl (KH)':              'Neutraler Griff (Daumen oben). Trainiert Brachialis & Unterarm. Alternierend.',
@@ -3004,13 +3184,27 @@ function refreshDataPage(){
   const today=localDateStr();
   const s=AppState.sleepLog.find(x=>x.d===today);
   if(s) $$('.sleep-btn').forEach(b=>{ if(parseInt(b.textContent)===s.h) b.classList.add('sel'); });
-  // HRV-Status anzeigen (Luna Band)
+  // HRV-/Ruhepuls-Status anzeigen (Luna Band)
   var fb=el('hrvFeedback');
   if(fb){
     var st=hrvStatus();
-    if(!st) fb.textContent='Noch keine Wearable-Daten. Trage morgens deinen HRV-Wert vom Luna Band ein.';
-    else if(st.status==='baseline') fb.textContent='📊 '+st.note;
-    else fb.innerHTML='Heute: <b>'+st.hrv+' ms</b> · Baseline: '+st.baseline+' ms · '+(st.note||'✅ im Normalbereich');
+    var rs=rhrStatus();
+    if(!st && !rs) fb.textContent='Noch keine Wearable-Daten von heute. Trage morgens HRV, Ruhepuls und Schlaf ein.';
+    else if(st && st.status==='baseline') fb.textContent='📊 '+st.note;
+    else {
+      var parts=[];
+      if(st) parts.push('HRV heute: <b>'+st.hrv+' ms</b> (Baseline '+st.baseline+')'+(st.note?' · '+st.note:''));
+      if(rs) parts.push('Puls: <b>'+rs.rhr+'</b> (Baseline '+rs.baseline+')'+(rs.note?' · '+rs.note:''));
+      fb.innerHTML=parts.join('<br>')||'✅ im Normalbereich';
+    }
+  }
+  // Kurzbefehl-Anleitung automatisch offen, solange keine Wearable-Daten da
+  // sind und der Nutzer sie nicht bewusst geschlossen hat
+  var lunaBox=el('lunaSetupBox');
+  if(lunaBox){
+    var showLuna=(AppState.wearableLog||[]).length===0 && !DB.get('lunaSetupDismissed', false);
+    lunaBox.style.display=showLuna?'block':lunaBox.style.display;
+    var la=el('lunaSetupArrow'); if(la && showLuna) la.textContent='▾';
   }
   // Datensicherheits-Status
   var si=el('dataSafetyInfo');
@@ -3428,6 +3622,7 @@ function wrapTerms(text){
 // ── 30. INIT ─────────────────────────────────────────────
 function initApp(){
   try { AppState.load(); } catch(e){ log.error('load',e); }
+  safeCall(importWearableFromURL);      // iOS-Kurzbefehl: ?hrv=&rhr=&sleep=
   try { bindEvents(); }    catch(e){ log.error('events',e); }
   safeCall(requestPersistentStorage);   // Schutz vor Auto-Löschung
   safeCall(maybeAutoSnapshot);          // Schattenkopie sicherstellen
@@ -3559,7 +3754,7 @@ function generatePlan(){
     AppState.user.kcalTarget=Math.round(bmr*1.55-500);
   }
   var plan=buildOnboardingPlan(obState);
-  AppState.plan=plan; DB.set('plan',plan); DB.set('planVersion',PLAN_VERSION); AppState.save();
+  AppState.plan=plan; DB.set('plan',plan); DB.set('planVersion',PLAN_VERSION); DB.set('planSource','custom'); AppState.save();
   // Render result
   var gn={recomp:'Recomp',bulk:'Muskelaufbau',cut:'Definition',strength:'Kraft',athlete:'Athletisch'};
   var sn={auto:'Smart-optimiert',ppl:'Push/Pull/Legs',upperlower:'Upper/Lower',fullbody:'Ganzkörper',brosplit:'Bro-Split'};
@@ -3627,7 +3822,7 @@ function buildOnboardingPlan(s){
     ci:  full?E('Schrägbankdrücken (KH)','3×8–12','Obere Brust · '+rn):E('Schräge Liegestütze','3×12–15',rn),
     cf:  hasM?E('Kabelflys (untere Rolle)',vol.i,'Stretch · '+rn):E('KH-Flys',vol.i,rn),
     sp:  full?E('Schulterdrücken (KH sitzend)',vol.m,rn):E('Pike Push-Ups','3×10–15',rn),
-    sl:  full?E('Seitheben (KH)','3×15–20','3 Sek negativ · '+rn):E('Seitheben (Band)','3×15–20',rn),
+    sl:  full?E('Seitheben (KH)','3×12–15','3 Sek negativ · '+rn):E('Seitheben (Band)','3×12–15',rn),
     t1:  hasM?E('Trizeps Pushdown (Seil)',vol.i,'Ellbogen fixiert · '+rn):E('Diamond Push-Ups','3×10–15',rn),
     t2:  full?E('Overhead Extension (KH)',vol.i,'Stretch · '+rn):E('Skull Crushers (KH)',vol.i,rn),
     pv:  full?E('Klimmzüge',vol.m,'Volle Streckung · '+rn):E('Klimmzüge',vol.m,rn),
@@ -3636,7 +3831,7 @@ function buildOnboardingPlan(s){
     rc:  hasM?E('Seilzugrudern (eng)',vol.i,'Volle Streckung · '+rn):E('Einarmiges KH-Rudern',vol.i,rn),
     b1:  full?E('Bizeps Curl (LH)',vol.i,'Kein Schwung · '+rn):E('Bizeps Curl (KH)',vol.i,rn),
     b2:  full?E('Incline Curl (KH) 45°','3×12–15','Stretch · '+rn):E('Hammer Curl (KH)','3×12–15',rn),
-    fp:  hasM?E('Face Pulls (Kabel)','3×15–20','Schultergesundheit!'):E('Band Face Pulls','3×15–20','Schultergesundheit!'),
+    fp:  hasM?E('Face Pulls (Kabel)','3×12–15','Schultergesundheit!'):E('Band Face Pulls','3×12–15','Schultergesundheit!'),
     sq:  full?E('Kniebeuge (LH)',vol.m,'E1RM tracken · '+rn):E('Goblet Squat (KH)',vol.m,rn),
     lp:  hasM?E('Beinpresse','3×10–12',rn):E('Bulg. Split Squat','3×8–10',rn),
     le:  hasM?E('Beinstrecker',vol.i,'Exzentrisch · '+rn):E('Ausfallschritte',vol.i,rn),
