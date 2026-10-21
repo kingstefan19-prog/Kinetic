@@ -23,7 +23,23 @@ export default function ({ test, todo, assert, loadApp, loadFixture }) {
     assert.match(ctx2.document.getElementById('coachCard').innerHTML, /quads<\/span><span[^>]*>0 Sätze · nicht trainiert/);
   });
 
-  todo('3.2 Volumen-Ampel: Ø der letzten 14 Tage pro Woche statt rollierend 7 Tage');
+  test('3.2 Volumen-Ampel: Ø der letzten 14 Tage pro Woche statt rollierend 7 Tage', () => {
+    const legs = (date) => ({ ts: Date.parse(`${date}T17:00:00Z`), dayName: 'Legs A', durationMs: 3e6, volume: 0,
+      sets: Array.from({ length: 10 }, () => ({ ex: 'Beinstrecker', w: 45, r: 12, rpe: 8 })) });
+    // Bestandsnutzer: Vorwoche 10 Sätze quads, diese Woche ausgefallen
+    const ctx = loadApp({ history: [legs('2026-09-01'), legs('2026-10-09')] }, { now: '2026-10-19T08:00:00Z' });
+    assert.equal(ctx.weeklyMuscleSets().quads || 0, 0, 'rollierend 7 Tage: alles weg');
+    assert.equal(ctx.smoothedWeeklyMuscleSets().quads, 5);
+    ctx.renderCoachCard();
+    assert.match(ctx.document.getElementById('coachCard').innerHTML, /quads<\/span><span[^>]*>5 Sätze/);
+    assert.match(ctx.document.getElementById('coachCard').innerHTML, /Ø pro Woche der letzten 14 Tage/);
+    // neuer Nutzer (erste Session vor 3 Tagen) → nicht halbiert
+    const neu = loadApp({ history: [legs('2026-10-16')] }, { now: '2026-10-19T08:00:00Z' });
+    assert.equal(neu.smoothedWeeklyMuscleSets().quads, 10);
+    // 2 Wochen mit zusammen 20 Sätzen → 10/Woche
+    const zwei = loadApp({ history: [legs('2026-09-01'), legs('2026-10-09'), legs('2026-10-16')] }, { now: '2026-10-19T08:00:00Z' });
+    assert.equal(zwei.smoothedWeeklyMuscleSets().quads, 10);
+  });
 
   todo('3.3 skipped-legs: Adherence-Karte "Legs A fällt oft aus"', () => {
     const ctx = loadApp(loadFixture('skipped-legs'));

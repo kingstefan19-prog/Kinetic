@@ -1339,7 +1339,7 @@ const VOLUME_LM={
 
 function renderCoachCard(){
   const el_=el('coachCard'); if(!el_) return;
-  const vol=weeklyMuscleSets();
+  const vol=smoothedWeeklyMuscleSets();
   if(!Object.keys(vol).length){ el_.innerHTML='<div style="color:var(--t3);font-size:13px">Starte dein erstes Workout – der Coach lernt mit jedem Satz.</div>'; return; }
 
   // Check für Übertraining
@@ -1390,7 +1390,7 @@ function renderCoachCard(){
       + redList.map(function(a){return '➖ '+esc(a.msg);}).join('<br>')
       +'</div>';
   }
-  el_.innerHTML=warnHtml+rows+adviceHtml+'<div style="margin-top:10px;font-size:10px;color:var(--t3);line-height:1.5">Israetel MEV/MAV/MRV-Modell · Ziel: MEV–MAV für Hypertrophie</div>';
+  el_.innerHTML=warnHtml+rows+adviceHtml+'<div style="margin-top:10px;font-size:10px;color:var(--t3);line-height:1.5">Sätze = Ø pro Woche der letzten 14 Tage · Israetel MEV/MAV/MRV-Modell · Ziel: MEV–MAV für Hypertrophie</div>';
 }
 
 // ── 13. PLAN RENDER ─────────────────────────────────────
@@ -3054,7 +3054,7 @@ function targetRIR(){
 // ── Volumen-Progression: Satz-Empfehlung übers Mesozyklus (MEV→MAV→MRV) ───
 function volumeProgressionAdvice(){
   if(deloadActive()) return [];   // im Deload keine Steigerungs-Empfehlungen
-  var vol = weeklyMuscleSets();
+  var vol = smoothedWeeklyMuscleSets();
   var advice = [], inPlan = planMuscles();
   Object.keys(VOLUME_LM).forEach(function(m){
     var lm = VOLUME_LM[m], sets = vol[m]||0;
@@ -3726,8 +3726,9 @@ function musclesFor(exName){
   return [];
 }
 
-function weeklyMuscleSets(){
-  var since=Date.now()-7*24*3600*1000, acc={};
+// Sätze pro Muskel der letzten `days` Tage (Standard 7 = laufende Woche)
+function weeklyMuscleSets(days){
+  var since=Date.now()-(days||7)*24*3600*1000, acc={};
   (AppState.history||[]).filter(function(e){return e.ts>=since;}).forEach(function(e){
     (e.sets||[]).forEach(function(s){
       if(!s.r && !s.secs) return;
@@ -3739,6 +3740,19 @@ function weeklyMuscleSets(){
   // Runde auf 0.5 für Lesbarkeit
   Object.keys(acc).forEach(function(m){ acc[m]=Math.round(acc[m]*2)/2; });
   return acc;
+}
+// Spec 3.2: Volumen-Ampel = Ø pro Woche über die letzten 14 Tage. Ein
+// ausgefallenes Training kippt so nicht sofort alle Ampeln. Liegt die erste
+// Session kürzer zurück, wird nur über die vorhandenen Tage gemittelt
+// (mindestens 1 Woche) – sonst halbiert ein neuer Nutzer sein Volumen.
+function smoothedWeeklyMuscleSets(){
+  var h = AppState.history||[], first = Infinity;
+  h.forEach(function(e){ if(e && e.ts < first) first = e.ts; });
+  if(first===Infinity) return {};
+  var spanDays = Math.min(14, Math.max(7, (Date.now() - first)/86400000));
+  var raw = weeklyMuscleSets(14), weeks = spanDays/7, out = {};
+  Object.keys(raw).forEach(function(m){ out[m] = Math.round(raw[m]/weeks*2)/2; });
+  return out;
 }
 
 // ── findFamilyFor: REIHENFOLGE FIX – Bein vor Schulter! ─────────────────────
