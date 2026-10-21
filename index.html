@@ -2342,11 +2342,14 @@ function renderWorkout(){
 
     // Form tip
     const tip=FORM_TIPS[cur.n]||'';
-    // Gewichtsschritt am eigenen Gerät (Spec 2.4) – nur bei Gewichtsübungen
+    // Gewichtsschritt am eigenen Gerät (Spec 2.4) – nur bei Gewichtsübungen.
+    // Standard = loadIncrement() beim letzten Arbeitsgewicht, also genau der
+    // Sprung, den der Coach ohne eigenen Wert vorschlägt (nicht plateStep)
     const stepVal=customEquipStep(cur.n);
+    const stepDefault=loadIncrement(lastWorkWeight(cur.n) || (last?+last.w:0), cur.n, true);
     const stepHtml=(isTimed||isBWex)?'':`<div style="margin-top:10px;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--t2)">
-        <span style="flex:1">Gewichtsschritt an deinem Gerät</span>
-        <input id="equipStepInp" type="number" inputmode="decimal" step="0.25" min="0" placeholder="${plateStep(cur.n, last?last.w:0)} kg" value="${stepVal||''}" style="width:84px;padding:6px 8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-size:13px">
+        <span style="flex:1">Gewichtsschritt an deinem Gerät<br><span id="equipStepDefault" style="font-size:11px;color:var(--t3)">Standard: ${fmtDe(stepDefault)} kg</span></span>
+        <input id="equipStepInp" type="number" inputmode="decimal" step="0.25" min="0" placeholder="${stepDefault}" value="${stepVal||''}" style="width:84px;padding:6px 8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-size:13px">
         <span>kg</span>
       </div>`;
 
@@ -3054,8 +3057,9 @@ function customEquipStep(exName){
   var v = m ? +m[exName] : 0;
   return v > 0 ? v : 0;
 }
-function plateStep(exName, w){
-  var custom = customEquipStep(exName);
+// noCustom: Standardwert ohne eigenen Geräteschritt (für die Anzeige)
+function plateStep(exName, w, noCustom){
+  var custom = noCustom ? 0 : customEquipStep(exName);
   if(custom) return custom;
   var t = equipmentType(exName);
   w = +w || 0;
@@ -3067,8 +3071,8 @@ function plateStep(exName, w){
 // loadIncrement = der GEWICHTSSPRUNG bei erreichter oberer Wdh-Grenze:
 // ~2–5 % der Last, auf reale Hantel-/Stack-Schritte gelegt. Fixe +2,5 kg
 // wären auf 20 kg Seitheben +12,5 % → Wdh brechen ein → Pseudo-Deload.
-function loadIncrement(w, exName){
-  var custom = customEquipStep(exName);
+function loadIncrement(w, exName, noCustom){
+  var custom = noCustom ? 0 : customEquipStep(exName);
   if(custom) return custom;                      // Gerät gibt den Sprung vor
   var t = equipmentType(exName);
   w = +w || 0;
@@ -3084,7 +3088,7 @@ function loadIncrement(w, exName){
     inc = Math.max(1.25, Math.round((w*0.03)/1.25)*1.25);   // Rest: ~3 %
   }
   // Sprung muss auf reale Hantelstufen passen (Vielfaches von plateStep)
-  var step = plateStep(exName, w);
+  var step = plateStep(exName, w, noCustom);
   return Math.max(step, Math.round(inc/step)*step);
 }
 // Oberkörper-Grundübungen mit Langhantel: dort sind 5-kg-Sprünge zu groß

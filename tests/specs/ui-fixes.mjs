@@ -65,4 +65,27 @@ export default function ({ test, assert, loadApp, REPO_ROOT }) {
       if (!ex.isTimed) assert.match(html, /data-set-field="r"[^>]*padding:8px 4px;text-align:center/, ex.n);
     }
   });
+
+  test('Fix 3: Gewichtsschritt-Feld zeigt den Standard aus loadIncrement() (Latzug > 70 kg: 5 kg)', () => {
+    const ctx = loadApp({ history: [session('2026-10-15', 'Latzug (Untergriff eng)', [[95, 12, 8], [95, 12, 8], [95, 12, 8]])] },
+      { now: '2026-10-21T10:00:00Z' });
+    const ex = 'Latzug (Untergriff eng)';
+    assert.equal(ctx.plateStep(ex, 95), 2.5);
+    assert.equal(ctx.loadIncrement(95, ex), 5);
+    const sug = ctx.coachSuggestion(ex, '3×10-12');
+    assert.equal(sug.weight, 100, 'Vorschlag nutzt +5');
+    ctx.AppState.activeSession = { dayId: 'wed', dayName: 'Pull A', startTs: ctx.Date.now(), currentIdx: 0, restEndTs: 0,
+      exercises: [{ n: ex, s: '3×10-12', isTimed: false, coach: sug, done: false, sets: [{ w: '100', r: '10', rpe: '', done: false }] }] };
+    ctx.renderWorkout();
+    let html = ctx.document.getElementById('workoutContent').innerHTML;
+    assert.match(html, /id="equipStepInp"[^>]*placeholder="5"/);
+    assert.match(html, /Standard: 5 kg/);
+    // eigener Schritt gesetzt: Feld zeigt ihn, "Standard" bleibt der Gerätewert ohne eigenen Schritt
+    ctx.AppState.equipSteps[ex] = 2.5;
+    ctx.renderWorkout();
+    html = ctx.document.getElementById('workoutContent').innerHTML;
+    assert.match(html, /id="equipStepInp"[^>]*value="2.5"/);
+    assert.match(html, /Standard: 5 kg/);
+    assert.equal(ctx.loadIncrement(95, ex), 2.5, 'eigener Schritt gilt für die Rechnung');
+  });
 }
