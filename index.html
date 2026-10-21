@@ -2493,14 +2493,15 @@ function amrapExerciseFor(exList){
   });
   return hit;
 }
-// Heutiger Gym-Tag im Plan, sonst der nächste
+// Heutiger Gym-Tag im Plan, sonst der nächste. Der Wochentag ergibt sich wie
+// in dayLabel() aus der Position im Plan (0 = Montag), nicht aus day.id –
+// Tage lassen sich im Plan verschieben.
+function todayPlanIdx(){ return (new Date().getDay()+6)%7; }
 function upcomingGymDay(){
-  var ids = ['sun','mon','tue','wed','thu','fri','sat'], plan = AppState.plan||[];
-  var d = new Date().getDay();
+  var plan = AppState.plan||[], d = todayPlanIdx();
   for(var k=0; k<7; k++){
-    var id = ids[(d+k)%7];
-    var day = plan.find(function(x){ return x && x.id===id && x.type==='gym' && (x.ex||[]).length; });
-    if(day) return {day:day, today:k===0};
+    var day = plan[(d+k)%7];
+    if(day && day.type==='gym' && (day.ex||[]).length && !day.optional) return {day:day, today:k===0};
   }
   return null;
 }

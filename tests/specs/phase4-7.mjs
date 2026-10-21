@@ -80,6 +80,14 @@ export default function ({ test, todo, assert, loadApp, REPO_ROOT }) {
     assert.match(ctx.document.getElementById('smartNotifs').innerHTML, /Im nächsten Training \(Pull A\) im letzten Satz von Face Pulls \(Kabel\)/);
   });
 
+  test('4.2 Wochentag kommt aus der Position im Plan (verschobene Tage)', () => {
+    const ctx = loadApp({ history: rpeHistory(40) }, { now: '2026-10-19T08:00:00Z' });   // Montag
+    const p = ctx.AppState.plan;
+    [p[0], p[2]] = [p[2], p[0]];               // Pull A auf Montag, Push A auf Mittwoch
+    assert.equal(ctx.upcomingGymDay().day.name, 'Pull A');
+    assert.equal(ctx.amrapSuggestion().ex, 'Face Pulls (Kabel)');
+  });
+
   test('4.2 Workout markiert den letzten Satz der letzten Isolationsübung als AMRAP', () => {
     const ctx = loadApp({ history: rpeHistory(40) }, { now: '2026-10-19T08:00:00Z' });
     const day = ctx.AppState.plan.find((d) => d.id === 'mon');
