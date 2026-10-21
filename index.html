@@ -501,7 +501,9 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
     <button onclick="exportData()" class="btn bg2" style="flex:1;padding:10px;font-size:13px">📤 Exportieren</button>
     <button onclick="document.getElementById('importInput').click()" class="btn bg2" style="flex:1;padding:10px;font-size:13px">📥 Importieren</button>
     <button onclick="downloadApp()" class="btn bg2" style="flex:1;min-width:100%;padding:10px;font-size:13px">⬇ App-Datei herunterladen</button>
+    <button onclick="openDataCheck()" class="btn bg2" style="flex:1;min-width:100%;padding:10px;font-size:13px">🔍 Daten prüfen</button>
   </div>
+  <div id="dataCheckBox" style="display:none;margin-top:10px"></div>
   <input type="file" id="importInput" accept=".json" style="display:none" onchange="importData(this)">
   <div id="dataSafetyInfo" style="margin-top:12px;padding:10px 12px;background:var(--card2);border-radius:10px;font-size:11px;color:var(--t3);line-height:1.7"></div>
   <button onclick="restoreFromSnapshot()" class="btn bg2" style="margin-top:8px;padding:9px;font-size:12px;color:var(--blue)">🛟 Letzte Schattenkopie wiederherstellen</button>
@@ -1601,6 +1603,114 @@ function renderLog(){
   var moreHtml=more>0?'<button type="button" class="btn bo" onclick="logLoadMore()" style="margin-top:4px;font-size:13px">Mehr laden ('+more+' ältere Sessions)</button>':'';
   el_.innerHTML=statsHtml+prHtml+sessionHtml+moreHtml;
 }
+
+// ── Bereinigungs-Assistent (Spec 1.4) ────────────────────────────────────
+// Findet Sätze mit w > 2× Median der Übung, RPE außerhalb 5–10 und
+// Sessions > 4 h. "Ist korrekt" merkt sich den Fund (DB dataIssuesOk).
+var _dcList = [], _dcFixIdx = null;
+function medianOf(nums){
+  var a = nums.slice().sort(function(x, y){ return x - y; }), m = Math.floor(a.length/2);
+  return a.length ? (a.length % 2 ? a[m] : (a[m-1] + a[m])/2) : 0;
+}
+function dataIssueKey(f){ return [f.kind, f.ts, f.sIdx==null ? '' : f.sIdx, f.ex||'', f.value].join('|'); }
+function findDataIssues(includeAccepted){
+  var h = AppState.history||[], ws = {}, med = {}, out = [];
+  h.forEach(function(s){ (s.sets||[]).forEach(function(x){
+    if(+x.w>0){ (ws[x.ex] = ws[x.ex]||[]).push(+x.w); }
+  }); });
+  Object.keys(ws).forEach(function(ex){ med[ex] = medianOf(ws[ex]); });
+  h.forEach(function(s, hi){
+    (s.sets||[]).forEach(function(x, si){
+      var w = +x.w;
+      if(w>0 && w > 2*med[x.ex]) out.push({kind:'gewicht', hIdx:hi, sIdx:si, ts:s.ts, ex:x.ex, value:w,
+        msg:fmtDe(w)+' kg × '+(x.r||'?')+' – mehr als doppelt so viel wie dein Median ('+fmtDe(med[x.ex])+' kg)'});
+      if(x.rpe!==null && x.rpe!==undefined && x.rpe!=='' && !(+x.rpe>=5 && +x.rpe<=10)) out.push({kind:'rpe', hIdx:hi, sIdx:si, ts:s.ts, ex:x.ex, value:x.rpe,
+        msg:'RPE '+x.rpe+' – erlaubt sind 5–10'});
+    });
+    if(+s.durationMs > MAX_SESSION_MS) out.push({kind:'dauer', hIdx:hi, sIdx:null, ts:s.ts, ex:s.dayName||'Workout', value:+s.durationMs,
+      msg:'Dauer '+Math.round(s.durationMs/60000)+' Min – mehr als 4 h'});
+  });
+  if(includeAccepted) return out;
+  var ok = DB.get('dataIssuesOk', {}) || {};
+  return out.filter(function(f){ return !ok[dataIssueKey(f)]; });
+}
+// Aktion auf einen Fund: 'ok' (ist korrekt), 'delete', 'fix' (mit Wert:
+// kg, RPE oder Minuten). Danach Volumen/PRs neu und speichern.
+function resolveDataIssue(f, action, value){
+  if(!f) return false;
+  if(action==='ok'){
+    var ok = DB.get('dataIssuesOk', {}) || {};
+    ok[dataIssueKey(f)] = Date.now();
+    DB.set('dataIssuesOk', ok);
+    return true;
+  }
+  var sess = AppState.history[f.hIdx]; if(!sess) return false;
+  if(f.kind==='dauer'){
+    if(action==='delete'){ sess.durationMs = 0; }
+    else {
+      var min = parseFloat(value);
+      if(!(min>=1 && min<=240)) return false;
+      sess.durationMs = Math.round(min*60000);
+    }
+    AppState.save();
+    return true;
+  }
+  var st = (sess.sets||[])[f.sIdx]; if(!st) return false;
+  if(f.kind==='gewicht'){
+    if(action==='delete') return logDeleteSet(f.hIdx, f.sIdx);
+    var w = parseFloat(value);
+    if(!(w>0 && w<=500)) return false;
+    st.w = Math.round(w*4)/4;
+    if(st.add!=null) st.add = Math.max(0, Math.round((st.w - bodyWeightKg())*4)/4);
+  } else if(f.kind==='rpe'){
+    if(action==='delete') st.rpe = null;
+    else { var r = normRpe(value); if(r===null) return false; st.rpe = r; }
+  }
+  logAfterChange(sess);
+  return true;
+}
+function openDataCheck(){
+  var box = el('dataCheckBox'); if(!box) return;
+  _dcList = findDataIssues(false); _dcFixIdx = null;
+  box.style.display = 'block';
+  renderDataCheck();
+}
+function renderDataCheck(){
+  var box = el('dataCheckBox'); if(!box) return;
+  if(!_dcList.length){
+    box.innerHTML = '<div class="c" style="font-size:13px;color:var(--green)">✅ Keine auffälligen Einträge gefunden.</div>';
+    return;
+  }
+  var delLbl = {gewicht:'Satz löschen', rpe:'RPE löschen', dauer:'Dauer löschen'};
+  var inp = 'flex:1;padding:8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-size:13px';
+  box.innerHTML = '<div class="c"><div style="font-size:13px;font-weight:600;margin-bottom:8px">🔍 '+_dcList.length+' auffällige Einträge</div>'
+    + _dcList.map(function(f, i){
+      var fix = '';
+      if(_dcFixIdx===i){
+        fix = '<div style="display:flex;gap:6px;margin-top:6px">'
+          + (f.kind==='rpe'
+              ? '<select id="dcFixInp" style="'+inp+'">'+[5,5.5,6,6.5,7,7.5,8,8.5,9,9.5,10].map(function(v){ return '<option value="'+v+'"'+(v===8?' selected':'')+'>RPE '+rpeFmt(v)+'</option>'; }).join('')+'</select>'
+              : '<input id="dcFixInp" type="number" inputmode="decimal" placeholder="'+(f.kind==='dauer'?'Minuten':'kg')+'" style="'+inp+'">')
+          + '<button type="button" class="btn bp" onclick="dcSaveFix('+i+')" style="width:auto;margin:0;padding:8px 12px;font-size:12px">OK</button></div>';
+      }
+      return '<div style="padding:9px 0;border-top:1px solid var(--border)">'
+        + '<div style="font-size:12px;color:var(--t3)">'+new Date(f.ts).toLocaleDateString('de',{day:'2-digit',month:'2-digit',year:'2-digit'})+' · '+esc(f.ex)+'</div>'
+        + '<div style="font-size:13px;margin-top:2px">'+esc(f.msg)+'</div>'
+        + '<div style="display:flex;gap:6px;margin-top:6px">'
+        + '<button type="button" class="btn bg2" onclick="dcFix('+i+')" style="flex:1;margin:0;padding:7px;font-size:12px">Korrigieren</button>'
+        + '<button type="button" class="btn bg2" onclick="dcAct('+i+',\'delete\')" style="flex:1;margin:0;padding:7px;font-size:12px;color:var(--accent)">'+delLbl[f.kind]+'</button>'
+        + '<button type="button" class="btn bg2" onclick="dcAct('+i+',\'ok\')" style="flex:1;margin:0;padding:7px;font-size:12px">Ist korrekt</button>'
+        + '</div>' + fix + '</div>';
+    }).join('') + '</div>';
+}
+function dcFix(i){ _dcFixIdx = i; renderDataCheck(); var x = el('dcFixInp'); if(x) try{ x.focus(); }catch(e){} }
+function dcAct(i, action, value){
+  if(!resolveDataIssue(_dcList[i], action, value)){ toast('Ungültiger Wert'); return; }
+  toast(action==='ok' ? 'Als korrekt markiert' : (action==='delete' ? 'Gelöscht' : 'Korrigiert')+' – PRs neu berechnet');
+  _dcList = findDataIssues(false); _dcFixIdx = null;   // Indizes neu, falls ein Satz gelöscht wurde
+  renderDataCheck(); safeCall(renderLog); safeCall(refreshDash);
+}
+function dcSaveFix(i){ var x = el('dcFixInp'); dcAct(i, 'fix', x ? x.value : ''); }
 
 // ── Log bearbeiten (Spec 1.3) ────────────────────────────────────────────
 var _logLimit = 20;        // sichtbare Sessions, "Mehr laden" +20

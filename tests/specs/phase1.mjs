@@ -1,4 +1,4 @@
-// Phase 1: Datenqualität – Akzeptanzkriterien (TODO bis zur Umsetzung)
+// Phase 1: Datenqualität – Akzeptanzkriterien
 export const title = 'Phase 1 · Datenqualität';
 
 const DAY = 864e5;
@@ -13,7 +13,9 @@ function workout(ctx, exercises, extra = {}) {
 const html = (ctx) => ctx.document.getElementById('workoutContent').innerHTML;
 const SC = 'Skull Crushers (LH)';
 
-export default function ({ test, todo, assert, loadApp, loadFixture }) {
+import { findOutliers } from '../backup-summary.mjs';
+
+export default function ({ test, todo, assert, loadApp, loadFixture, fixtureNames }) {
   test('1.1 Gewicht > 1,5× des letzten Arbeitsgewichts → Inline-Rückfrage statt Abhaken', () => {
     const ctx = loadApp({ history: [session('2026-10-12', SC, [[25, 10, 8], [25, 10, 8], [25, 9, 8]])] }, { now: '2026-10-19T17:00:00Z' });
     workout(ctx, [{ n: SC, s: '3×8-10', sets: [{ w: '125', r: '10', rpe: '', done: false }, { w: '25', r: '10', rpe: '', done: false }] }]);
@@ -181,15 +183,57 @@ export default function ({ test, todo, assert, loadApp, loadFixture }) {
     assert.match(log, /<select id="lg-rpe-24-0"[^>]*>.*<option value="5">5<\/option>.*<option value="8" selected>8<\/option>.*<option value="10">10<\/option><\/select>/s);
     assert.doesNotMatch(log, /value="10.5"|value="4.5"/);
   });
-  todo('1.4 Bereinigungs-Assistent: outliers.json liefert genau 3 Funde');
-
-  todo('1.4 Nach Löschen des 125-kg-Satzes liegt der PR für Skull Crushers (LH) unter 60', () => {
+  test('1.4 Bereinigungs-Assistent: outliers.json liefert genau 3 Funde', () => {
     const ctx = loadApp(loadFixture('outliers'));
-    assert.ok(ctx.AppState.prs['Skull Crushers (LH)'] >= 60, 'Ausgangslage: Tippfehler treibt den PR hoch');
-    for (const s of ctx.AppState.history) {
-      s.sets = s.sets.filter((x) => !(x.ex === 'Skull Crushers (LH)' && x.w === 125));
+    const f = JSON.parse(JSON.stringify(ctx.findDataIssues(false)));
+    assert.equal(f.length, 3, f.map((x) => x.msg).join(' | '));
+    assert.deepEqual(f.map((x) => x.kind).sort(), ['dauer', 'gewicht', 'rpe']);
+    assert.match(f.find((x) => x.kind === 'gewicht').msg, /^125 kg × 12/);
+    // gleiche Kriterien wie die Backup-Zusammenfassung (tests/backup-summary.mjs)
+    for (const name of fixtureNames()) {
+      const c = loadApp(loadFixture(name));
+      assert.equal(c.findDataIssues(true).length, findOutliers(loadFixture(name).state.history).length, name);
     }
-    ctx.AppState.prs = ctx.recomputePRs(ctx.AppState.history);
-    assert.ok(ctx.AppState.prs['Skull Crushers (LH)'] < 60, `PR ${ctx.AppState.prs['Skull Crushers (LH)']}`);
+  });
+
+  test('1.4 Nach Löschen des 125-kg-Satzes liegt der PR für Skull Crushers (LH) unter 60', () => {
+    const ctx = loadApp(loadFixture('outliers'));
+    assert.ok(ctx.AppState.prs[SC] >= 60, 'Ausgangslage: Tippfehler treibt den PR hoch');
+    const f = ctx.findDataIssues(false).find((x) => x.kind === 'gewicht');
+    assert.equal(ctx.resolveDataIssue(f, 'delete'), true);
+    assert.ok(ctx.AppState.prs[SC] < 60, `PR ${ctx.AppState.prs[SC]}`);
+    assert.equal(ctx.findDataIssues(false).length, 2);
+  });
+
+  test('1.4 Korrigieren, "Ist korrekt" (bleibt gemerkt) und Löschen für RPE und Dauer', () => {
+    const ctx = loadApp(loadFixture('outliers'));
+    const find = (k) => ctx.findDataIssues(false).find((x) => x.kind === k);
+    assert.equal(ctx.resolveDataIssue(find('gewicht'), 'fix', '25'), true);
+    assert.ok(ctx.AppState.prs[SC] < 60);
+    assert.equal(ctx.resolveDataIssue(find('rpe'), 'fix', '11'), false, 'RPE-Korrektur nur 5–10');
+    assert.equal(ctx.resolveDataIssue(find('rpe'), 'fix', '7.5'), true);
+    const dauer = find('dauer');
+    assert.equal(ctx.resolveDataIssue(dauer, 'ok'), true);
+    assert.equal(ctx.findDataIssues(false).length, 0);
+    assert.equal(ctx.findDataIssues(true).length, 1, '"Ist korrekt" blendet nur aus, ändert nichts');
+    // gemerkt über einen Neustart hinweg
+    const neu = loadApp({ history: JSON.parse(JSON.stringify(ctx.AppState.history)) }, { db: { dataIssuesOk: JSON.parse(ctx.localStorage.getItem('kinetic.dataIssuesOk')) } });
+    assert.equal(neu.findDataIssues(false).length, 0);
+    assert.equal(ctx.resolveDataIssue(dauer, 'delete'), true);
+    assert.equal(ctx.AppState.history[dauer.hIdx].durationMs, 0);
+  });
+
+  test('1.4 UI: Profil > Daten > "Daten prüfen" listet Funde mit Korrigieren / Löschen / Ist korrekt', () => {
+    const ctx = loadApp(loadFixture('outliers'));
+    ctx.openDataCheck();
+    const box = ctx.document.getElementById('dataCheckBox').innerHTML;
+    assert.match(box, /3 auffällige Einträge/);
+    assert.equal((box.match(/>Korrigieren</g) || []).length, 3);
+    assert.equal((box.match(/>Ist korrekt</g) || []).length, 3);
+    assert.match(box, />Satz löschen</);
+    assert.match(box, />RPE löschen</);
+    assert.match(box, />Dauer löschen</);
+    ctx.dcFix(1);
+    assert.match(ctx.document.getElementById('dataCheckBox').innerHTML, /id="dcFixInp"/);
   });
 }
