@@ -94,7 +94,59 @@ export default function ({ test, todo, assert, loadApp, REPO_ROOT }) {
     ctx.renderWorkout();
     assert.doesNotMatch(ctx.document.getElementById('workoutContent').innerHTML, /AMRAP im letzten Satz/);
   });
-  todo('4.3 Kalibrierung: AppState.rpeOffset aus AMRAP-Satz, angezeigt, nicht in e1rm eingerechnet');
+  test('4.3 Kalibrierung: erwartete Wdh aus der vorherigen RPE, Offset = tatsächlich − erwartet', () => {
+    const ctx = loadApp({});
+    // 12 Wdh @ RPE 8,5 → erwartet 13,5 bei gleicher Last; AMRAP 15 → +1,5 (Reserve unterschätzt)
+    const c = JSON.parse(JSON.stringify(ctx.rpeCalibration({ w: 20, r: 12, rpe: 8.5 }, { w: 20, r: 15 })));
+    assert.deepEqual(c, { expected: 13.5, actual: 15, offset: 1.5, refRpe: 8.5 });
+    assert.match(ctx.rpeOffsetText(c), /^\+1,5 Wdh · du unterschätzt deine Reserve \(gefühlte RPE 8,5 ≈ RPE 7\)/);
+    // andere Last → Epley-Umrechnung: 20×12 @ 10 ≙ 18×≈16,7 → 16,5
+    assert.equal(ctx.rpeCalibration({ w: 20, r: 12, rpe: 10 }, { w: 18, r: 14 }).expected, 16.5);
+    assert.equal(ctx.rpeCalibration({ w: 20, r: 12 }, { w: 20, r: 15 }), null, 'ohne RPE keine Kalibrierung');
+  });
+
+  test('4.3 AMRAP im Workout speichert AppState.rpeOffset (auch im Backup) und zeigt ihn an', () => {
+    const ctx = loadApp({}, { now: '2026-10-19T17:00:00Z' });
+    workout(ctx, [{ n: 'Overhead Extension (KH)', s: '3×10-12', done: true, sets: [
+      { w: '18', r: '12', rpe: '8', done: true }, { w: '18', r: '12', rpe: '8.5', done: true }, { w: '18', r: '15', rpe: '', done: true }] }]);
+    ctx.AppState.activeSession.amrapEx = 'Overhead Extension (KH)';
+    ctx.finishWorkout();
+    assert.equal(ctx.AppState.rpeOffset, 1.5);
+    assert.equal(ctx.AppState.rpeCalib.ex, 'Overhead Extension (KH)');
+    const last = ctx.AppState.history[0].sets;
+    assert.equal(last[last.length - 1].rpe, 10, 'AMRAP-Satz ohne Angabe = RPE 10');
+    assert.equal(JSON.parse(ctx.localStorage.getItem('kinetic.rpeOffset')), 1.5);
+    assert.equal(ctx.buildBackupObject().state.rpeOffset, 1.5);
+    const neu = loadApp({});
+    neu.applyBackupState(JSON.parse(JSON.stringify(ctx.buildBackupObject().state)));
+    assert.equal(neu.AppState.rpeOffset, 1.5);
+    // Anzeige in der RPE-Schnellwahl
+    workout(ctx, [{ n: 'Seitheben (Kabel)', s: '3×12-15', sets: [{ w: '20', r: '', rpe: '', done: false }] }]);
+    ctx.renderWorkout();
+    assert.match(ctx.document.getElementById('workoutContent').innerHTML, /Kalibrierung \(19\.10\.\): \+1,5 Wdh/);
+  });
+
+  test('4.3 Offset wird nicht in e1rm eingerechnet; frische Kalibrierung pausiert die AMRAP-Karte', () => {
+    const ctx = loadApp({ history: rpeHistory(40) }, { now: '2026-10-19T08:00:00Z' });
+    const vorher = ctx.e1rm(100, 8, 8);
+    const prVorher = JSON.stringify(ctx.recomputePRs(ctx.AppState.history));
+    ctx.AppState.rpeOffset = 2;
+    ctx.AppState.rpeCalib = { ts: ctx.Date.now() - 3 * DAY, ex: 'Seitheben (Kabel)', offset: 2, refRpe: 8 };
+    assert.equal(ctx.e1rm(100, 8, 8), vorher);
+    assert.equal(JSON.stringify(ctx.recomputePRs(ctx.AppState.history)), prVorher);
+    assert.equal(ctx.amrapSuggestion(), null, 'innerhalb von 14 Tagen nach der Kalibrierung keine neue AMRAP-Karte');
+    ctx.AppState.rpeCalib.ts = ctx.Date.now() - 15 * DAY;
+    assert.ok(ctx.amrapSuggestion());
+  });
+
+  test('4.3 AMRAP-Satz mit RPE unter 9,5 zählt nicht als Kalibrierung', () => {
+    const ctx = loadApp({}, { now: '2026-10-19T17:00:00Z' });
+    workout(ctx, [{ n: 'Overhead Extension (KH)', s: '3×10-12', done: true, sets: [
+      { w: '18', r: '12', rpe: '8', done: true }, { w: '18', r: '12', rpe: '8', done: true }] }]);
+    ctx.AppState.activeSession.amrapEx = 'Overhead Extension (KH)';
+    ctx.finishWorkout();
+    assert.equal(ctx.AppState.rpeOffset, null);
+  });
 
   // ── Phase 5 ──
   todo('5 plan3plus1(): 7 Tage, 3 Pflicht-Gymtage, 1 optionaler Tag', () => {

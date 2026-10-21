@@ -813,6 +813,8 @@ const AppState = {
   sleepLog: [],        // [{h,d}]
   wearableLog: [],     // [{d, hrv, rhr}] – Luna Band / Wearable Morgen-Daten
   equipSteps: {},      // {Übungsname: kg} – Gewichtsschritt am eigenen Gerät (optional)
+  rpeOffset: null,     // Wdh-Differenz AMRAP vs. RPE-Erwartung, + = Reserve unterschätzt (optional)
+  rpeCalib: null,      // {ts, ex, w, expected, actual, refRpe, offset} – letzte Kalibrierung (optional)
   editMode: false,
 
   load(){
@@ -830,6 +832,9 @@ const AppState = {
       this.wearableLog   = DB.get('wearableLog', []);
       var es = DB.get('equipSteps', {});
       this.equipSteps    = (es && typeof es==='object' && !Array.isArray(es)) ? es : {};
+      var ro = DB.get('rpeOffset', null), rc = DB.get('rpeCalib', null);
+      this.rpeOffset     = (typeof ro==='number' && isFinite(ro)) ? ro : null;
+      this.rpeCalib      = (rc && typeof rc==='object' && !Array.isArray(rc)) ? rc : null;
       this.activeSession = DB.get('activeSession', null);
 
       // Plan-Versionierung: alten Plan ersetzen wenn neue Version
@@ -887,6 +892,8 @@ const AppState = {
       DB.set('sleepLog', this.sleepLog);
       DB.set('wearableLog', this.wearableLog);
       DB.set('equipSteps', this.equipSteps||{});
+      DB.set('rpeOffset', this.rpeOffset);
+      DB.set('rpeCalib', this.rpeCalib);
       if(typeof maybeAutoSnapshot==='function') maybeAutoSnapshot(); // tägliche Schattenkopie
     } catch(e){ log.error('AppState.save',e); }
   },
@@ -1670,7 +1677,7 @@ function proceedWithWorkout(dayId, day, applyAdjustments, suggestions){
     currentIdx:0, startTs:Date.now(), restEndTs:0
   };
   // RPE-Kalibrierung (Spec 4.2): letzter Satz der letzten Isolationsübung = AMRAP
-  if(rpeHabitual()){
+  if(amrapDue()){
     var amEx = amrapExerciseFor(AppState.activeSession.exercises);
     if(amEx) AppState.activeSession.amrapEx = amEx;
   }
@@ -2073,6 +2080,7 @@ function rpeQuickHtml(cur, idx){
     +'<div style="font-size:10px;color:var(--t3);margin-bottom:5px">RPE für Satz '+(idx+1)+' · lange drücken = ,5</div>'
     +'<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:5px">'+btns+'</div>'
     +'<div id="rirInfo" style="font-size:11px;color:var(--t2);margin-top:6px">'+esc(info)+'</div>'
+    +(AppState.rpeCalib ? '<div style="font-size:10px;color:var(--t3);margin-top:3px">🎯 Kalibrierung ('+new Date(AppState.rpeCalib.ts).toLocaleDateString('de',{day:'2-digit',month:'2-digit'})+'): '+esc(rpeOffsetText(AppState.rpeCalib))+'</div>' : '')
     +'</div>';
 }
 
@@ -2118,12 +2126,67 @@ function upcomingGymDay(){
   }
   return null;
 }
-// AMRAP fällig: RPE gewohnheitsmäßig und es gibt eine passende Isolationsübung
+// AMRAP fällig: RPE gewohnheitsmäßig und letzte Kalibrierung älter als 14 Tage
+function amrapDue(){
+  var c = AppState.rpeCalib;
+  if(c && c.ts && Date.now() - c.ts < 14*86400000) return false;
+  return rpeHabitual();
+}
+// AMRAP-Vorschlag: fällig und es gibt eine passende Isolationsübung
 function amrapSuggestion(){
-  if(!rpeHabitual()) return null;
+  if(!amrapDue()) return null;
   var g = upcomingGymDay(); if(!g) return null;
   var ex = amrapExerciseFor(g.day.ex);
   return ex ? {ex:ex, day:g.day, today:g.today, variance:rpeVariance()} : null;
+}
+
+// ── RPE-Kalibrierung (Spec 4.3) ──────────────────────────────────────────
+// Erwartete Maximal-Wdh bei Last w aus einem Referenzsatz: bei gleicher Last
+// Wdh + RIR, sonst über Epley umgerechnet.
+function expectedRepsAt(refW, refR, refRpe, w){
+  refW = +refW; refR = +refR; refRpe = +refRpe; w = +w;
+  if(!(refW>0 && refR>0 && w>0 && refRpe>=5 && refRpe<=10)) return null;
+  var maxR = refR + (10 - refRpe);
+  if(Math.abs(w - refW) < 0.01) return maxR;
+  return Math.max(0, 30*(refW*(1 + maxR/30)/w - 1));
+}
+// Offset = tatsächliche − erwartete Wdh im AMRAP-Satz (0,5er-Schritte).
+// + = Reserve unterschätzt (gefühlte RPE zu hoch), − = überschätzt.
+function rpeCalibration(refSet, amrapSet){
+  if(!refSet || !amrapSet) return null;
+  var exp = expectedRepsAt(refSet.w, refSet.r, refSet.rpe, amrapSet.w);
+  var act = +amrapSet.r;
+  if(exp===null || !(act>0)) return null;
+  exp = Math.round(exp*2)/2;
+  return {expected:exp, actual:act, offset:Math.round((act-exp)*2)/2, refRpe:+refSet.rpe};
+}
+function rpeOffsetText(c){
+  if(!c || typeof c.offset!=='number') return '';
+  var off = c.offset, sign = off>0 ? '+' : (off<0 ? '−' : '±');
+  var head = sign + rpeFmt(Math.abs(off)) + ' Wdh';
+  if(Math.abs(off) <= 0.5) return head+' · gut kalibriert';
+  var real = Math.max(5, Math.min(10, (c.refRpe||8) - off));
+  return head+' · du '+(off>0?'unterschätzt':'überschätzt')+' deine Reserve (gefühlte RPE '+rpeFmt(c.refRpe||8)+' ≈ RPE '+rpeFmt(Math.round(real*2)/2)+')';
+}
+// Nach dem Workout: letzter Satz der AMRAP-Übung gegen den Satz davor (bzw.
+// die letzte Session) prüfen. Ein AMRAP-Satz mit RPE < 9,5 zählt nicht.
+function applyRpeCalibration(exName, recs){
+  var own = (recs||[]).filter(function(x){ return x.ex===exName && +x.w>0 && +x.r>0; });
+  if(!own.length) return null;
+  var am = own[own.length-1];
+  if(am.rpe!=null && +am.rpe < 9.5) return null;
+  if(am.rpe==null) am.rpe = 10;
+  var ref = null;
+  for(var i=own.length-2; i>=0; i--){ if(+own[i].rpe>=5 && +own[i].rpe<=10){ ref = own[i]; break; } }
+  if(!ref){
+    var prev = recentSessionSets(exName, 1)[0] || [];
+    for(var j=prev.length-1; j>=0; j--){ if(+prev[j].rpe>=5 && +prev[j].rpe<=10){ ref = prev[j]; break; } }
+  }
+  var c = rpeCalibration(ref, am);
+  if(!c) return null;
+  AppState.rpeOffset = c.offset;
+  AppState.rpeCalib = {ts:Date.now(), ex:exName, w:+am.w, expected:c.expected, actual:c.actual, refRpe:c.refRpe, offset:c.offset};
+  return AppState.rpeCalib;
 }
 
 function nextExercise(){
@@ -2160,6 +2223,7 @@ function finishWorkout(){
       }
     });
   });
+  const calib=s.amrapEx ? applyRpeCalibration(s.amrapEx, sets) : null;
   AppState.history.push({ts:Date.now(),dayName:s.dayName,durationMs:Date.now()-s.startTs,volume,sets});
   // Streak
   const today=new Date().toDateString();
@@ -2168,7 +2232,7 @@ function finishWorkout(){
   AppState.saveSession();
   AppState.save();
   const prs=sets.filter(x=>x.pr).length;
-  toast(prs?`💪 Fertig! ${prs} neue PR${prs>1?'s':''}! 🏆`:'💪 Workout abgeschlossen!');
+  toast((prs?`💪 Fertig! ${prs} neue PR${prs>1?'s':''}! 🏆`:'💪 Workout abgeschlossen!')+(calib?' · 🎯 RPE-Kalibrierung: '+rpeOffsetText(calib):''));
   refreshDash(); renderLog(); navigate('dash');
 }
 
@@ -3580,7 +3644,8 @@ function buildBackupObject(){
     user:AppState.user, streak:AppState.streak, lastStreakDate:AppState.lastStreakDate,
     plan:AppState.plan, history:AppState.history, prs:AppState.prs,
     weightLog:AppState.weightLog, sleepLog:AppState.sleepLog,
-    wearableLog:AppState.wearableLog, meals:AppState.meals, equipSteps:AppState.equipSteps
+    wearableLog:AppState.wearableLog, meals:AppState.meals, equipSteps:AppState.equipSteps,
+    rpeOffset:AppState.rpeOffset, rpeCalib:AppState.rpeCalib
   }};
 }
 function applyBackupState(s){
@@ -3595,6 +3660,8 @@ function applyBackupState(s){
   if(Array.isArray(s.sleepLog)) AppState.sleepLog=s.sleepLog;
   if(Array.isArray(s.wearableLog)) AppState.wearableLog=s.wearableLog;
   if(s.equipSteps && typeof s.equipSteps==='object' && !Array.isArray(s.equipSteps)) AppState.equipSteps=s.equipSteps;
+  if(typeof s.rpeOffset==='number' && isFinite(s.rpeOffset)) AppState.rpeOffset=s.rpeOffset;
+  if(s.rpeCalib && typeof s.rpeCalib==='object' && !Array.isArray(s.rpeCalib)) AppState.rpeCalib=s.rpeCalib;
   if(Array.isArray(s.meals)) AppState.meals=s.meals;
   return true;
 }
