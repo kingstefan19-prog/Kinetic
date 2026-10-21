@@ -65,12 +65,12 @@ export default function ({ test, todo, assert, loadApp, loadFixture }) {
     assert.match(html, /data-set-field="w"/);
   });
 
-  todo('2.2 bench-oscillation (8,8,6,5): KEINE Steigerung', () => {
+  test('2.2 bench-oscillation (8,8,6,5): KEINE Steigerung', () => {
     const r = loadApp(loadFixture('bench-oscillation')).coachSuggestion('Bankdrücken (LH)', '4×5-8');
     assert.ok(r.weight === null || r.weight <= 110, `Vorschlag ${r.weight} kg`);
   });
 
-  todo('2.2 Bankdrücken 8,8,8,8 bei 110 kg → 112,5 kg', () => {
+  test('2.2 Bankdrücken 8,8,8,8 bei 110 kg → 112,5 kg', () => {
     const fx = loadFixture('bench-oscillation');
     const last = fx.state.history[fx.state.history.length - 1];
     last.sets.forEach((s) => { if (s.ex === 'Bankdrücken (LH)') s.r = 8; });
@@ -78,7 +78,7 @@ export default function ({ test, todo, assert, loadApp, loadFixture }) {
     assert.equal(r.weight, 112.5);
   });
 
-  todo('2.2 loadIncrement Langhantel: 2,5 kg bis 140 kg, Oberkörper-Grundübungen immer 2,5 kg', () => {
+  test('2.2 loadIncrement Langhantel: 2,5 kg bis 140 kg, Oberkörper-Grundübungen immer 2,5 kg', () => {
     const ctx = loadApp({});
     assert.equal(ctx.loadIncrement(120, 'Kniebeuge (LH)'), 2.5);
     assert.equal(ctx.loadIncrement(150, 'Kniebeuge (LH)'), 5);
@@ -86,13 +86,19 @@ export default function ({ test, todo, assert, loadApp, loadFixture }) {
     assert.equal(ctx.loadIncrement(110, 'Rudern (LH Untergriff)'), 2.5);
   });
 
-  todo('2.2 Kurzhantel-Sprünge sind Vielfache von plateStep (keine 36,5-kg-Hanteln)', () => {
+  test('2.2 Kurzhantel-Sprünge sind Vielfache von plateStep (keine 36,5-kg-Hanteln)', () => {
     const ctx = loadApp({});
     for (const w of [10, 20, 24, 30, 36, 40]) {
       const inc = ctx.loadIncrement(w, 'Schrägbankdrücken (KH)');
       const step = ctx.plateStep('Schrägbankdrücken (KH)', w);
       assert.equal(inc % step, 0, `${w} kg: +${inc} ist kein Vielfaches von ${step}`);
     }
+  });
+
+  test('2.2 Isolation behält die Mehrheitsregel', () => {
+    const ctx = loadApp({ history: [session('2026-10-15', 'Beinstrecker', [[45, 15, 8], [45, 15, 8], [45, 13, 8]])] },
+      { now: '2026-10-20T08:00:00Z' });
+    assert.ok(ctx.coachSuggestion('Beinstrecker', '3×12-15').weight > 45);
   });
 
   todo('2.3 Obergrenze +2 Wdh in einem Satz → "Gewicht zu leicht" und Steigerung', () => {

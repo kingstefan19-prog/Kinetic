@@ -2208,22 +2208,26 @@ function plateStep(exName, w){
 function loadIncrement(w, exName){
   var t = equipmentType(exName);
   w = +w || 0;
+  var inc;
   if(t==='db' || t==='db_single'){
-    if(w<10)  return 1;
-    if(w<24)  return 2;
-    return 2.5;
+    inc = w<10 ? 1 : 2;                           // KH-Paare gibt es in 2-kg-Schritten
+  } else if(t==='cable_machine'){
+    inc = w<25 ? 1.25 : (w<=70 ? 2.5 : 5);
+  } else if(t==='barbell'){
+    if(isUpperBarbellCompound(exName)) inc = 2.5; // Bank, Schrägbank, Military, Rudern
+    else inc = w<40 ? 1.25 : (w<=140 ? 2.5 : 5);
+  } else {
+    inc = Math.max(1.25, Math.round((w*0.03)/1.25)*1.25);   // Rest: ~3 %
   }
-  if(t==='cable_machine'){
-    if(w<25)  return 1.25;
-    if(w<=70) return 2.5;
-    return 5;
-  }
-  if(t==='barbell'){
-    if(w<40)   return 1.25;
-    if(w<=100) return 2.5;
-    return 5;
-  }
-  return Math.max(1.25, Math.round((w*0.03)/1.25)*1.25);   // Rest: ~3 %
+  // Sprung muss auf reale Hantelstufen passen (Vielfaches von plateStep)
+  var step = plateStep(exName, w);
+  return Math.max(step, Math.round(inc/step)*step);
+}
+// Oberkörper-Grundübungen mit Langhantel: dort sind 5-kg-Sprünge zu groß
+// (Bankdrücken 110 → 115 → Abbruch → zurück auf 110).
+function isUpperBarbellCompound(exName){
+  return equipmentType(exName)==='barbell' &&
+    /bank|military|schulterdr|overhead press|push press|rudern|row/i.test(String(exName||''));
 }
 
 // ── Trainingspause / Detraining ───────────────────────────────────────────
@@ -2692,9 +2696,14 @@ function coachSuggestion(exName, targetStr){
   last.forEach(function(x){ if((+(x.w)||0) >= workW) workReps.push(+(x.r)||0); });
   if(!workReps.length) workReps = allR;
 
-  // ── Mehrheits-Logik statt Alles-oder-nichts ──
+  // ── Obere Grenze: Grundübungen ALLE Arbeitssätze, Isolation Mehrheit ──
+  // Bei Grundübungen führte die Mehrheitsregel zu Sprüngen, die in der
+  // nächsten Session abbrachen (8,8,6,5 → +Gewicht → Abbruch).
   var hitTopCount = range ? workReps.filter(function(r){return r>=range.hi;}).length : 0;
-  var hitTop = range ? (hitTopCount >= Math.ceil(workReps.length/2)) : false; // Mehrheit reicht
+  var hitTop = range
+    ? (isCompoundLift(exName) ? hitTopCount === workReps.length
+                              : hitTopCount >= Math.ceil(workReps.length/2))
+    : false;
   // failedLow nur wenn MEHRERE Sätze die Grenze verfehlen (nicht 1 Ermüdungssatz)
   var failedCount = range ? workReps.filter(function(r){return r<range.lo;}).length : 0;
   var failedLow = range ? (failedCount >= 2 || (workReps.length<=2 && failedCount>=1)) : false;
@@ -2727,7 +2736,8 @@ function coachSuggestion(exName, targetStr){
       return bodyweightResult(bw, newAdd, loR, 'Alle Sätze bei '+topR+' Wdh → +2,5 kg Zusatzlast (Gürtel/Weste, jetzt '+newAdd+' kg), wieder bei '+loR+' Wdh starten.');
     }
     // Mehrheit an der Obergrenze → restliche Sätze nachziehen
-    if(hitTop){
+    var bwTopCount = bwReps.filter(function(r){return r>=topR;}).length;
+    if(bwTopCount >= Math.ceil(bwReps.length/2)){
       return bodyweightResult(bw, bwWorkAdd, topR, 'Fast geschafft – alle Sätze auf '+topR+' Wdh bringen, dann kommt Zusatzlast.');
     }
     // Normal → +1 Wdh
