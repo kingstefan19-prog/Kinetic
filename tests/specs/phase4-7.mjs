@@ -225,8 +225,14 @@ export default function ({ test, todo, assert, loadApp, REPO_ROOT }) {
   });
 
   // ── Phase 7 ──
-  todo('7 sw.js: CACHE = kinetic-v2', () => {
+  test('7.2 sw.js: CACHE = kinetic-v2', () => {
     const sw = fs.readFileSync(path.join(REPO_ROOT, 'sw.js'), 'utf8');
     assert.match(sw, /CACHE\s*=\s*['"]kinetic-v2['"]/);
+  });
+
+  test('7.2 Version ist in der App sichtbar (Profil > Daten) und passt zum Cache', () => {
+    const ctx = loadApp({});
+    ctx.refreshDataPage();
+    assert.match(ctx.document.getElementById('appVersion').textContent, /Coach v2 \(kinetic-v2\)/);
   });
 }

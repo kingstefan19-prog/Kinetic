@@ -1,7 +1,7 @@
 // KINETIC Service Worker – Offline-Fähigkeit für die PWA
 // Strategie: Network-first mit Cache-Fallback (Updates kommen sofort an,
 // offline läuft die zuletzt geladene Version weiter)
-const CACHE = 'kinetic-v1';
+const CACHE = 'kinetic-v2';
 
 self.addEventListener('install', (e) => {
   e.waitUntil(

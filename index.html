@@ -505,6 +505,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
   <input type="file" id="importInput" accept=".json" style="display:none" onchange="importData(this)">
   <div id="dataSafetyInfo" style="margin-top:12px;padding:10px 12px;background:var(--card2);border-radius:10px;font-size:11px;color:var(--t3);line-height:1.7"></div>
   <button onclick="restoreFromSnapshot()" class="btn bg2" style="margin-top:8px;padding:9px;font-size:12px;color:var(--blue)">🛟 Letzte Schattenkopie wiederherstellen</button>
+  <div id="appVersion" style="margin-top:14px;text-align:center;font-size:10px;color:var(--t3)">KINETIC Coach v2</div>
 </section>
 
 </main>
@@ -900,6 +901,8 @@ const AppState = {
   saveSession(){ DB.set('activeSession', this.activeSession); }
 };
 
+// App-Version – sichtbar unter Profil > Daten; passt zu CACHE in sw.js
+const APP_VERSION = 'Coach v2 (kinetic-v2)';
 // Plan-Version – Erhöhen wenn defaultPlan() sich ändert
 const PLAN_VERSION = 5;
 // Personalisiert: 108kg · 190cm · KFA 20.1% · FFMI 26.6 · Fortgeschritten
@@ -3673,6 +3676,7 @@ function refreshDataPage(){
     lunaBox.style.display=showLuna?'block':lunaBox.style.display;
     var la=el('lunaSetupArrow'); if(la && showLuna) la.textContent='▾';
   }
+  var av=el('appVersion'); if(av) av.textContent='KINETIC '+APP_VERSION;
   // Datensicherheits-Status
   var si=el('dataSafetyInfo');
   if(si){
