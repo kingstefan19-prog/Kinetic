@@ -41,10 +41,29 @@ export default function ({ test, todo, assert, loadApp, loadFixture }) {
     assert.equal(zwei.smoothedWeeklyMuscleSets().quads, 10);
   });
 
-  todo('3.3 skipped-legs: Adherence-Karte "Legs A fällt oft aus"', () => {
+  test('3.3 skipped-legs: Adherence-Karte "Legs A fällt oft aus"', () => {
     const ctx = loadApp(loadFixture('skipped-legs'));
     ctx.renderSmartNotifs();
-    assert.match(ctx.document.getElementById('smartNotifs').innerHTML, /Legs A[^<]*fällt oft aus/);
+    const html = ctx.document.getElementById('smartNotifs').innerHTML;
+    assert.match(html, /Legs A[^<]*fällt oft aus/);
+    assert.match(html, /moveMissedDay\(3\)[^>]*>Wochentag verschieben/);
+    // nur Legs A – Push/Pull/Upper wurden trotz Namenszusätzen erkannt
+    const missed = ctx.oftenMissedDays().map((a) => a.name);
+    assert.deepEqual(JSON.parse(JSON.stringify(missed)), ['Legs A']);
+    assert.equal(ctx.baseDayName('Upper B (2. Frequenz) (KI-optimiert)'), 'Upper B (2. Frequenz)');
+  });
+
+  test('3.3 Optionale Tage zählen nicht; 1 von 3 Wochen fehlt → keine Karte; zu kurze Historie → keine Karte', () => {
+    const fx = loadFixture('skipped-legs');
+    const opt = loadApp(fx);
+    opt.AppState.plan.find((d) => d.name === 'Legs A').optional = true;
+    assert.equal(opt.oftenMissedDays().length, 0);
+    // Legs A nur in der letzten Woche ausgefallen
+    const legs = (d) => ({ ts: Date.parse(`${d}T17:00:00Z`), dayName: 'Legs A', durationMs: 3e6, volume: 0, sets: [{ ex: 'Beinstrecker', w: 45, r: 12, rpe: 8 }] });
+    const einmal = loadApp({ ...fx, state: { ...fx.state, history: [...fx.state.history, legs('2026-10-01'), legs('2026-10-08')] } });
+    assert.equal(einmal.oftenMissedDays().length, 0);
+    const kurz = loadApp({ ...fx, state: { ...fx.state, history: fx.state.history.slice(-3) } });
+    assert.equal(kurz.oftenMissedDays().length, 0);
   });
 
   todo('3.4 VOLUME_LM.hams.mev = 4 und MUSCLE_MAP erkennt Copenhagen/adduct', () => {

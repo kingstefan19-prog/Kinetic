@@ -1159,6 +1159,18 @@ function renderSmartNotifs(){
     }
   }
 
+  // Adherence (Spec 3.3): Tag fehlt in 2 der letzten 3 Wochen
+  var missedDays = oftenMissedDays();
+  if(missedDays.length){
+    var md = missedDays[0];
+    var others = missedDays.slice(1).map(function(a){ return a.name; });
+    var btns = [{label:'Wochentag verschieben', fn:'moveMissedDay('+md.idx+')'}];
+    if(typeof offerPlan3plus1==='function') btns.push({label:'3+1-Plan übernehmen', fn:'offerPlan3plus1()'});
+    notifs.push({icon:'📅', title:md.name+' fällt oft aus',
+      body:'In '+md.missed+' der letzten 3 Wochen nicht trainiert ('+WEEKDAYS[md.idx]+'). Leg ihn auf einen Tag, der zuverlässig klappt'+(others.length?' · ebenfalls oft ausgefallen: '+others.join(', '):'')+'.',
+      type:'warn', prio:1, buttons:btns});
+  }
+
   // Montags-Wiegen (Spec 6.1): ohne Gewichtsverlauf keine Recomp-Auswertung
   var wDue = weighInDue();
   if(wDue){
@@ -1272,6 +1284,44 @@ function renderWeightChart(){
     ${vals.map((v,i)=>`<text x="${PAD+i*xS}" y="${yS(v)-8}" text-anchor="middle" font-size="10" fill="#AAAAAA" font-family="Inter">${v}</text>`).join('')}
   </svg>`;
 }
+// ── Adherence (Spec 3.3) ─────────────────────────────────────────────────
+// Session-Namen ohne Zusätze wie " (KI-optimiert)" / " (optimiert)"
+function baseDayName(n){
+  var x = String(n||'').trim(), prev;
+  do { prev = x; x = x.replace(/\s*\((KI-)?optimiert\)\s*$/i, '').trim(); } while(x !== prev);
+  return x;
+}
+// Pro Pflicht-Gymtag: in welcher der letzten 3 Wochen wurde er absolviert?
+// Bewertet wird erst, wenn die erste Session mindestens 14 Tage zurückliegt.
+function planAdherence(){
+  var h = AppState.history||[], now = Date.now(), W = 7*86400000;
+  if(!h.length) return [];
+  var first = Math.min.apply(null, h.map(function(e){ return +e.ts||now; }));
+  if(now - first < 14*86400000) return [];
+  var out = [];
+  (AppState.plan||[]).forEach(function(day, idx){
+    if(!day || day.type!=='gym' || day.optional || !(day.ex||[]).length) return;
+    var name = baseDayName(day.name), weeks = [false, false, false];
+    h.forEach(function(e){
+      if(baseDayName(e.dayName) !== name) return;
+      var k = Math.floor((now - e.ts)/W);
+      if(k>=0 && k<3) weeks[k] = true;
+    });
+    var missed = weeks.filter(function(x){ return !x; }).length;
+    out.push({idx:idx, name:day.name, weeks:weeks, missed:missed});
+  });
+  return out;
+}
+// Tage, die in 2 der letzten 3 Wochen ausgefallen sind
+function oftenMissedDays(){
+  return planAdherence().filter(function(a){ return a.missed >= 2; });
+}
+// "Wochentag verschieben": Plan öffnen, Tag-Editor mit Tausch-Auswahl
+function moveMissedDay(idx){
+  navigate('plan');
+  safeCall(function(){ openDayEditor(idx); });
+}
+
 // ── Datenerfassung (Spec 6) ──────────────────────────────────────────────
 // Tage seit dem neuesten Eintrag eines Logs mit Feld d (YYYY-MM-DD); null = leer
 function daysSinceLogEntry(logArr){
