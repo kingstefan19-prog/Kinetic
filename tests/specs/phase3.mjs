@@ -66,7 +66,12 @@ export default function ({ test, todo, assert, loadApp, loadFixture }) {
     assert.equal(kurz.oftenMissedDays().length, 0);
   });
 
-  todo('3.4 VOLUME_LM.hams.mev = 4 und MUSCLE_MAP erkennt Copenhagen/adduct', () => {
+  test('3.4 Keine veralteten "Plan: x/Wo"-Kommentare und Satz-Zahlen in VOLUME_LM/defaultPlan', () => {
+    const src = loadApp({}).defaultPlan.toString();
+    assert.doesNotMatch(src, /\/\/[^\n]*\d+ Sätze/, 'Satz-Zahlen in Kommentaren veralten – Untertitel rechnen selbst (3.5)');
+  });
+
+  test('3.4 VOLUME_LM.hams.mev = 4 und MUSCLE_MAP erkennt Copenhagen/adduct', () => {
     const ctx = loadApp({});
     assert.equal(ctx.VOLUME_LM.hams.mev, 4);
     for (const n of ['Copenhagen Adduction', 'Cable Adduction']) {
