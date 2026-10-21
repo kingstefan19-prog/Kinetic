@@ -1,4 +1,4 @@
-// Phase 3: Volumen und Adherence – Akzeptanzkriterien (TODO bis zur Umsetzung)
+// Phase 3: Volumen und Adherence – Akzeptanzkriterien
 export const title = 'Phase 3 · Volumen und Adherence';
 
 export default function ({ test, todo, assert, loadApp, loadFixture }) {
@@ -79,7 +79,19 @@ export default function ({ test, todo, assert, loadApp, loadFixture }) {
     }
   });
 
-  todo('3.5 Plan-Untertitel nennen die tatsächliche Satzzahl', () => {
+  test('3.5 Gespeicherte Pläne: Plan-Tab zeigt berechnete Werte statt alter Zahlen', () => {
+    const plan = [{ id: 'mon', type: 'gym', name: 'Push A', sub: 'Brust · Schulter · Trizeps · ~70 Min · 20 Sätze',
+      ex: [{ n: 'Bankdrücken (LH)', s: '4×5-8' }, { n: 'Seitheben (Kabel)', s: '3×12-15' }, { n: 'Plank', s: '3×60s', timed: true }] }];
+    const ctx = loadApp({ plan });
+    assert.equal(ctx.planDaySub(plan[0]), 'Brust · Schulter · Trizeps · ~35 Min · 10 Sätze');
+    ctx.renderPlan();
+    const html = ctx.document.getElementById('planList').innerHTML;
+    assert.match(html, /~35 Min · 10 Sätze/);
+    assert.doesNotMatch(html, /20 Sätze/);
+    assert.equal(ctx.AppState.plan[0].sub, 'Brust · Schulter · Trizeps · ~70 Min · 20 Sätze', 'gespeicherter Text bleibt unverändert');
+  });
+
+  test('3.5 Plan-Untertitel nennen die tatsächliche Satzzahl', () => {
     const ctx = loadApp({});
     for (const day of ctx.defaultPlan().filter((d) => d.type === 'gym')) {
       const total = day.ex.reduce((a, e) => a + (parseInt(String(e.s), 10) || 0), 0);

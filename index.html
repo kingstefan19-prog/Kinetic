@@ -910,10 +910,36 @@ const PLAN_VERSION = 5;
 // Personalisiert: 108kg · 190cm · KFA 20.1% · FFMI 26.6 · Fortgeschritten
 // Quellen: Schoenfeld 2024 · Israetel MAV/MRV · NSCA 2025 · Barca Hub 2026
 // Strategie: 4× Gym (Mo/Mi/Do/Sa) · Di/Fr/So Fußball · Gym ≠ Fußball selber Tag
-// Samstag: Upper B KOMPAKT (~70 Min, 20 Sätze) – Push+Pull 2. Frequenz
+// Samstag: Upper B kompakt – Push+Pull 2. Frequenz
 // Wissenschaft: 2× Frequenz > 1× · RIR 1-3 optimal · Stretch-Position superior
+// ── Plan-Untertitel (Spec 3.5) ───────────────────────────────────────────
+// Satzzahl und geschätzte Dauer werden aus den Übungen berechnet: je Satz
+// Pausenzeit (restSecondsFor) + ~40 s Arbeit, Zeitübungen mit ihrer Dauer,
+// dazu 10 Min Aufwärmen; auf 5 Min gerundet.
+function planDayStats(day){
+  var sets = 0, secs = 0;
+  (day && day.ex || []).forEach(function(e){
+    var m = String(e.s||'').match(/^(\d+)/), n = m ? parseInt(m[1], 10) : 0;
+    var timed = !!(e.timed || /\d+s\b/.test(e.s||''));
+    var t = String(e.s||'').match(/(\d+)\s*s\b/);
+    sets += n;
+    secs += n * (restSecondsFor(e.n, timed) + (timed && t ? +t[1] : 40));
+  });
+  return {sets:sets, min:sets ? Math.round((secs/60 + 10)/5)*5 : 0};
+}
+// Untertitel ohne alte Zahlen ("~70 Min", "20 Sätze"), dann frisch berechnet
+function planDaySub(day){
+  if(!day) return '';
+  if(day.type!=='gym' || !(day.ex||[]).length) return day.sub||'';
+  var base = String(day.sub||'').split(' · ').filter(function(p){
+    return !/^~?\s*\d+\s*(Min|Sätze)\b/i.test(p.trim());
+  }).join(' · ');
+  var st = planDayStats(day);
+  return (base ? base+' · ' : '') + '~'+st.min+' Min · '+st.sets+' Sätze';
+}
+
 function defaultPlan(){
-  return [
+  return withPlanSubs([
     {
       id:'mon', type:'gym',
       name:'Push A',
@@ -1010,7 +1036,12 @@ function defaultPlan(){
       sub:'🏟️ 50–80 Min Wettkampf · ~800 kcal · danach: Pasta/Reis + Protein!',
       ex:[]
     }
-  ];
+  ]);
+}
+// Untertitel aller Gymtage neu berechnen (gibt den Plan zurück)
+function withPlanSubs(plan){
+  (plan||[]).forEach(function(d){ if(d && d.type==='gym') d.sub = planDaySub(d); });
+  return plan;
 }
 
 function resetToDefaultPlan(){
@@ -1471,9 +1502,6 @@ function renderPlan(){
           }).join('')
         : '<div style="color:var(--t3);font-size:12px;padding:8px 0">'+(typeIcon[day.type]||'')+(day.type==='soccer'?' Fußball Training heute – Gym Pause':day.type==='match'?' Spieltag – Regeneration danach':' Kein Training geplant')+'</div>';
 
-      // Satz-Summe anzeigen
-      const totalSets=day.ex?day.ex.reduce(function(a,e){ var m=e.s&&e.s.match(/^(\d+)/); return a+(m?parseInt(m[1],10):0); },0):0;
-      const setsInfo=day.type==='gym'&&totalSets?'<span style="font-size:10px;color:var(--t3);margin-left:6px">'+totalSets+' Sätze gesamt</span>':'';
 
       const startBtn=day.type==='gym'
         ?'<button class="btn bp" data-start="'+day.id+'" style="margin-top:12px">🏋️ Workout starten →</button>'
@@ -1490,8 +1518,8 @@ function renderPlan(){
       return '<div class="wk" data-day="'+day.id+'">'
         +'<div class="wk-h"'+(em?'':' data-toggle="'+day.id+'"')+'>'
         +'<div class="wk-d">'
-        +'<div class="wk-n">'+esc(dayLabel(idx,day))+setsInfo+'</div>'
-        +'<div class="wk-s">'+esc(day.sub)+'</div>'
+        +'<div class="wk-n">'+esc(dayLabel(idx,day))+'</div>'
+        +'<div class="wk-s">'+esc(planDaySub(day))+'</div>'
         +'</div>'
         +editCtrl+badge+(em?'':'<div class="wk-c">▼</div>')
         +'</div>'
