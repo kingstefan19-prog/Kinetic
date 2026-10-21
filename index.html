@@ -1739,6 +1739,7 @@ function renderWorkout(){
     const pr=AppState.prs[cur.n];
     const isTimed=cur.isTimed;
     const isBWex=!isTimed && isLoadableBodyweight(cur.n);   // Feld "Zusatz (kg)" statt "kg"
+    const rpeIdx=rpeTargetIdx(s, cur);                       // Satz, den die RPE-Schnellwahl füllt
 
     // Sets HTML
     const setsHtml=cur.sets.map((st,i)=>`
@@ -1751,7 +1752,7 @@ function renderWorkout(){
               :`<input data-set-idx="${i}" data-set-field="w" type="number" inputmode="decimal" placeholder="kg" value="${st.w||''}" style="width:100%;padding:8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-size:14px">`}</td>
            <td><input data-set-idx="${i}" data-set-field="r" type="number" inputmode="numeric" placeholder="Wdh" value="${st.r||''}" style="width:100%;padding:8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-size:14px"></td>`
         }
-        <td><input data-set-idx="${i}" data-set-field="rpe" type="number" inputmode="decimal" placeholder="RPE" value="${st.rpe||''}" style="width:58px;padding:8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-size:14px"></td>
+        <td><button type="button" data-rpe-pick="${i}" aria-label="RPE Satz ${i+1}" style="width:52px;padding:8px 2px;background:var(--card2);border:1px solid ${i===rpeIdx?'var(--violet)':'var(--border)'};border-radius:6px;color:${st.rpe?'var(--t1)':'var(--t3)'};font-size:14px;font-family:var(--f);cursor:pointer">${st.rpe?rpeFmt(st.rpe):'RPE'}</button></td>
         <td><button type="button" class="btn ${st.done?'bp':'bg2'}" data-set-done="${i}" style="padding:8px 10px;font-size:12px;margin:0;width:auto">${st.done?'✓':'○'}</button></td>
         <td>${cur.sets.length>1?`<button type="button" data-set-del="${i}" aria-label="Satz ${i+1} löschen" style="background:none;border:none;color:var(--t3);font-size:15px;cursor:pointer;padding:6px 2px;line-height:1">✕</button>`:''}</td>
       </tr>`).join('');
@@ -1875,6 +1876,7 @@ function renderWorkout(){
             </tr></thead>
             <tbody>${setsHtml}</tbody>
           </table>
+          ${rpeQuickHtml(cur, rpeIdx)}
           <button type="button" id="addSetBtn" class="btn bo" style="margin-top:8px;font-size:12px;padding:8px">+ Satz hinzufügen</button>
         </div>
 
@@ -1919,6 +1921,37 @@ function renderWorkout(){
       });
     });
     $$('#workoutContent [data-diff]').forEach(btn=>btn.addEventListener('click',()=>changeVariantBy(parseInt(btn.dataset.diff,10))));
+    // RPE: Zeile antippen wählt den Satz, Schnellwahl setzt den Wert
+    $$('#workoutContent [data-rpe-pick]').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        _rpeSel={ts:s.startTs, ex:s.currentIdx, idx:parseInt(btn.dataset.rpePick,10)};
+        renderWorkout();
+      });
+    });
+    $$('#workoutContent [data-rpe-val]').forEach(btn=>{
+      const val=parseFloat(btn.dataset.rpeVal);
+      const stopLong=()=>Timers.clear('rpeLong');
+      btn.addEventListener('pointerdown',()=>{
+        _rpeLongFired=false;
+        // lange drücken = halber Punkt (8 → 8,5); 10 hat keinen halben Punkt
+        if(val<10) Timers.set(()=>{
+          _rpeLongFired=true;
+          if(setRpeForSet(cur, rpeIdx, val+0.5)){ AppState.saveSession(); renderWorkout(); }
+        }, 450, 'rpeLong');
+      });
+      btn.addEventListener('pointerup',stopLong);
+      btn.addEventListener('pointerleave',stopLong);
+      btn.addEventListener('pointercancel',stopLong);
+      btn.addEventListener('contextmenu',ev=>ev.preventDefault());
+      btn.addEventListener('click',()=>{
+        if(_rpeLongFired){ _rpeLongFired=false; return; }
+        const st=cur.sets[rpeIdx]; if(!st) return;
+        // gleicher Wert noch einmal = löschen
+        if(parseFloat(st.rpe)===val){ st.rpe=''; }
+        else if(!setRpeForSet(cur, rpeIdx, val)) return;
+        AppState.saveSession(); renderWorkout();
+      });
+    });
     const stepInp=el('equipStepInp');
     if(stepInp) stepInp.addEventListener('change',()=>{
       const v=parseFloat(stepInp.value);
@@ -1949,6 +1982,7 @@ function renderWorkout(){
       btn.addEventListener('click',()=>{
         const i=parseInt(btn.dataset.setDone,10); if(!cur.sets[i]) return;
         cur.sets[i].done=!cur.sets[i].done;
+        _rpeSel=null;
         if(cur.sets[i].done){
           s.restEndTs=Date.now()+restSecondsFor(cur.n, isTimed)*1000;
           // direkt in die nächste Satz-Zeile springen (erstes leeres Feld)
@@ -1980,6 +2014,52 @@ function renderWorkout(){
       }
     },1000,'workoutTick');
   } catch(e){ log.error('renderWorkout',e); if(el_) el_.innerHTML='<div class="empty">Fehler beim Anzeigen. <button class="btn bp" data-nav="plan" style="margin-top:10px;max-width:200px">→ Plan</button></div>'; }
+}
+
+// ── RPE-Schnellwahl (Spec 4.1) ───────────────────────────────────────────
+var _rpeSel = null;          // {ts, ex, idx} – per Antippen gewählter Satz
+var _rpeLongFired = false;   // langer Druck hat schon ,5 gesetzt → Klick ignorieren
+function rpeFmt(v){ return String(+v).replace('.', ','); }
+// RIR-Übersetzung: RPE 8 = noch 2 Wdh möglich
+function rirText(rpe){
+  var v = +rpe;
+  if(!(v>=5 && v<=10)) return '';
+  var rir = 10 - v;
+  var txt = rir===0 ? 'keine Wdh mehr möglich'
+          : rir===0.5 ? 'keine Wdh mehr, evtl. etwas mehr Gewicht'
+          : (rir%1 ? 'noch '+Math.floor(rir)+'–'+Math.ceil(rir)+' Wdh möglich'
+                   : 'noch '+rir+' Wdh möglich');
+  return rpeFmt(v)+' = '+txt;
+}
+// RPE setzen: 5–10 in 0,5-Schritten, sonst nichts speichern
+function setRpeForSet(cur, idx, val){
+  var v = Math.round(parseFloat(val)*2)/2;
+  if(!cur || !cur.sets || !cur.sets[idx] || !(v>=5 && v<=10)) return false;
+  cur.sets[idx].rpe = String(v);
+  return true;
+}
+// Ziel-Satz der Schnellwahl: angetippter Satz, sonst erster offener, sonst letzter
+function rpeTargetIdx(s, cur){
+  var n = (cur.sets||[]).length;
+  if(_rpeSel && s && _rpeSel.ts===s.startTs && _rpeSel.ex===s.currentIdx && _rpeSel.idx < n) return _rpeSel.idx;
+  for(var i=0; i<n; i++){ if(!cur.sets[i].done) return i; }
+  return Math.max(0, n-1);
+}
+function rpeQuickHtml(cur, idx){
+  var st = (cur.sets||[])[idx] || {};
+  var curV = parseFloat(st.rpe);
+  var btns = [6,7,8,9,10].map(function(v){
+    var on = curV===v || curV===v+0.5;
+    return '<button type="button" data-rpe-val="'+v+'" style="padding:10px 0;border-radius:8px;font-size:15px;font-weight:700;font-family:var(--f);cursor:pointer;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation;'
+      +'border:1.5px solid '+(on?'var(--violet)':'var(--border2)')+';background:'+(on?'var(--violet)':'var(--card2)')+';color:'+(on?'#fff':'var(--t1)')+'">'
+      +(on && curV%1 ? rpeFmt(curV) : v)+'</button>';
+  }).join('');
+  var info = curV ? rirText(curV) : 'Antippen: '+rirText(8);
+  return '<div style="margin-top:10px">'
+    +'<div style="font-size:10px;color:var(--t3);margin-bottom:5px">RPE für Satz '+(idx+1)+' · lange drücken = ,5</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:5px">'+btns+'</div>'
+    +'<div id="rirInfo" style="font-size:11px;color:var(--t2);margin-top:6px">'+esc(info)+'</div>'
+    +'</div>';
 }
 
 function nextExercise(){

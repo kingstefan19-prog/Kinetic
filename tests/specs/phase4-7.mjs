@@ -4,9 +4,49 @@ import path from 'node:path';
 
 export const title = 'Phasen 4–7 · RPE, Plan 3+1, Datenerfassung, Release';
 
-export default function ({ todo, assert, loadApp, REPO_ROOT }) {
+const DAY = 864e5;
+function session(date, sets, dayName = 'Test') {
+  return { ts: Date.parse(`${date}T17:00:00Z`), dayName, durationMs: 3e6, volume: 0, sets };
+}
+function workout(ctx, exercises) {
+  ctx.AppState.activeSession = { dayId: 'mon', dayName: 'Test', startTs: ctx.Date.now() - 3e6, currentIdx: 0, restEndTs: 0,
+    exercises: exercises.map((e) => ({ isTimed: false, coach: {}, done: false, ...e })) };
+}
+
+export default function ({ test, todo, assert, loadApp, REPO_ROOT }) {
   // ── Phase 4 ──
-  todo('4.1 RPE-Schnellwahl 6/7/8/9/10 (lang drücken für ,5) mit RIR-Übersetzung');
+  test('4.1 RPE-Schnellwahl 6/7/8/9/10 mit RIR-Übersetzung statt Zahlenfeld', () => {
+    const ctx = loadApp({}, { now: '2026-10-19T17:00:00Z' });
+    workout(ctx, [{ n: 'Seitheben (Kabel)', s: '3×12-15',
+      sets: [{ w: '20', r: '14', rpe: '8', done: true }, { w: '20', r: '13', rpe: '', done: false }] }]);
+    ctx.renderWorkout();
+    const html = ctx.document.getElementById('workoutContent').innerHTML;
+    for (const v of [6, 7, 8, 9, 10]) assert.match(html, new RegExp(`data-rpe-val="${v}"`));
+    assert.doesNotMatch(html, /data-set-field="rpe"/, 'altes Zahlenfeld noch da');
+    assert.match(html, /RPE für Satz 2/, 'Schnellwahl soll auf den ersten offenen Satz zeigen');
+    assert.match(html, /lange drücken = ,5/);
+    assert.match(html, /8 = noch 2 Wdh möglich/);
+  });
+
+  test('4.1 RIR-Texte und Grenzen (5–10 in 0,5-Schritten)', () => {
+    const ctx = loadApp({});
+    assert.equal(ctx.rirText(8), '8 = noch 2 Wdh möglich');
+    assert.equal(ctx.rirText(10), '10 = keine Wdh mehr möglich');
+    assert.equal(ctx.rirText(8.5), '8,5 = noch 1–2 Wdh möglich');
+    const cur = { sets: [{ rpe: '' }] };
+    assert.equal(ctx.setRpeForSet(cur, 0, 8.5), true);
+    assert.equal(cur.sets[0].rpe, '8.5');
+    assert.equal(ctx.setRpeForSet(cur, 0, 10.5), false);
+    assert.equal(ctx.setRpeForSet(cur, 0, 4), false);
+    assert.equal(cur.sets[0].rpe, '8.5', 'ungültige Werte dürfen nichts überschreiben');
+  });
+
+  test('4.1 Halbe RPE wird beim Beenden als Zahl gespeichert', () => {
+    const ctx = loadApp({}, { now: '2026-10-19T17:00:00Z' });
+    workout(ctx, [{ n: 'Seitheben (Kabel)', s: '3×12-15', sets: [{ w: '20', r: '14', rpe: '8.5', done: true }] }]);
+    ctx.finishWorkout();
+    assert.equal(ctx.AppState.history[0].sets[0].rpe, 8.5);
+  });
   todo('4.2 Varianz-Check: > 70 % gleiche RPE in den letzten 40 Sätzen → AMRAP-Karte');
   todo('4.3 Kalibrierung: AppState.rpeOffset aus AMRAP-Satz, angezeigt, nicht in e1rm eingerechnet');
 
