@@ -1534,8 +1534,11 @@ function renderLog(){
       +'</div>';
   }
 
-  // Individual session cards
-  var sessionHtml=h.slice(0,20).map(function(e){
+  // Individual session cards (Spec 1.3: bearbeitbar, "Mehr laden")
+  var total=AppState.history.length;
+  var sessionHtml=h.slice(0,_logLimit).map(function(e, k){
+    var hIdx=total-1-k;                       // Index in AppState.history
+    if(_logEditIdx===hIdx) return logEditCardHtml(e, hIdx);
     var d=new Date(e.ts);
     var dateStr=d.toLocaleDateString('de',{weekday:'long',day:'2-digit',month:'2-digit',year:'2-digit'});
     var timeStr=d.toLocaleTimeString('de',{hour:'2-digit',minute:'2-digit'});
@@ -1576,7 +1579,10 @@ function renderLog(){
       +'<div style="font-size:15px;font-weight:700">'+esc(e.dayName||'Workout')+'</div>'
       +'<div style="font-size:11px;color:var(--t3);margin-top:2px">'+dateStr+' · '+timeStr+'</div>'
       +'</div>'
+      +'<div style="display:flex;gap:6px;align-items:center">'
       +(prInSession?'<span style="background:rgba(255,214,10,.15);color:var(--gold);font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px">'+prInSession+' PR</span>':'')
+      +'<button type="button" onclick="logStartEdit('+hIdx+')" aria-label="Session bearbeiten" style="background:var(--card2);border:1px solid var(--border);color:var(--t2);font-size:11px;padding:4px 9px;border-radius:8px;cursor:pointer;font-family:var(--f)">✎ Bearbeiten</button>'
+      +'</div>'
       +'</div>'
       // Stats row
       +'<div style="display:flex;gap:12px;margin-bottom:10px;padding:8px;background:var(--card2);border-radius:8px">'
@@ -1591,7 +1597,125 @@ function renderLog(){
       +'</div>';
   }).join('');
 
-  el_.innerHTML=statsHtml+prHtml+sessionHtml;
+  var more=h.length-_logLimit;
+  var moreHtml=more>0?'<button type="button" class="btn bo" onclick="logLoadMore()" style="margin-top:4px;font-size:13px">Mehr laden ('+more+' ältere Sessions)</button>':'';
+  el_.innerHTML=statsHtml+prHtml+sessionHtml+moreHtml;
+}
+
+// ── Log bearbeiten (Spec 1.3) ────────────────────────────────────────────
+var _logLimit = 20;        // sichtbare Sessions, "Mehr laden" +20
+var _logEditIdx = null;    // Index der Session im Bearbeiten-Modus
+var _logDelArm = null;     // Session-Löschen braucht einen zweiten Tipp
+function logLoadMore(){ _logLimit += 20; renderLog(); }
+function logStartEdit(hIdx){ _logEditIdx = hIdx; _logDelArm = null; renderLog(); }
+function logCancelEdit(){ _logEditIdx = null; _logDelArm = null; renderLog(); }
+// Nach jeder Änderung: Volumen der Session und PRs neu berechnen, speichern
+function logAfterChange(sess){
+  if(sess) sess.volume = (sess.sets||[]).reduce(function(a, x){ return a + (+x.w||0)*(+x.r||0); }, 0);
+  AppState.prs = recomputePRs(AppState.history);
+  AppState.save();
+}
+// Satz ändern. Werte wie bei der Eingabe: Gewicht > 0, Wdh 1–50, RPE 5–10
+// (0,5er-Schritte, leer = keine RPE). Körpergewichtssätze ändern die
+// Zusatzlast; w bleibt Körpergewicht + Zusatz.
+function logUpdateSet(hIdx, sIdx, v){
+  var sess = AppState.history[hIdx], st = sess && (sess.sets||[])[sIdx];
+  if(!st || !v) return false;
+  if(st.secs){
+    var secs = parseInt(v.secs, 10);
+    if(!(secs>0 && secs<=3600)) return false;
+    st.secs = secs;
+  } else {
+    var r = +v.r;
+    if(!(r>=1 && r<=50 && r%1===0)) return false;
+    if(st.add!=null && v.add!==undefined){
+      var add = parseFloat(v.add)||0;
+      if(add<0 || add>200) return false;
+      var bw = (+st.w||0) - (+st.add||0);
+      st.add = Math.round(add*4)/4;
+      st.w = Math.round((bw + st.add)*4)/4;
+    } else {
+      var w = parseFloat(v.w);
+      if(!(w>0 && w<=500)) return false;
+      st.w = Math.round(w*4)/4;
+    }
+    st.r = r;
+    st.rpe = normRpe(v.rpe);
+  }
+  logAfterChange(sess);
+  return true;
+}
+function logDeleteSet(hIdx, sIdx){
+  var sess = AppState.history[hIdx];
+  if(!sess || !(sess.sets||[])[sIdx]) return false;
+  sess.sets.splice(sIdx, 1);
+  logAfterChange(sess);
+  return true;
+}
+function logDeleteSession(hIdx){
+  if(!AppState.history[hIdx]) return false;
+  AppState.history.splice(hIdx, 1);
+  _logEditIdx = null; _logDelArm = null;
+  logAfterChange(null);
+  return true;
+}
+// UI-Aktionen (onclick im Log)
+function logSaveEdit(hIdx){
+  var sess = AppState.history[hIdx]; if(!sess) return;
+  var bad = 0;
+  (sess.sets||[]).forEach(function(st, i){
+    var g = function(f){ var x = el('lg-'+f+'-'+hIdx+'-'+i); return x ? x.value : undefined; };
+    var v = st.secs ? {secs:g('secs')} : (st.add!=null ? {add:g('add'), r:g('r'), rpe:g('rpe')} : {w:g('w'), r:g('r'), rpe:g('rpe')});
+    if(!logUpdateSet(hIdx, i, v)) bad++;
+  });
+  _logEditIdx = null;
+  renderLog(); safeCall(refreshDash);
+  toast(bad ? '⚠️ '+bad+' Satz/Sätze ungültig (Wdh 1–50, Gewicht > 0) – nicht geändert' : '✅ Session gespeichert, PRs neu berechnet');
+}
+function logRemoveSet(hIdx, sIdx){
+  if(logDeleteSet(hIdx, sIdx)){ renderLog(); safeCall(refreshDash); toast('Satz gelöscht'); }
+}
+function logRemoveSession(hIdx){
+  if(_logDelArm !== hIdx){
+    _logDelArm = hIdx; renderLog();
+    Timers.set(function(){ if(_logDelArm===hIdx){ _logDelArm = null; renderLog(); } }, 3000, 'logDelArm');
+    return;
+  }
+  if(logDeleteSession(hIdx)){ renderLog(); safeCall(refreshDash); toast('Session gelöscht'); }
+}
+function logEditCardHtml(e, hIdx){
+  var inp = 'padding:7px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-size:13px;width:100%';
+  var rpeOpts = function(cur){
+    var o = '<option value="">–</option>';
+    for(var v=5; v<=10; v+=0.5) o += '<option value="'+v+'"'+(+cur===v?' selected':'')+'>'+rpeFmt(v)+'</option>';
+    return o;
+  };
+  var rows = (e.sets||[]).map(function(st, i){
+    var id = function(f){ return 'lg-'+f+'-'+hIdx+'-'+i; };
+    var fields = st.secs
+      ? '<input id="'+id('secs')+'" type="number" inputmode="numeric" value="'+esc(st.secs)+'" style="'+inp+'"><span style="font-size:11px;color:var(--t3)">s</span>'
+      : (st.add!=null
+          ? '<input id="'+id('add')+'" type="number" inputmode="decimal" step="0.25" min="0" value="'+esc(st.add)+'" aria-label="Zusatz kg" style="'+inp+'">'
+          : '<input id="'+id('w')+'" type="number" inputmode="decimal" step="0.25" value="'+esc(st.w)+'" aria-label="kg" style="'+inp+'">')
+        +'<input id="'+id('r')+'" type="number" inputmode="numeric" min="1" max="50" step="1" value="'+esc(st.r)+'" aria-label="Wdh" style="'+inp+'">'
+        +'<select id="'+id('rpe')+'" aria-label="RPE" style="'+inp+'">'+rpeOpts(st.rpe)+'</select>';
+    return '<div style="padding:7px 0;border-bottom:1px solid var(--border)">'
+      +'<div style="font-size:12px;color:var(--t2);margin-bottom:4px">'+esc(st.ex||'')+(st.add!=null?' · Zusatz (kg)':'')+'</div>'
+      +'<div style="display:grid;grid-template-columns:'+(st.secs?'1fr auto 28px':'1fr 1fr 1fr 28px')+';gap:6px;align-items:center">'+fields
+      +'<button type="button" onclick="logRemoveSet('+hIdx+','+i+')" aria-label="Satz löschen" style="background:none;border:none;color:var(--t3);font-size:15px;cursor:pointer">✕</button>'
+      +'</div></div>';
+  }).join('');
+  var armed = _logDelArm === hIdx;
+  return '<div style="background:var(--card);border:1px solid var(--blue);border-radius:14px;padding:14px;margin-bottom:10px">'
+    +'<div style="font-size:15px;font-weight:700">'+esc(e.dayName||'Workout')+' · bearbeiten</div>'
+    +'<div style="font-size:11px;color:var(--t3);margin:2px 0 8px">'+new Date(e.ts).toLocaleDateString('de',{weekday:'long',day:'2-digit',month:'2-digit',year:'2-digit'})+' · kg / Wdh / RPE</div>'
+    +(rows || '<div style="font-size:12px;color:var(--t3);padding:6px 0">Keine Sätze.</div>')
+    +'<div style="display:flex;gap:8px;margin-top:10px">'
+    +'<button type="button" class="btn bg2" onclick="logCancelEdit()" style="flex:1;margin:0;font-size:13px">Abbrechen</button>'
+    +'<button type="button" class="btn bp" onclick="logSaveEdit('+hIdx+')" style="flex:2;margin:0;font-size:13px">✓ Speichern</button>'
+    +'</div>'
+    +'<button type="button" class="btn bg2" onclick="logRemoveSession('+hIdx+')" style="margin-top:8px;font-size:12px;padding:9px;color:var(--accent)'+(armed?';border-color:var(--accent)':'')+'">'+(armed?'Wirklich löschen? Nochmal tippen':'🗑 Session löschen')+'</button>'
+    +'</div>';
 }
 
 // ── 16. WORKOUT SESSION ─────────────────────────────────

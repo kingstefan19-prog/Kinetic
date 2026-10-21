@@ -122,7 +122,65 @@ export default function ({ test, todo, assert, loadApp, loadFixture }) {
     assert.match(log, />–<\/div><div style="font-size:9px;color:var\(--t3\)">DAUER/);
     assert.doesNotMatch(log, /2880:00/);
   });
-  todo('1.3 Log: Satz bearbeiten/löschen, Session löschen, PRs neu berechnen, "Mehr laden"');
+  test('1.3 Satz bearbeiten (w, r, rpe) berechnet PRs und Volumen neu und speichert', () => {
+    const ctx = loadApp(loadFixture('outliers'));
+    const hIdx = ctx.AppState.history.findIndex((s) => s.sets.some((x) => x.ex === SC && x.w === 125));
+    const sIdx = ctx.AppState.history[hIdx].sets.findIndex((x) => x.ex === SC && x.w === 125);
+    assert.ok(ctx.AppState.prs[SC] >= 60);
+    assert.equal(ctx.logUpdateSet(hIdx, sIdx, { w: '25', r: '12', rpe: '8.5' }), true);
+    const st = ctx.AppState.history[hIdx].sets[sIdx];
+    assert.deepEqual([st.w, st.r, st.rpe], [25, 12, 8.5]);
+    assert.ok(ctx.AppState.prs[SC] < 60, `PR ${ctx.AppState.prs[SC]}`);
+    const vol = ctx.AppState.history[hIdx].sets.reduce((a, x) => a + (x.w || 0) * (x.r || 0), 0);
+    assert.equal(ctx.AppState.history[hIdx].volume, vol);
+    assert.equal(JSON.parse(ctx.localStorage.getItem('kinetic.history'))[hIdx].sets[sIdx].w, 25, 'nicht gespeichert');
+    // ungültige Werte ändern nichts
+    assert.equal(ctx.logUpdateSet(hIdx, sIdx, { w: '25', r: '70', rpe: '8' }), false);
+    assert.equal(ctx.logUpdateSet(hIdx, sIdx, { w: '0', r: '10', rpe: '8' }), false);
+    assert.equal(ctx.logUpdateSet(hIdx, sIdx, { w: '25', r: '10', rpe: '78' }), true);
+    assert.equal(ctx.AppState.history[hIdx].sets[sIdx].rpe, null, 'RPE außerhalb 5–10 wird nicht gespeichert');
+  });
+
+  test('1.3 Körpergewichtssatz: Bearbeiten ändert die Zusatzlast, w bleibt Körpergewicht + Zusatz', () => {
+    const ctx = loadApp({ history: [{ ts: Date.parse('2026-10-12T17:00:00Z'), dayName: 'Pull A', durationMs: 3e6, volume: 0,
+      sets: [{ ex: 'Klimmzüge', w: 105, add: 0, r: 10, rpe: 8 }] }] });
+    assert.equal(ctx.logUpdateSet(0, 0, { add: '5', r: '8', rpe: '9' }), true);
+    const st = ctx.AppState.history[0].sets[0];
+    assert.deepEqual([st.w, st.add, st.r], [110, 5, 8]);
+  });
+
+  test('1.3 Satz und Session löschen; Session-Löschen braucht zwei Tipps', () => {
+    const ctx = loadApp(loadFixture('outliers'));
+    const n = ctx.AppState.history.length;
+    const before = ctx.AppState.history[0].sets.length;
+    ctx.logRemoveSet(0, 0);
+    assert.equal(ctx.AppState.history[0].sets.length, before - 1);
+    ctx.logStartEdit(0);
+    ctx.logRemoveSession(0);
+    assert.equal(ctx.AppState.history.length, n, 'erster Tipp löscht noch nicht');
+    assert.match(ctx.document.getElementById('logList').innerHTML, /Wirklich löschen\? Nochmal tippen/);
+    ctx.logRemoveSession(0);
+    assert.equal(ctx.AppState.history.length, n - 1);
+    assert.equal(JSON.parse(ctx.localStorage.getItem('kinetic.history')).length, n - 1);
+  });
+
+  test('1.3 Log: Bearbeiten-Button, Edit-Ansicht mit RPE-Auswahl 5–10 und "Mehr laden" ab 21 Sessions', () => {
+    const hist = Array.from({ length: 25 }, (_, i) => session(`2026-09-${String(i + 1).padStart(2, '0')}`, 'Beinstrecker', [[45, 12, 8]]));
+    const ctx = loadApp({ history: hist }, { now: '2026-10-19T17:00:00Z' });
+    ctx.renderLog();
+    let log = ctx.document.getElementById('logList').innerHTML;
+    assert.equal((log.match(/logStartEdit\(/g) || []).length, 20);
+    assert.match(log, /Mehr laden \(5 ältere Sessions\)/);
+    ctx.logLoadMore();
+    log = ctx.document.getElementById('logList').innerHTML;
+    assert.equal((log.match(/logStartEdit\(/g) || []).length, 25);
+    assert.doesNotMatch(log, /Mehr laden/);
+    ctx.logStartEdit(24);
+    log = ctx.document.getElementById('logList').innerHTML;
+    assert.match(log, /id="lg-w-24-0"[^>]*value="45"/);
+    assert.match(log, /<select id="lg-rpe-24-0"[^>]*>.*<option value="5">5<\/option>.*<option value="8" selected>8<\/option>.*<option value="10">10<\/option><\/select>/s);
+    assert.doesNotMatch(log, /value="10.5"|value="4.5"/);
+  });
   todo('1.4 Bereinigungs-Assistent: outliers.json liefert genau 3 Funde');
 
   todo('1.4 Nach Löschen des 125-kg-Satzes liegt der PR für Skull Crushers (LH) unter 60', () => {
