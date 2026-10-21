@@ -292,9 +292,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 
   <!-- Science info banner -->
   <div style="background:rgba(10,132,255,.07);border:1px solid rgba(10,132,255,.2);border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--t2);line-height:1.7">
-    📊 <strong style="color:var(--blue)">Dein personalisierter Plan</strong> · 106,6 kg · FFMI 27,2 · Fortgeschritten<br>
-    Brust <strong style="color:var(--t1)">16 Sätze/Wo</strong> · Rücken <strong style="color:var(--t1)">18</strong> · Schulter <strong style="color:var(--t1)">14</strong> · Trizeps/Bizeps <strong style="color:var(--t1)">12</strong> · Quad/Ham <strong style="color:var(--t1)">14/12</strong><br>
-    <span style="color:var(--green)">✅ Schoenfeld 2024 · 4× Gym + 2× Fußball + Sonntag Spiel</span>
+    <span id="planInfo">📊 <strong style="color:var(--blue)">Dein Plan</strong></span><br>
     <button onclick="openGlossar()" style="display:inline-flex;align-items:center;gap:4px;margin-top:8px;background:rgba(10,132,255,.12);border:1px solid rgba(10,132,255,.25);color:var(--blue);font-size:11px;font-weight:600;padding:5px 10px;border-radius:8px;cursor:pointer;font-family:var(--f)">📖 Begriffe erklären (E1RM, RPE, Deload…)</button>
   </div>
 
@@ -1166,6 +1164,25 @@ function offerPlan3plus1(){
   });
 }
 
+// Info-Kasten im Plan-Tab: Tage und direkte Wochensätze aus dem aktiven
+// Plan (Pflicht-Gymtage), statt fester Zahlen eines früheren Plans
+function planInfoHtml(){
+  var plan = AppState.plan||[], direct = {};
+  var gym = plan.filter(function(d){ return d && d.type==='gym' && !d.optional && (d.ex||[]).length; });
+  var opt = plan.filter(function(d){ return d && d.type==='gym' && d.optional; }).length;
+  var soc = plan.filter(function(d){ return d && d.type==='soccer'; }).length;
+  var match = plan.some(function(d){ return d && d.type==='match'; });
+  gym.forEach(function(d){ d.ex.forEach(function(e){
+    var m = String(e.s||'').match(/^(\d+)/), n = m ? +m[1] : 0;
+    musclesFor(e.n||'').forEach(function(x){ if(x.w===1) direct[x.m] = (direct[x.m]||0) + n; });
+  }); });
+  var b = function(v){ return '<strong style="color:var(--t1)">'+(v||0)+'</strong>'; };
+  return '📊 <strong style="color:var(--blue)">Dein Plan</strong> · '+gym.length+'× Gym'+(opt?' + '+opt+' optional':'')
+    +(soc?' · '+soc+'× Fußball':'')+(match?' + Spiel':'')+'<br>'
+    +'Direkte Sätze/Wo: Brust '+b(direct.brust)+' · Rücken '+b(direct.ruecken)+' · Schulter '+b(direct.schulter)
+    +' · Trizeps/Bizeps '+b(direct.trizeps)+'/'+b(direct.bizeps)+' · Quad/Ham '+b(direct.quads)+'/'+b(direct.hams);
+}
+
 function dayLabel(idx, day){
   const wd=WEEKDAYS[idx]||''; return wd ? wd+' · '+(day.name||'') : (day.name||'');
 }
@@ -1639,6 +1656,7 @@ function renderPlan(){
     }).join('');
 
     const eb=el('editDaysBtn'); if(eb) eb.textContent=em?'✓ Fertig':'✏️ Anpassen';
+    const pi=el('planInfo'); if(pi) pi.innerHTML=planInfoHtml();
   } catch(e){ log.error('renderPlan',e); list.innerHTML='<div class="empty">Fehler beim Laden. <button class="btn bp" onclick="resetToDefaultPlan()" style="margin-top:10px;max-width:200px">↺ Plan zurücksetzen</button></div>'; }
 }
 

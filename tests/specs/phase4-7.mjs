@@ -229,6 +229,10 @@ export default function ({ test, todo, assert, loadApp, REPO_ROOT }) {
     assert.equal(JSON.parse(ctx.localStorage.getItem('kinetic.plan'))[3].optional, true);
     ctx.renderPlan();
     assert.match(ctx.document.getElementById('planList').innerHTML, /OPTIONAL/);
+    const info = ctx.document.getElementById('planInfo').innerHTML;
+    assert.match(info, /3× Gym \+ 1 optional · 2× Fußball \+ Spiel/);
+    assert.match(info, /Brust <strong[^>]*>12<\/strong>/);
+    assert.match(info, /Quad\/Ham <strong[^>]*>7<\/strong>\/<strong[^>]*>7<\/strong>/);
   });
 
   test('5 Adherence-Karte bietet "3+1-Plan übernehmen" an; optionaler Tag zählt nicht', () => {
