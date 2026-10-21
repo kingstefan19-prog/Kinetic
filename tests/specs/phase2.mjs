@@ -101,12 +101,23 @@ export default function ({ test, todo, assert, loadApp, loadFixture }) {
     assert.ok(ctx.coachSuggestion('Beinstrecker', '3×12-15').weight > 45);
   });
 
-  todo('2.3 Obergrenze +2 Wdh in einem Satz → "Gewicht zu leicht" und Steigerung', () => {
-    const ctx = loadApp({ history: [session('2026-10-15', 'Seitheben (KH)', [[12, 17, 8], [12, 13, 8], [12, 13, 8]])] },
+  test('2.3 Obergrenze +2 Wdh in einem Satz → "Gewicht zu leicht" und Steigerung', () => {
+    const ctx = loadApp({ history: [session('2026-10-15', 'Seitheben (KH)', [[16, 17, 8], [16, 13, 8], [16, 13, 8]])] },
       { now: '2026-10-20T08:00:00Z' });
     const r = ctx.coachSuggestion('Seitheben (KH)', '3×12-15');
-    assert.ok(r.weight > 12, `Vorschlag ${r.weight} kg`);
-    assert.match(r.hint, /zu leicht/i);
+    assert.equal(r.weight, 18, `Vorschlag ${r.weight} kg`);
+    assert.match(r.hint, /Gewicht zu leicht, nächstes Mal steigern/);
+  });
+
+  test('2.3 Obergrenze +1 reicht nicht, Körpergewichtsübungen ausgenommen', () => {
+    const ctx = loadApp({ history: [session('2026-10-15', 'Seitheben (KH)', [[16, 16, 8], [16, 13, 8], [16, 13, 8]])] },
+      { now: '2026-10-20T08:00:00Z' });
+    assert.equal(ctx.coachSuggestion('Seitheben (KH)', '3×12-15').weight, 16);
+    const bw = loadApp({ history: [session('2026-10-15', 'Klimmzüge', [[105, 12, 8], [105, 8, 8], [105, 8, 8]])] },
+      { now: '2026-10-20T08:00:00Z' });
+    const r = bw.coachSuggestion('Klimmzüge', '4×6-10');
+    assert.doesNotMatch(r.hint, /zu leicht/);
+    assert.equal(r.add, 0);
   });
 
   todo('2.4 Geräteschritt pro Übung (AppState.equipSteps) wird von plateStep/loadIncrement genutzt', () => {

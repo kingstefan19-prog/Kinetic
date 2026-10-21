@@ -2766,13 +2766,17 @@ function coachSuggestion(exName, targetStr){
   if(avgRpe !== null && avgRpe > 9){
     return {weight:workW, reps:range?range.hi:workReps[0], hint:'Hohe Anstrengung (RPE>9) – Gewicht halten, Technik sauber.'+(sleepNote&&sleep.q!=='ok'?' '+sleepNote:'')};
   }
-  // PRIORITÄT 3 – Obere Grenze (Mehrheit) erreicht → +Gewicht
-  if(hitTop){
+  // PRIORITÄT 3 – Obere Grenze erreicht (oder ein Satz ≥ Obergrenze + 2) → +Gewicht
+  var maxWorkR = Math.max.apply(null, workReps);
+  var overTop = range ? maxWorkR >= range.hi + 2 : false;
+  if(hitTop || overTop){
     var stepH = plateStep(exName, workW);
     var inc = loadIncrement(workW, exName);
     if(sleep && sleep.q==='bad') inc = Math.max(stepH, Math.round(inc*0.5/stepH)*stepH);
     var newW = Math.round((workW + inc) * 4)/4;   // 0,25er-Raster erlaubt 1,25-Schritte
-    var topNote = 'Obere Grenze geschafft → +'+inc+' kg, Range neu starten.';
+    var topNote = hitTop
+      ? 'Obere Grenze geschafft → +'+inc+' kg, Range neu starten.'
+      : 'Gewicht zu leicht, nächstes Mal steigern: '+maxWorkR+' Wdh in einem Satz (Obergrenze + 2) → +'+inc+' kg.';
     if(sleepNote && sleep.q !== 'ok') topNote += ' ' + sleepNote;
     return {weight:newW, reps:range?range.lo:workReps[0], hint:topNote};
   }
