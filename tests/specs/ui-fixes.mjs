@@ -9,7 +9,8 @@ function session(date, ex, rows) {
     sets: rows.map(([w, r, rpe]) => ({ ex, w, r, rpe })) };
 }
 
-export default function ({ test, assert, loadApp, REPO_ROOT }) {
+export default function ({ test, assert, loadApp, loadFixture, REPO_ROOT }) {
+  const loadFixtureRaw = loadFixture;
   test('Fix 1: Nach toast() und navigate() innerhalb von 2 s ist der Toast nicht mehr sichtbar', () => {
     const ctx = loadApp({}, { now: '2026-10-21T10:00:00Z' });
     const t = ctx.document.getElementById('toast');
@@ -101,4 +102,45 @@ export default function ({ test, assert, loadApp, REPO_ROOT }) {
     // "oder": Gewicht darunter reicht, auch wenn das E1RM (40×12 ≈ 56) schon über 42×9 (≈ 54,6) liegt
     assert.match(hint([[40, 12, 9], [40, 12, 9], [40, 12, 9]]), /Vor der Pause: 42 kg × 9/);
   });
+
+  // 3 Nächte à 6 h → recoveryStatus q 'low' ("Wenig Schlaf → vorsichtige Progression")
+  const wenigSchlaf = [{ h: 6, d: '2026-10-19' }, { h: 6, d: '2026-10-20' }, { h: 6, d: '2026-10-21' }];
+
+  test('Fix 5: Wenig Schlaf (q low) begrenzt die Steigerung im hitTop-Zweig auf einen plateStep', () => {
+    const ex = 'Latzug (Untergriff eng)';
+    const hist = [session('2026-10-15', ex, [[95, 12, 8], [95, 12, 8], [95, 12, 8]])];
+    const normal = loadApp({ history: hist }, { now: '2026-10-21T10:00:00Z' }).coachSuggestion(ex, '3×10-12');
+    assert.equal(normal.weight, 100, 'ohne Schlafmangel +5 (loadIncrement)');
+    const ctx = loadApp({ history: hist, sleepLog: wenigSchlaf }, { now: '2026-10-21T10:00:00Z' });
+    assert.equal(ctx.recoveryStatus().q, 'low');
+    const r = ctx.coachSuggestion(ex, '3×10-12');
+    assert.equal(r.weight, 97.5, 'nur ein plateStep (2,5)');
+    assert.match(r.hint, /\+2\.5 kg, Range neu starten\. 😴 Wenig Schlaf → vorsichtige Progression\.$/);
+  });
+
+  test('Fix 5: Hint-Bausteine sind mit Punkt und Leerzeichen verbunden ("Progression. Vor der Pause")', () => {
+    const SB = 'Schrägbankdrücken (KH)';
+    const hist = [session('2026-09-05', SB, [[42, 9, 8], [42, 9, 8], [42, 9, 8]]), session('2026-09-12', SB, [[42, 9, 8], [42, 9, 8], [42, 9, 8]]),
+      session('2026-10-15', SB, [[34, 12, 9], [34, 12, 9], [34, 12, 9]])];
+    const r = loadApp({ history: hist, sleepLog: wenigSchlaf }, { now: '2026-10-21T10:00:00Z' }).coachSuggestion(SB, '3×8-12');
+    assert.match(r.hint, /vorsichtige Progression\. Vor der Pause: 42 kg × 9\.$/);
+    assert.equal(ctx2hint(r.hint), true);
+    // alle Übungen aller Fixtures, mit und ohne Schlafmangel
+    for (const name of ['bench-oscillation', 'post-layoff', 'outliers', 'skipped-legs', 'bodyweight-plateau']) {
+      for (const sleep of [[], wenigSchlaf]) {
+        const fx = JSON.parse(JSON.stringify(loadFixtureRaw(name)));
+        fx.state.sleepLog = sleep;
+        const c = loadApp(fx);
+        for (const ex of new Set(c.AppState.history.flatMap((x) => x.sets.map((y) => y.ex)))) {
+          const h = c.coachSuggestion(ex, '3×8-12').hint;
+          assert.equal(ctx2hint(h), true, `${name}/${ex}: "${h}"`);
+        }
+      }
+    }
+  });
+}
+
+// Satzende vor jedem Baustein, Hint endet mit Satzzeichen, keine doppelten Leerzeichen
+function ctx2hint(h) {
+  return !/[^.!?…\s] (Vor der Pause|😴|⚠️|🎯|📉|📈|❤️)/.test(h) && /[.!?…]$/.test(h) && !/ {2}|\.\./.test(h);
 }

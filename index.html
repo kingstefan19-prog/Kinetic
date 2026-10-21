@@ -3574,6 +3574,21 @@ function readinessScore(){
   return {score:Math.max(0, Math.min(100, Math.round(score))), hasData:hasData, factors:factors};
 }
 
+// Hint-Bausteine verbinden: jeder Baustein endet mit Satzzeichen, dazwischen
+// genau ein Leerzeichen (vorher entstand z. B. "Progression Vor der Pause")
+function endSentence(t){
+  t = String(t||'').trim();
+  return (!t || /[.!?…]$/.test(t)) ? t : t + '.';
+}
+function joinHint(){
+  var parts = [];
+  for(var i=0; i<arguments.length; i++){
+    var p = endSentence(arguments[i]);
+    if(p) parts.push(p);
+  }
+  return parts.join(' ');
+}
+
 // ── 17. PROGRESSION ALGORITHM (mit Schlaf + HRV + Periodisierung) ─────────
 // Einstiegspunkt: Kern-Empfehlung plus Vor-Pausen-Hinweis in den Sessions
 // 2–4 nach einer Pause (Spec 2.6), falls die Kernlogik ihn nicht schon setzt
@@ -3581,8 +3596,9 @@ function coachSuggestion(exName, targetStr){
   var res = coachSuggestionCore(exName, targetStr);
   if(res && typeof res.hint==='string' && res.hint.indexOf('Vor der Pause')<0 && !isLoadableBodyweight(exName)){
     var ref = preLayoffRef(exName);
-    if(ref && belowPreLayoff(ref, recentSessionSets(exName, 1)[0])) res.hint += ' Vor der Pause: '+ref.w+' kg × '+ref.r+'.';
+    if(ref && belowPreLayoff(ref, recentSessionSets(exName, 1)[0])) res.hint = joinHint(res.hint, 'Vor der Pause: '+ref.w+' kg × '+ref.r);
   }
+  if(res && typeof res.hint==='string') res.hint = joinHint(res.hint);   // sauberes Satzende
   return res;
 }
 
@@ -3593,9 +3609,7 @@ function coachSuggestionCore(exName, targetStr){
   var sleepNote = sleep ? sleep.note : '';
 
   if(!last.length){
-    var note = 'Erstes Mal – starte mit RPE 7 (≈3 RIR).';
-    if(sleepNote) note += ' ' + sleepNote;
-    return {weight:null, reps:range?range.lo:null, hint:note};
+    return {weight:null, reps:range?range.lo:null, hint:joinHint('Erstes Mal – starte mit RPE 7 (≈3 RIR)', sleepNote)};
   }
 
   // Körpergewichtsübungen rechnen mit der Zusatzlast, nicht mit w
@@ -3626,7 +3640,7 @@ function coachSuggestionCore(exName, targetStr){
   var layoff = layoffStatus(exName);
   if(layoff && bwMode){
     var lAdd = layoff.mod >= 1 ? bwWorkAdd : Math.max(0, Math.floor((bwWorkAdd*layoff.mod)/1.25)*1.25);
-    return bodyweightResult(bw, lAdd, bwLo, layoff.note+(bwWorkAdd>0 ? ' Zusatzlast heute: '+lAdd+' kg.' : ''));
+    return bodyweightResult(bw, lAdd, bwLo, joinHint(layoff.note, bwWorkAdd>0 ? 'Zusatzlast heute: '+lAdd+' kg' : ''));
   }
   if(layoff){
     var allWp = last.map(function(x){return +(x.w)||0;}).filter(function(w){return w>0;});
@@ -3634,19 +3648,19 @@ function coachSuggestionCore(exName, targetStr){
     if(pW>0){
       // Vor-Pausen-Hinweis nur, wenn die heutige Last darunter liegt
       var pre = bestWorkSet(recentSessionSets(exName, 2));
-      var preNoteFor = function(todayW){ return (pre && todayW < pre.w) ? ' Vor der Pause: '+pre.w+' kg × '+pre.r+'.' : ''; };
+      var preNoteFor = function(todayW){ return (pre && todayW < pre.w) ? 'Vor der Pause: '+pre.w+' kg × '+pre.r : ''; };
       if(layoff.mod >= 1){
         // ≤4 Wochen: Kraft weitgehend erhalten → gleiches Gewicht, kein Push
-        return {weight:pW, reps:range?range.lo:null, hint:layoff.note+preNoteFor(pW)};
+        return {weight:pW, reps:range?range.lo:null, hint:joinHint(layoff.note, preNoteFor(pW))};
       }
       var stepP = plateStep(exName, pW);
       var backW = Math.max(stepP, Math.round((pW*layoff.mod)/stepP)*stepP);
       var preNote = preNoteFor(backW);
       return {weight:backW, reps:range?range.lo:null,
-              hint:layoff.note+' ('+pW+' → '+backW+' kg). Steigere erst wieder, wenn sich die Technik sicher anfühlt.'+preNote};
+              hint:joinHint(layoff.note, 'Heute '+pW+' → '+backW+' kg', 'Steigere erst wieder, wenn sich die Technik sicher anfühlt', preNote)};
     }
     return {weight:null, reps:range?range.lo:null,
-            hint:layoff.note+' Starte mit weniger Wdh als zuletzt und taste dich heran.'};
+            hint:joinHint(layoff.note, 'Starte mit weniger Wdh als zuletzt und taste dich heran')};
   }
 
   var allW = last.map(function(x){return +(x.w)||0;}).filter(function(w){return w>0;});
@@ -3708,8 +3722,8 @@ function coachSuggestionCore(exName, targetStr){
     // Normal → +1 Wdh
     var bwTarget = Math.min(topR, maxRbw + 1);
     var bwHint = 'Gleiche Last – +1 Wdh anpeilen (Körpergewicht-Progression).';
-    if(sleep && sleep.q==='bad') bwHint = 'Recovery niedrig – heute Wdh halten, sauber ausführen. ' + sleepNote;
-    else if(sleep && sleep.q==='top') bwHint += ' ' + sleepNote;
+    if(sleep && sleep.q==='bad') bwHint = joinHint('Recovery niedrig – heute Wdh halten, sauber ausführen', sleepNote);
+    else if(sleep && sleep.q==='top') bwHint = joinHint(bwHint, sleepNote);
     return bodyweightResult(bw, bwWorkAdd, bwTarget, bwHint);
   }
 
@@ -3729,7 +3743,7 @@ function coachSuggestionCore(exName, targetStr){
   }
   // PRIORITÄT 2 – RPE > 9 (aber Wdh im Soll): halten
   if(avgRpe !== null && avgRpe > 9){
-    return {weight:workW, reps:range?range.hi:workReps[0], hint:'Hohe Anstrengung (RPE>9) – Gewicht halten, Technik sauber.'+(sleepNote&&sleep.q!=='ok'?' '+sleepNote:'')};
+    return {weight:workW, reps:range?range.hi:workReps[0], hint:joinHint('Hohe Anstrengung (RPE>9) – Gewicht halten, Technik sauber', sleepNote&&sleep.q!=='ok' ? sleepNote : '')};
   }
   // PRIORITÄT 2b – Wiederaufbau nach Pause: liegt das Gewicht unter dem
   // Vor-Pausen-Niveau und sitzen die Wdh bei RPE ≤ 8, pro Session ein Schritt
@@ -3755,11 +3769,13 @@ function coachSuggestionCore(exName, targetStr){
               hint:'Nächster Schritt +'+inc+' kg wären '+Math.round(inc/workW*100)+' % – erst bis '+(range.hi+3)+' Wdh (Obergrenze + 3), dann steigern.'};
     }
     if(sleep && sleep.q==='bad') inc = Math.max(stepH, Math.round(inc*0.5/stepH)*stepH);
+    // "vorsichtige Progression" bei wenig Schlaf: höchstens ein Hantelschritt
+    if(sleep && sleep.q==='low') inc = Math.min(inc, stepH);
     var newW = Math.round((workW + inc) * 4)/4;   // 0,25er-Raster erlaubt 1,25-Schritte
     var topNote = hitTop
       ? 'Obere Grenze geschafft → +'+inc+' kg, Range neu starten.'
       : 'Gewicht zu leicht, nächstes Mal steigern: '+maxWorkR+' Wdh in einem Satz (Obergrenze + 2) → +'+inc+' kg.';
-    if(sleepNote && sleep.q !== 'ok') topNote += ' ' + sleepNote;
+    if(sleepNote && sleep.q !== 'ok') topNote = joinHint(topNote, sleepNote);
     return {weight:newW, reps:range?range.lo:workReps[0], hint:topNote};
   }
   // PRIORITÄT 3b – Ø RPE ≤ 7 in 2 Sessions hintereinander, Wdh im Zielbereich
@@ -3786,21 +3802,21 @@ function coachSuggestionCore(exName, targetStr){
   // Plateau-Hinweis: E1RM seit mehreren Sessions flach → Reiz variieren
   var trend = liftTrend(exName);
   if(trend.plateau && trend.sessions>=3){
-    hint += ' ⚠️ E1RM seit '+trend.sessions+' Sessions flach – Variante wechseln (↑ Schwerer) oder Extra-Satz.';
+    hint = joinHint(hint, '⚠️ E1RM seit '+trend.sessions+' Sessions flach – Variante wechseln (↑ Schwerer) oder Extra-Satz');
   }
   // RPE-Autoregulation: Ziel-Gewicht aus E1RM + Ziel-RIR der aktuellen Meso-Woche
   var tRIR = targetRIR();
   var arReps = range ? range.hi : targetReps;
   var arW = loadForReps(exName, arReps, tRIR);
   if(arW>0 && Math.abs(arW - workW) > plateStep(exName, workW)){
-    hint += ' 🎯 Autoreg (Woche '+mesoWeek()+', Ziel-RIR '+tRIR+'): '+arW+' kg für '+arReps+' Wdh.';
+    hint = joinHint(hint, '🎯 Autoreg (Woche '+mesoWeek()+', Ziel-RIR '+tRIR+'): '+arW+' kg für '+arReps+' Wdh');
   }
   // Schlaf-Modulation
   if(sleep){
-    if(sleep.q==='top') hint += ' ' + sleepNote;
+    if(sleep.q==='top') hint = joinHint(hint, sleepNote);
     else if(sleep.q==='bad'){
       var redW = Math.round(workW * 0.95 * 2)/2;
-      return {weight:redW, reps:targetReps, hint:'Recovery niedrig → −5% heute, Substanz erhalten. ' + sleepNote};
+      return {weight:redW, reps:targetReps, hint:joinHint('Recovery niedrig → −5% heute, Substanz erhalten', sleepNote)};
     }
   }
   return {weight:workW, reps:targetReps, hint:hint};
