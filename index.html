@@ -1153,6 +1153,13 @@ function renderSmartNotifs(){
     }
   }
 
+  // Montags-Wiegen (Spec 6.1): ohne Gewichtsverlauf keine Recomp-Auswertung
+  var wDue = weighInDue();
+  if(wDue){
+    notifs.push({icon:'⚖️', title:'Montags-Wiegen',
+      body:(wDue.days===null ? 'Noch kein Gewicht eingetragen' : 'Letzter Eintrag vor '+wDue.days+' Tagen')+' – ohne Gewichtsverlauf ist die Recomp nicht auswertbar. Tippen zum Eintragen (morgens, nüchtern).', type:'warn', action:'weighIn'});
+  }
+
   // RPE-Varianz-Check (Spec 4.2) → AMRAP-Satz zur Kalibrierung
   var amrap = amrapSuggestion();
   if(amrap){
@@ -1201,6 +1208,7 @@ function renderSmartNotifs(){
                   : n.action==='startDeload'     ? ' onclick="startDeload()" style="cursor:pointer"'
                   : n.action==='endDeload'       ? ' onclick="endDeload()" style="cursor:pointer"'
                   : n.action==='restoreSnapshot' ? ' onclick="restoreFromSnapshot()" style="cursor:pointer"'
+                  : n.action==='weighIn'         ? ' onclick="focusWeightInput()" style="cursor:pointer"'
                   : '';
     return '<div class="sm-banner sm-'+n.type+'"'+clickAttr+'>'
       +'<div class="sm-icon">'+n.icon+'</div>'
@@ -1230,6 +1238,29 @@ function renderWeightChart(){
     ${vals.map((v,i)=>`<text x="${PAD+i*xS}" y="${yS(v)-8}" text-anchor="middle" font-size="10" fill="#AAAAAA" font-family="Inter">${v}</text>`).join('')}
   </svg>`;
 }
+// ── Datenerfassung (Spec 6) ──────────────────────────────────────────────
+// Tage seit dem neuesten Eintrag eines Logs mit Feld d (YYYY-MM-DD); null = leer
+function daysSinceLogEntry(logArr){
+  var newest = '';
+  (logArr||[]).forEach(function(e){ if(e && typeof e.d==='string' && e.d > newest) newest = e.d; });
+  if(!newest) return null;
+  var t0 = Date.parse(localDateStr()+'T00:00:00'), t1 = Date.parse(newest.slice(0,10)+'T00:00:00');
+  if(isNaN(t1)) return null;
+  return Math.max(0, Math.round((t0 - t1)/86400000));
+}
+// 6.1: Montags, wenn in den letzten 7 Tagen (heute + 6 davor) kein Gewicht
+// eingetragen wurde – so erinnert die Karte jede Woche, bis gewogen ist
+function weighInDue(){
+  if(new Date().getDay() !== 1) return null;
+  var d = daysSinceLogEntry(AppState.weightLog);
+  return (d===null || d >= 7) ? {days:d} : null;
+}
+function focusWeightInput(){
+  navigate('dash');
+  var inp = el('newWeightInput');
+  if(inp){ try{ inp.scrollIntoView({block:'center'}); inp.focus(); }catch(e){} }
+}
+
 function logWeight(){
   const inp=el('newWeightInput'); if(!inp) return;
   const v=parseFloat(inp.value);

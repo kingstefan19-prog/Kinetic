@@ -183,7 +183,23 @@ export default function ({ test, todo, assert, loadApp, REPO_ROOT }) {
   });
 
   // ── Phase 6 ──
-  todo('6.1 Montags Gewicht-Karte, wenn letzter weightLog-Eintrag älter als 7 Tage');
+  function notifsHtml(state, now) {
+    const ctx = loadApp(state, { now });
+    ctx.renderSmartNotifs();
+    return ctx.document.getElementById('smartNotifs').innerHTML;
+  }
+
+  test('6.1 Montags Gewicht-Karte, wenn letzter weightLog-Eintrag älter als 7 Tage', () => {
+    const mo = '2026-10-19T07:00:00Z';   // Montag
+    assert.match(notifsHtml({ weightLog: [{ w: 105, d: '2026-10-10' }] }, mo), /Montags-Wiegen.*Letzter Eintrag vor 9 Tagen/s);
+    assert.match(notifsHtml({ weightLog: [] }, mo), /Montags-Wiegen.*Noch kein Gewicht eingetragen/s);
+    assert.match(notifsHtml({ weightLog: [{ w: 105, d: '2026-10-12' }] }, mo), /Montags-Wiegen/, 'Vormontag (7 Tage) → wieder fällig');
+    assert.doesNotMatch(notifsHtml({ weightLog: [{ w: 105, d: '2026-10-15' }] }, mo), /Montags-Wiegen/);
+    assert.doesNotMatch(notifsHtml({ weightLog: [{ w: 105, d: '2026-10-19' }] }, mo), /Montags-Wiegen/, 'heute gewogen');
+    assert.doesNotMatch(notifsHtml({ weightLog: [{ w: 105, d: '2026-10-01' }] }, '2026-10-20T07:00:00Z'), /Montags-Wiegen/, 'nur montags');
+    // Reihenfolge im Log egal (Import kann unsortiert sein)
+    assert.doesNotMatch(notifsHtml({ weightLog: [{ w: 105, d: '2026-09-01' }, { w: 104, d: '2026-10-18' }] }, mo), /Montags-Wiegen/);
+  });
   todo('6.2 Luna-Erinnerung, wenn wearableLog seit 3 Tagen leer ist');
 
   // ── Phase 7 ──
