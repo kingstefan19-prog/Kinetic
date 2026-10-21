@@ -1132,24 +1132,25 @@ function renderSmartNotifs(){
   // Readiness Score (täglicher KPI) – datenbasiert
   var rd = readinessScore();
   if(!rd.hasData){
-    notifs.push({icon:'📊', title:'Readiness – noch keine Daten', body:'Logge Schlaf (Profil → Schlaf & Recovery) und ein paar Workouts, dann berechnet KINETIC deine Tagesform.', type:'sleep'});
+    notifs.push({icon:'📊', title:'Readiness – noch keine Daten', body:'Logge Schlaf (Profil → Schlaf & Recovery) und ein paar Workouts, dann berechnet KINETIC deine Tagesform.', type:'sleep', prio:0});
   } else {
     var score = rd.score;
     var factorStr = rd.factors.length ? ' · '+rd.factors.join(' · ') : '';
     var scoreData = score>=85 ? {icon:'🟢',title:'Bereit für Top-Workout',body:'Readiness '+score+'/100 – aggressive Progression heute möglich.'+factorStr,type:'pr'}
                   : score>=65 ? {icon:'🟡',title:'Normaler Trainingstag',body:'Readiness '+score+'/100 – plane wie gewohnt.'+factorStr,type:'sleep'}
                               : {icon:'🔴',title:'Vorsicht heute',body:'Readiness '+score+'/100 – reduziere Volumen oder leichte Session.'+factorStr,type:'warn'};
+    scoreData.prio = 0;
     notifs.push(scoreData);
   }
 
   // Deload: aktiv-Status oder Empfehlung (antippbar → wirklich anwenden)
   if(deloadActive()){
     var until = new Date(DB.get('deloadUntil',0)).toLocaleDateString('de',{day:'2-digit',month:'2-digit'});
-    notifs.push({icon:'😌', title:'Deload aktiv bis '+until, body:'Gewichte −10%, RIR 4–5, keine Satz-Steigerungen. Tippen zum vorzeitigen Beenden.', type:'sleep', action:'endDeload'});
+    notifs.push({icon:'😌', title:'Deload aktiv bis '+until, body:'Gewichte −10%, RIR 4–5, keine Satz-Steigerungen. Tippen zum vorzeitigen Beenden.', type:'sleep', action:'endDeload', prio:0});
   } else {
     var deload = needsDeload();
     if(deload){
-      notifs.push({icon:'😌', title:'Deload empfohlen – tippen zum Aktivieren', body:deload.reason+' – 1 Woche −10% Gewicht, reduziertes Volumen.', type:'warn', action:'startDeload'});
+      notifs.push({icon:'😌', title:'Deload empfohlen – tippen zum Aktivieren', body:deload.reason+' – 1 Woche −10% Gewicht, reduziertes Volumen.', type:'warn', action:'startDeload', prio:0});
     }
   }
 
@@ -1165,6 +1166,13 @@ function renderSmartNotifs(){
   if(amrap){
     notifs.push({icon:'🎯', title:'RPE-Check: '+Math.round(amrap.variance.share*100)+' % deiner letzten 40 Sätze mit RPE '+rpeFmt(amrap.variance.value),
       body:'Deine RPE wirkt gewohnheitsmäßig. '+(amrap.today?'Heute':'Im nächsten Training ('+amrap.day.name+')')+' im letzten Satz von '+amrap.ex+' so viele Wdh wie möglich (AMRAP).', type:'sleep'});
+  }
+
+  // Luna-Check-in (Spec 6.2): 3 Tage ohne Wearable-Daten
+  var lDue = lunaCheckinDue();
+  if(lDue){
+    notifs.push({icon:'⌚', title:'Luna-Check-in',
+      body:(lDue.days===null ? 'Noch keine Wearable-Daten' : 'Seit '+lDue.days+' Tagen keine Wearable-Daten')+' – HRV, Ruhepuls und Schlaf eintragen, dann rechnen Readiness und Coach mit deiner echten Erholung. Tippen → Profil.', type:'sleep', action:'luna'});
   }
 
   // PR-Erkennung: pr-Flags der letzten Session (in finishWorkout gesetzt)
@@ -1194,21 +1202,29 @@ function renderSmartNotifs(){
   if(manyNew || tooOld){
     var bkReason = manyNew ? (workoutCount-lastBackup)+' neue Workouts seit dem letzten Export'
                  : (lastBackupTs ? 'letztes Backup vor '+daysSince+' Tagen' : 'noch kein Backup erstellt');
-    notifs.push({icon:'💾', title:'Backup empfohlen', body:bkReason+'. Tippen → Profil/Daten zum Exportieren.', type:'warn', backup:true});
+    notifs.push({icon:'💾', title:'Backup empfohlen', body:bkReason+'. Tippen → Profil/Daten zum Exportieren.', type:'warn', backup:true, prio:1});
   }
 
   // DATEN-WIEDERHERSTELLUNG – Daten leer, aber Schattenkopie vorhanden
   if(checkForDataRecovery()){
     var rec = snapshotInfo();
-    notifs.unshift({icon:'🛟', title:'Daten wiederherstellbar', body:'Deine Daten wirken leer, aber eine Schattenkopie vom '+new Date(rec.ts).toLocaleDateString('de')+' mit '+rec.historyCount+' Sessions existiert. Tippen zum Wiederherstellen.', type:'warn', action:'restoreSnapshot'});
+    notifs.unshift({icon:'🛟', title:'Daten wiederherstellbar', body:'Deine Daten wirken leer, aber eine Schattenkopie vom '+new Date(rec.ts).toLocaleDateString('de')+' mit '+rec.historyCount+' Sessions existiert. Tippen zum Wiederherstellen.', type:'warn', action:'restoreSnapshot', prio:0});
   }
 
+  // Max. 4 Karten. Reihenfolge stabil nach prio: Wiederherstellung,
+  // Readiness und Deload (0), Backup (1), danach alles andere (2) – so
+  // verdrängen Datenerfassungs-Karten die Backup-Erinnerung nicht
+  notifs = notifs.map(function(n, i){ return {n:n, i:i}; }).sort(function(a, b){
+    var pa = a.n.prio!=null ? a.n.prio : 2, pb = b.n.prio!=null ? b.n.prio : 2;
+    return pa - pb || a.i - b.i;
+  }).map(function(x){ return x.n; });
   c.innerHTML = notifs.slice(0,4).map(function(n){
     var clickAttr = n.backup ? ' onclick="navigate(\'data\')" style="cursor:pointer"'
                   : n.action==='startDeload'     ? ' onclick="startDeload()" style="cursor:pointer"'
                   : n.action==='endDeload'       ? ' onclick="endDeload()" style="cursor:pointer"'
                   : n.action==='restoreSnapshot' ? ' onclick="restoreFromSnapshot()" style="cursor:pointer"'
                   : n.action==='weighIn'         ? ' onclick="focusWeightInput()" style="cursor:pointer"'
+                  : n.action==='luna'            ? ' onclick="focusLunaInput()" style="cursor:pointer"'
                   : '';
     return '<div class="sm-banner sm-'+n.type+'"'+clickAttr+'>'
       +'<div class="sm-icon">'+n.icon+'</div>'
@@ -1254,6 +1270,17 @@ function weighInDue(){
   if(new Date().getDay() !== 1) return null;
   var d = daysSinceLogEntry(AppState.weightLog);
   return (d===null || d >= 7) ? {days:d} : null;
+}
+// 6.2: Erinnerung, wenn das wearableLog seit 3 Tagen leer ist (heute,
+// gestern, vorgestern ohne Eintrag) oder noch gar nichts enthält
+function lunaCheckinDue(){
+  var d = daysSinceLogEntry(AppState.wearableLog);
+  return (d===null || d >= 3) ? {days:d} : null;
+}
+function focusLunaInput(){
+  navigate('data');
+  var inp = el('wb-hrv');
+  if(inp){ try{ inp.scrollIntoView({block:'center'}); inp.focus(); }catch(e){} }
 }
 function focusWeightInput(){
   navigate('dash');

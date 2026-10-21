@@ -200,7 +200,29 @@ export default function ({ test, todo, assert, loadApp, REPO_ROOT }) {
     // Reihenfolge im Log egal (Import kann unsortiert sein)
     assert.doesNotMatch(notifsHtml({ weightLog: [{ w: 105, d: '2026-09-01' }, { w: 104, d: '2026-10-18' }] }, mo), /Montags-Wiegen/);
   });
-  todo('6.2 Luna-Erinnerung, wenn wearableLog seit 3 Tagen leer ist');
+  test('6.2 Luna-Erinnerung, wenn wearableLog seit 3 Tagen leer ist', () => {
+    const di = '2026-10-20T07:00:00Z';
+    const entry = (d) => ({ d, hrv: 55, rhr: 52, sleep: 7.5 });
+    assert.match(notifsHtml({ wearableLog: [] }, di), /Luna-Check-in.*Noch keine Wearable-Daten/s);
+    assert.match(notifsHtml({ wearableLog: [entry('2026-10-17')] }, di), /Luna-Check-in.*Seit 3 Tagen keine Wearable-Daten/s);
+    assert.doesNotMatch(notifsHtml({ wearableLog: [entry('2026-10-18')] }, di), /Luna-Check-in/);
+    assert.doesNotMatch(notifsHtml({ wearableLog: [entry('2026-10-20')] }, di), /Luna-Check-in/);
+  });
+
+  test('6.1/6.2 Montag ohne Gewicht und ohne Luna-Daten: beide Karten sichtbar', () => {
+    const html = notifsHtml({ weightLog: [], wearableLog: [] }, '2026-10-19T07:00:00Z');
+    assert.match(html, /Montags-Wiegen/);
+    assert.match(html, /Luna-Check-in/);
+  });
+
+  test('6 Neue Karten verdrängen die Backup-Erinnerung nicht', () => {
+    // 6 Workouts ohne Backup + Montag ohne Gewicht/Luna + gewohnheitsmäßige RPE
+    const hist = rpeHistory(40).concat([1, 2].map((k) => session(`2026-10-1${k + 5}`, [{ ex: 'Seitheben (Kabel)', w: 20, r: 14, rpe: 8 }])));
+    const html = notifsHtml({ history: hist, weightLog: [], wearableLog: [] }, '2026-10-19T07:00:00Z');
+    assert.match(html, /Backup empfohlen/);
+    assert.equal((html.match(/class="sm-banner/g) || []).length, 4);
+    assert.ok(html.indexOf('Readiness') < html.indexOf('Backup empfohlen'), 'Readiness bleibt vorn');
+  });
 
   // ── Phase 7 ──
   todo('7 sw.js: CACHE = kinetic-v2', () => {
