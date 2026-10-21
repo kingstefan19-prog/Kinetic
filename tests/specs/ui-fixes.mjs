@@ -44,4 +44,25 @@ export default function ({ test, assert, loadApp, REPO_ROOT }) {
     assert.match(rule, /text-align:center/);
     assert.doesNotMatch(rule, /nowrap/);
   });
+
+  test('Fix 2: Satztabelle mit table-layout fixed und colgroup (auch Zeit- und Körpergewichtsübung)', () => {
+    const ctx = loadApp({}, { now: '2026-10-21T10:00:00Z' });
+    const cases = [
+      { n: 'Bankdrücken (LH)', s: '4×5-8', isTimed: false, sets: [{ w: '112.5', r: '10', rpe: '', done: false }] },
+      { n: 'Klimmzüge', s: '4×6-10', isTimed: false, sets: [{ w: '', add: '12.5', r: '10', rpe: '', done: false }] },
+      { n: 'Plank', s: '3×60s', isTimed: true, sets: [{ secs: '60', rpe: '', done: false }] },
+    ];
+    for (const ex of cases) {
+      ctx.AppState.activeSession = { dayId: 'mon', dayName: 'Test', startTs: ctx.Date.now(), currentIdx: 0, restEndTs: 0,
+        exercises: [{ coach: { hint: 'x' }, done: false, ...ex }] };
+      ctx.renderWorkout();
+      const html = ctx.document.getElementById('workoutContent').innerHTML;
+      assert.match(html, /<table style="[^"]*table-layout:fixed/, ex.n);
+      assert.match(html, /<colgroup><col style="width:24px"><col><col><col style="width:52px"><col style="width:44px"><col style="width:24px"><\/colgroup>/, ex.n);
+      const field = ex.isTimed ? 'secs' : (ex.n === 'Klimmzüge' ? 'add' : 'w');
+      assert.match(html, new RegExp(`data-set-field="${field}"[^>]*text-align:center`), ex.n);
+      assert.match(html, new RegExp(`data-set-field="${field}"[^>]*min-width:0`), ex.n);
+      if (!ex.isTimed) assert.match(html, /data-set-field="r"[^>]*padding:8px 4px;text-align:center/, ex.n);
+    }
+  });
 }

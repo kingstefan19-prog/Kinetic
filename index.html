@@ -115,6 +115,9 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 /* ── Toast ── */
 .toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:var(--card2);border:1px solid var(--border2);color:var(--t1);padding:10px 18px;border-radius:24px;font-size:13px;z-index:1000;opacity:0;transition:opacity .2s;pointer-events:none;max-width:calc(100vw - 32px);width:max-content;white-space:normal;text-align:center;line-height:1.4}
 .toast.show{opacity:1}
+/* Satztabelle: keine Spin-Buttons, sonst fehlt in schmalen Feldern Platz für "112.5" */
+#workoutContent input[type=number]{-moz-appearance:textfield;appearance:textfield}
+#workoutContent input[type=number]::-webkit-inner-spin-button,#workoutContent input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 
 /* ── Auto-save bar ── */
 .autosave-bar{position:fixed;top:0;left:0;right:0;z-index:400;height:3px;background:linear-gradient(90deg,var(--green),var(--blue));transform:scaleX(0);transform-origin:left;transition:transform .5s ease;pointer-events:none}
@@ -2285,19 +2288,22 @@ function renderWorkout(){
     const ask=(_plausAsk && _plausAsk.ts===s.startTs && _plausAsk.ex===s.currentIdx) ? _plausAsk : null;
 
     // Sets HTML
+    // Satztabelle (feste Spalten, siehe colgroup): KG/WDH zentriert und ohne
+    // Mindestbreite, damit am iPhone (375 px) "112.5" und "10" ganz sichtbar sind
+    const numInp='width:100%;min-width:0;padding:8px 4px;text-align:center;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-size:14px';
     const setsHtml=cur.sets.map((st,i)=>`
       <tr>
-        <td style="color:${isAmrapEx&&i===cur.sets.length-1?'var(--violet)':'var(--t3)'};font-size:12px;width:24px;font-weight:${isAmrapEx&&i===cur.sets.length-1?700:400}">${isAmrapEx&&i===cur.sets.length-1?'AM':i+1}</td>
+        <td style="color:${isAmrapEx&&i===cur.sets.length-1?'var(--violet)':'var(--t3)'};font-size:12px;overflow:hidden;font-weight:${isAmrapEx&&i===cur.sets.length-1?700:400}">${isAmrapEx&&i===cur.sets.length-1?'AM':i+1}</td>
         ${isTimed
-          ?`<td colspan="2"><input data-set-idx="${i}" data-set-field="secs" type="number" inputmode="numeric" placeholder="Sekunden (z.B. 60)" value="${st.secs||''}" style="width:100%;padding:8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-size:14px"></td>`
+          ?`<td colspan="2"><input data-set-idx="${i}" data-set-field="secs" type="number" inputmode="numeric" placeholder="Sekunden (z.B. 60)" value="${st.secs||''}" style="${numInp}"></td>`
           :`<td>${isBWex
-              ?`<input data-set-idx="${i}" data-set-field="add" type="number" inputmode="decimal" step="0.25" min="0" placeholder="+0" value="${st.add||''}" style="width:100%;padding:8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-size:14px">`
-              :`<input data-set-idx="${i}" data-set-field="w" type="number" inputmode="decimal" placeholder="kg" value="${st.w||''}" style="width:100%;padding:8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-size:14px">`}</td>
-           <td><input data-set-idx="${i}" data-set-field="r" type="number" inputmode="numeric" min="1" max="50" step="1" placeholder="Wdh" value="${st.r||''}" style="width:100%;padding:8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-size:14px"></td>`
+              ?`<input data-set-idx="${i}" data-set-field="add" type="number" inputmode="decimal" step="0.25" min="0" placeholder="+0" value="${st.add||''}" style="${numInp}">`
+              :`<input data-set-idx="${i}" data-set-field="w" type="number" inputmode="decimal" placeholder="kg" value="${st.w||''}" style="${numInp}">`}</td>
+           <td><input data-set-idx="${i}" data-set-field="r" type="number" inputmode="numeric" min="1" max="50" step="1" placeholder="Wdh" value="${st.r||''}" style="${numInp}"></td>`
         }
-        <td><button type="button" data-rpe-pick="${i}" aria-label="RPE Satz ${i+1}" style="width:52px;padding:8px 2px;background:var(--card2);border:1px solid ${i===rpeIdx?'var(--violet)':'var(--border)'};border-radius:6px;color:${st.rpe?'var(--t1)':'var(--t3)'};font-size:14px;font-family:var(--f);cursor:pointer">${st.rpe?rpeFmt(st.rpe):'RPE'}</button></td>
-        <td><button type="button" class="btn ${st.done?'bp':'bg2'}" data-set-done="${i}" style="padding:8px 10px;font-size:12px;margin:0;width:auto">${st.done?'✓':'○'}</button></td>
-        <td>${cur.sets.length>1?`<button type="button" data-set-del="${i}" aria-label="Satz ${i+1} löschen" style="background:none;border:none;color:var(--t3);font-size:15px;cursor:pointer;padding:6px 2px;line-height:1">✕</button>`:''}</td>
+        <td><button type="button" data-rpe-pick="${i}" aria-label="RPE Satz ${i+1}" style="width:100%;min-width:0;padding:8px 2px;background:var(--card2);border:1px solid ${i===rpeIdx?'var(--violet)':'var(--border)'};border-radius:6px;color:${st.rpe?'var(--t1)':'var(--t3)'};font-size:14px;font-family:var(--f);cursor:pointer">${st.rpe?rpeFmt(st.rpe):'RPE'}</button></td>
+        <td><button type="button" class="btn ${st.done?'bp':'bg2'}" data-set-done="${i}" style="padding:8px 0;font-size:12px;margin:0;width:100%;min-width:0">${st.done?'✓':'○'}</button></td>
+        <td>${cur.sets.length>1?`<button type="button" data-set-del="${i}" aria-label="Satz ${i+1} löschen" style="background:none;border:none;color:var(--t3);font-size:15px;cursor:pointer;padding:6px 0;line-height:1;width:100%">✕</button>`:''}</td>
       </tr>${ask&&ask.idx===i?`
       <tr><td></td><td colspan="5">
         <div style="padding:8px 10px;background:rgba(255,149,0,.12);border:1px solid rgba(255,149,0,.4);border-radius:8px;font-size:12px;color:var(--t1)">
@@ -2419,11 +2425,12 @@ function renderWorkout(){
         </div>
 
         <div class="c" style="padding:12px">
-          <table style="width:100%;border-collapse:separate;border-spacing:6px 4px">
+          <table style="width:100%;table-layout:fixed;border-collapse:separate;border-spacing:4px 4px">
+            <colgroup><col style="width:24px"><col><col><col style="width:52px"><col style="width:44px"><col style="width:24px"></colgroup>
             <thead><tr>
               <th></th>
-              ${isTimed?'<th colspan="2" style="font-size:10px;color:var(--t3);font-weight:500;text-align:left">SEKUNDEN</th>':'<th style="font-size:10px;color:var(--t3);font-weight:500;text-align:left">'+(isBWex?'ZUSATZ (KG)':'KG')+'</th><th style="font-size:10px;color:var(--t3);font-weight:500;text-align:left">WDH</th>'}
-              <th style="font-size:10px;color:var(--t3);font-weight:500;text-align:left">RPE</th>
+              ${isTimed?'<th colspan="2" style="font-size:10px;color:var(--t3);font-weight:500;text-align:center">SEKUNDEN</th>':'<th style="font-size:10px;color:var(--t3);font-weight:500;text-align:center;line-height:1.15">'+(isBWex?'ZUSATZ (KG)':'KG')+'</th><th style="font-size:10px;color:var(--t3);font-weight:500;text-align:center">WDH</th>'}
+              <th style="font-size:10px;color:var(--t3);font-weight:500;text-align:center">RPE</th>
               <th></th>
               <th></th>
             </tr></thead>
