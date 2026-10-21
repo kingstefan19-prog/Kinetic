@@ -1,0 +1,1551 @@
+{
+  "version": 2,
+  "ts": 1792483200000,
+  "_fixture": {
+    "name": "skipped-legs",
+    "description": "3 Wochen nur Push A / Pull A / Upper B, kein Legs-Tag (Standardplan)",
+    "now": "2026-10-20T08:00:00Z",
+    "spec": "3.1/3.3",
+    "synthetic": true
+  },
+  "state": {
+    "user": {
+      "name": "Testathlet",
+      "age": 30,
+      "weight": 100,
+      "height": 185,
+      "kfa": 18,
+      "kfaGoal": 14,
+      "kcalTarget": 2800
+    },
+    "streak": 0,
+    "lastStreakDate": null,
+    "history": [
+      {
+        "ts": 1790787600000,
+        "dayName": "Pull A",
+        "durationMs": 3300000,
+        "volume": 14841,
+        "sets": [
+          {
+            "ex": "Klimmzüge",
+            "w": 100,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Klimmzüge",
+            "w": 100,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Klimmzüge",
+            "w": 100,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Klimmzüge",
+            "w": 100,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Latzug (Untergriff eng)",
+            "w": 80,
+            "r": 11,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Latzug (Untergriff eng)",
+            "w": 80,
+            "r": 11,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Latzug (Untergriff eng)",
+            "w": 80,
+            "r": 11,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Rudern (LH Untergriff)",
+            "w": 80,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Rudern (LH Untergriff)",
+            "w": 80,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Rudern (LH Untergriff)",
+            "w": 80,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Rudern (LH Untergriff)",
+            "w": 80,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Seilzugrudern (eng)",
+            "w": 65,
+            "r": 13,
+            "rpe": 7,
+            "pr": false
+          },
+          {
+            "ex": "Seilzugrudern (eng)",
+            "w": 65,
+            "r": 13,
+            "rpe": 7,
+            "pr": false
+          },
+          {
+            "ex": "Seilzugrudern (eng)",
+            "w": 65,
+            "r": 13,
+            "rpe": 7,
+            "pr": false
+          },
+          {
+            "ex": "Bizeps Curl (LH)",
+            "w": 32,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Bizeps Curl (LH)",
+            "w": 32,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Bizeps Curl (LH)",
+            "w": 32,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Incline Curl (KH) 45°",
+            "w": 12,
+            "r": 12,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Incline Curl (KH) 45°",
+            "w": 12,
+            "r": 12,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Incline Curl (KH) 45°",
+            "w": 12,
+            "r": 12,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Face Pulls (Kabel)",
+            "w": 45,
+            "r": 14,
+            "rpe": 7,
+            "pr": false
+          },
+          {
+            "ex": "Face Pulls (Kabel)",
+            "w": 45,
+            "r": 14,
+            "rpe": 7,
+            "pr": false
+          },
+          {
+            "ex": "Face Pulls (Kabel)",
+            "w": 45,
+            "r": 14,
+            "rpe": 7,
+            "pr": false
+          }
+        ]
+      },
+      {
+        "ts": 1791046800000,
+        "dayName": "Upper B (2. Frequenz)",
+        "durationMs": 3300000,
+        "volume": 10306.5,
+        "sets": [
+          {
+            "ex": "Schrägbank Bankdrücken (LH)",
+            "w": 80,
+            "r": 7,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Schrägbank Bankdrücken (LH)",
+            "w": 80,
+            "r": 7,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Schrägbank Bankdrücken (LH)",
+            "w": 80,
+            "r": 7,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Pec Deck / Maschinen-Flys",
+            "w": 70,
+            "r": 13,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Pec Deck / Maschinen-Flys",
+            "w": 70,
+            "r": 13,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Pec Deck / Maschinen-Flys",
+            "w": 70,
+            "r": 13,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Seitheben (Kabel)",
+            "w": 15,
+            "r": 14,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Seitheben (Kabel)",
+            "w": 15,
+            "r": 14,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Seitheben (Kabel)",
+            "w": 15,
+            "r": 14,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Seitheben (Kabel)",
+            "w": 15,
+            "r": 14,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Skull Crushers (LH)",
+            "w": 25,
+            "r": 10,
+            "rpe": 7,
+            "pr": false
+          },
+          {
+            "ex": "Skull Crushers (LH)",
+            "w": 25,
+            "r": 10,
+            "rpe": 7,
+            "pr": false
+          },
+          {
+            "ex": "Skull Crushers (LH)",
+            "w": 25,
+            "r": 10,
+            "rpe": 7,
+            "pr": false
+          },
+          {
+            "ex": "Einarmiges KH-Rudern",
+            "w": 40,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Einarmiges KH-Rudern",
+            "w": 40,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Einarmiges KH-Rudern",
+            "w": 40,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Einarmiges KH-Rudern",
+            "w": 40,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Kabel-Pullover (stehend)",
+            "w": 57.5,
+            "r": 13,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Kabel-Pullover (stehend)",
+            "w": 57.5,
+            "r": 13,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Kabel-Pullover (stehend)",
+            "w": 57.5,
+            "r": 13,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Hammer Curl (KH)",
+            "w": 16,
+            "r": 13,
+            "rpe": 7,
+            "pr": false
+          },
+          {
+            "ex": "Hammer Curl (KH)",
+            "w": 16,
+            "r": 13,
+            "rpe": 7,
+            "pr": false
+          },
+          {
+            "ex": "Hammer Curl (KH)",
+            "w": 16,
+            "r": 13,
+            "rpe": 7,
+            "pr": false
+          }
+        ]
+      },
+      {
+        "ts": 1791219600000,
+        "dayName": "Push A",
+        "durationMs": 3300000,
+        "volume": 8485,
+        "sets": [
+          {
+            "ex": "Bankdrücken (LH)",
+            "w": 100,
+            "r": 7,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Bankdrücken (LH)",
+            "w": 100,
+            "r": 7,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Bankdrücken (LH)",
+            "w": 100,
+            "r": 7,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Bankdrücken (LH)",
+            "w": 100,
+            "r": 7,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Schrägbankdrücken (KH)",
+            "w": 34,
+            "r": 10,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Schrägbankdrücken (KH)",
+            "w": 34,
+            "r": 10,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Schrägbankdrücken (KH)",
+            "w": 34,
+            "r": 10,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Kabelflys (untere Rolle)",
+            "w": 25,
+            "r": 13,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Kabelflys (untere Rolle)",
+            "w": 25,
+            "r": 13,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Kabelflys (untere Rolle)",
+            "w": 25,
+            "r": 13,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Schulterdrücken (KH sitzend)",
+            "w": 28,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Schulterdrücken (KH sitzend)",
+            "w": 28,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Schulterdrücken (KH sitzend)",
+            "w": 28,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Schulterdrücken (KH sitzend)",
+            "w": 28,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Seitheben (KH)",
+            "w": 12,
+            "r": 14,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Seitheben (KH)",
+            "w": 12,
+            "r": 14,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Seitheben (KH)",
+            "w": 12,
+            "r": 14,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Trizeps Pushdown (Seil)",
+            "w": 50,
+            "r": 11,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Trizeps Pushdown (Seil)",
+            "w": 50,
+            "r": 11,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Trizeps Pushdown (Seil)",
+            "w": 50,
+            "r": 11,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Overhead Extension (KH)",
+            "w": 16,
+            "r": 11,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Overhead Extension (KH)",
+            "w": 16,
+            "r": 11,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Overhead Extension (KH)",
+            "w": 16,
+            "r": 11,
+            "rpe": 8,
+            "pr": false
+          }
+        ]
+      },
+      {
+        "ts": 1791392400000,
+        "dayName": "Pull A",
+        "durationMs": 3300000,
+        "volume": 14841,
+        "sets": [
+          {
+            "ex": "Klimmzüge",
+            "w": 100,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Klimmzüge",
+            "w": 100,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Klimmzüge",
+            "w": 100,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Klimmzüge",
+            "w": 100,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Latzug (Untergriff eng)",
+            "w": 80,
+            "r": 11,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Latzug (Untergriff eng)",
+            "w": 80,
+            "r": 11,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Latzug (Untergriff eng)",
+            "w": 80,
+            "r": 11,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Rudern (LH Untergriff)",
+            "w": 80,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Rudern (LH Untergriff)",
+            "w": 80,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Rudern (LH Untergriff)",
+            "w": 80,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Rudern (LH Untergriff)",
+            "w": 80,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Seilzugrudern (eng)",
+            "w": 65,
+            "r": 13,
+            "rpe": 7,
+            "pr": false
+          },
+          {
+            "ex": "Seilzugrudern (eng)",
+            "w": 65,
+            "r": 13,
+            "rpe": 7,
+            "pr": false
+          },
+          {
+            "ex": "Seilzugrudern (eng)",
+            "w": 65,
+            "r": 13,
+            "rpe": 7,
+            "pr": false
+          },
+          {
+            "ex": "Bizeps Curl (LH)",
+            "w": 32,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Bizeps Curl (LH)",
+            "w": 32,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Bizeps Curl (LH)",
+            "w": 32,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Incline Curl (KH) 45°",
+            "w": 12,
+            "r": 12,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Incline Curl (KH) 45°",
+            "w": 12,
+            "r": 12,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Incline Curl (KH) 45°",
+            "w": 12,
+            "r": 12,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Face Pulls (Kabel)",
+            "w": 45,
+            "r": 14,
+            "rpe": 7,
+            "pr": false
+          },
+          {
+            "ex": "Face Pulls (Kabel)",
+            "w": 45,
+            "r": 14,
+            "rpe": 7,
+            "pr": false
+          },
+          {
+            "ex": "Face Pulls (Kabel)",
+            "w": 45,
+            "r": 14,
+            "rpe": 7,
+            "pr": false
+          }
+        ]
+      },
+      {
+        "ts": 1791651600000,
+        "dayName": "Upper B (2. Frequenz) (KI-optimiert)",
+        "durationMs": 3300000,
+        "volume": 10306.5,
+        "sets": [
+          {
+            "ex": "Schrägbank Bankdrücken (LH)",
+            "w": 80,
+            "r": 7,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Schrägbank Bankdrücken (LH)",
+            "w": 80,
+            "r": 7,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Schrägbank Bankdrücken (LH)",
+            "w": 80,
+            "r": 7,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Pec Deck / Maschinen-Flys",
+            "w": 70,
+            "r": 13,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Pec Deck / Maschinen-Flys",
+            "w": 70,
+            "r": 13,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Pec Deck / Maschinen-Flys",
+            "w": 70,
+            "r": 13,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Seitheben (Kabel)",
+            "w": 15,
+            "r": 14,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Seitheben (Kabel)",
+            "w": 15,
+            "r": 14,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Seitheben (Kabel)",
+            "w": 15,
+            "r": 14,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Seitheben (Kabel)",
+            "w": 15,
+            "r": 14,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Skull Crushers (LH)",
+            "w": 25,
+            "r": 10,
+            "rpe": 7,
+            "pr": false
+          },
+          {
+            "ex": "Skull Crushers (LH)",
+            "w": 25,
+            "r": 10,
+            "rpe": 7,
+            "pr": false
+          },
+          {
+            "ex": "Skull Crushers (LH)",
+            "w": 25,
+            "r": 10,
+            "rpe": 7,
+            "pr": false
+          },
+          {
+            "ex": "Einarmiges KH-Rudern",
+            "w": 40,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Einarmiges KH-Rudern",
+            "w": 40,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Einarmiges KH-Rudern",
+            "w": 40,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Einarmiges KH-Rudern",
+            "w": 40,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Kabel-Pullover (stehend)",
+            "w": 57.5,
+            "r": 13,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Kabel-Pullover (stehend)",
+            "w": 57.5,
+            "r": 13,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Kabel-Pullover (stehend)",
+            "w": 57.5,
+            "r": 13,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Hammer Curl (KH)",
+            "w": 16,
+            "r": 13,
+            "rpe": 7,
+            "pr": false
+          },
+          {
+            "ex": "Hammer Curl (KH)",
+            "w": 16,
+            "r": 13,
+            "rpe": 7,
+            "pr": false
+          },
+          {
+            "ex": "Hammer Curl (KH)",
+            "w": 16,
+            "r": 13,
+            "rpe": 7,
+            "pr": false
+          }
+        ]
+      },
+      {
+        "ts": 1791824400000,
+        "dayName": "Push A",
+        "durationMs": 3300000,
+        "volume": 8485,
+        "sets": [
+          {
+            "ex": "Bankdrücken (LH)",
+            "w": 100,
+            "r": 7,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Bankdrücken (LH)",
+            "w": 100,
+            "r": 7,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Bankdrücken (LH)",
+            "w": 100,
+            "r": 7,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Bankdrücken (LH)",
+            "w": 100,
+            "r": 7,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Schrägbankdrücken (KH)",
+            "w": 34,
+            "r": 10,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Schrägbankdrücken (KH)",
+            "w": 34,
+            "r": 10,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Schrägbankdrücken (KH)",
+            "w": 34,
+            "r": 10,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Kabelflys (untere Rolle)",
+            "w": 25,
+            "r": 13,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Kabelflys (untere Rolle)",
+            "w": 25,
+            "r": 13,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Kabelflys (untere Rolle)",
+            "w": 25,
+            "r": 13,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Schulterdrücken (KH sitzend)",
+            "w": 28,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Schulterdrücken (KH sitzend)",
+            "w": 28,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Schulterdrücken (KH sitzend)",
+            "w": 28,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Schulterdrücken (KH sitzend)",
+            "w": 28,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Seitheben (KH)",
+            "w": 12,
+            "r": 14,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Seitheben (KH)",
+            "w": 12,
+            "r": 14,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Seitheben (KH)",
+            "w": 12,
+            "r": 14,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Trizeps Pushdown (Seil)",
+            "w": 50,
+            "r": 11,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Trizeps Pushdown (Seil)",
+            "w": 50,
+            "r": 11,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Trizeps Pushdown (Seil)",
+            "w": 50,
+            "r": 11,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Overhead Extension (KH)",
+            "w": 16,
+            "r": 11,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Overhead Extension (KH)",
+            "w": 16,
+            "r": 11,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Overhead Extension (KH)",
+            "w": 16,
+            "r": 11,
+            "rpe": 8,
+            "pr": false
+          }
+        ]
+      },
+      {
+        "ts": 1791997200000,
+        "dayName": "Pull A",
+        "durationMs": 3300000,
+        "volume": 14841,
+        "sets": [
+          {
+            "ex": "Klimmzüge",
+            "w": 100,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Klimmzüge",
+            "w": 100,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Klimmzüge",
+            "w": 100,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Klimmzüge",
+            "w": 100,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Latzug (Untergriff eng)",
+            "w": 80,
+            "r": 11,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Latzug (Untergriff eng)",
+            "w": 80,
+            "r": 11,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Latzug (Untergriff eng)",
+            "w": 80,
+            "r": 11,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Rudern (LH Untergriff)",
+            "w": 80,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Rudern (LH Untergriff)",
+            "w": 80,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Rudern (LH Untergriff)",
+            "w": 80,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Rudern (LH Untergriff)",
+            "w": 80,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Seilzugrudern (eng)",
+            "w": 65,
+            "r": 13,
+            "rpe": 7,
+            "pr": false
+          },
+          {
+            "ex": "Seilzugrudern (eng)",
+            "w": 65,
+            "r": 13,
+            "rpe": 7,
+            "pr": false
+          },
+          {
+            "ex": "Seilzugrudern (eng)",
+            "w": 65,
+            "r": 13,
+            "rpe": 7,
+            "pr": false
+          },
+          {
+            "ex": "Bizeps Curl (LH)",
+            "w": 32,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Bizeps Curl (LH)",
+            "w": 32,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Bizeps Curl (LH)",
+            "w": 32,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Incline Curl (KH) 45°",
+            "w": 12,
+            "r": 12,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Incline Curl (KH) 45°",
+            "w": 12,
+            "r": 12,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Incline Curl (KH) 45°",
+            "w": 12,
+            "r": 12,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Face Pulls (Kabel)",
+            "w": 45,
+            "r": 14,
+            "rpe": 7,
+            "pr": false
+          },
+          {
+            "ex": "Face Pulls (Kabel)",
+            "w": 45,
+            "r": 14,
+            "rpe": 7,
+            "pr": false
+          },
+          {
+            "ex": "Face Pulls (Kabel)",
+            "w": 45,
+            "r": 14,
+            "rpe": 7,
+            "pr": false
+          }
+        ]
+      },
+      {
+        "ts": 1792256400000,
+        "dayName": "Upper B (2. Frequenz) (optimiert)",
+        "durationMs": 3300000,
+        "volume": 10306.5,
+        "sets": [
+          {
+            "ex": "Schrägbank Bankdrücken (LH)",
+            "w": 80,
+            "r": 7,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Schrägbank Bankdrücken (LH)",
+            "w": 80,
+            "r": 7,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Schrägbank Bankdrücken (LH)",
+            "w": 80,
+            "r": 7,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Pec Deck / Maschinen-Flys",
+            "w": 70,
+            "r": 13,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Pec Deck / Maschinen-Flys",
+            "w": 70,
+            "r": 13,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Pec Deck / Maschinen-Flys",
+            "w": 70,
+            "r": 13,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Seitheben (Kabel)",
+            "w": 15,
+            "r": 14,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Seitheben (Kabel)",
+            "w": 15,
+            "r": 14,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Seitheben (Kabel)",
+            "w": 15,
+            "r": 14,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Seitheben (Kabel)",
+            "w": 15,
+            "r": 14,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Skull Crushers (LH)",
+            "w": 25,
+            "r": 10,
+            "rpe": 7,
+            "pr": false
+          },
+          {
+            "ex": "Skull Crushers (LH)",
+            "w": 25,
+            "r": 10,
+            "rpe": 7,
+            "pr": false
+          },
+          {
+            "ex": "Skull Crushers (LH)",
+            "w": 25,
+            "r": 10,
+            "rpe": 7,
+            "pr": false
+          },
+          {
+            "ex": "Einarmiges KH-Rudern",
+            "w": 40,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Einarmiges KH-Rudern",
+            "w": 40,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Einarmiges KH-Rudern",
+            "w": 40,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Einarmiges KH-Rudern",
+            "w": 40,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Kabel-Pullover (stehend)",
+            "w": 57.5,
+            "r": 13,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Kabel-Pullover (stehend)",
+            "w": 57.5,
+            "r": 13,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Kabel-Pullover (stehend)",
+            "w": 57.5,
+            "r": 13,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Hammer Curl (KH)",
+            "w": 16,
+            "r": 13,
+            "rpe": 7,
+            "pr": false
+          },
+          {
+            "ex": "Hammer Curl (KH)",
+            "w": 16,
+            "r": 13,
+            "rpe": 7,
+            "pr": false
+          },
+          {
+            "ex": "Hammer Curl (KH)",
+            "w": 16,
+            "r": 13,
+            "rpe": 7,
+            "pr": false
+          }
+        ]
+      },
+      {
+        "ts": 1792429200000,
+        "dayName": "Push A",
+        "durationMs": 3300000,
+        "volume": 8485,
+        "sets": [
+          {
+            "ex": "Bankdrücken (LH)",
+            "w": 100,
+            "r": 7,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Bankdrücken (LH)",
+            "w": 100,
+            "r": 7,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Bankdrücken (LH)",
+            "w": 100,
+            "r": 7,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Bankdrücken (LH)",
+            "w": 100,
+            "r": 7,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Schrägbankdrücken (KH)",
+            "w": 34,
+            "r": 10,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Schrägbankdrücken (KH)",
+            "w": 34,
+            "r": 10,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Schrägbankdrücken (KH)",
+            "w": 34,
+            "r": 10,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Kabelflys (untere Rolle)",
+            "w": 25,
+            "r": 13,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Kabelflys (untere Rolle)",
+            "w": 25,
+            "r": 13,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Kabelflys (untere Rolle)",
+            "w": 25,
+            "r": 13,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Schulterdrücken (KH sitzend)",
+            "w": 28,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Schulterdrücken (KH sitzend)",
+            "w": 28,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Schulterdrücken (KH sitzend)",
+            "w": 28,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Schulterdrücken (KH sitzend)",
+            "w": 28,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Seitheben (KH)",
+            "w": 12,
+            "r": 14,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Seitheben (KH)",
+            "w": 12,
+            "r": 14,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Seitheben (KH)",
+            "w": 12,
+            "r": 14,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Trizeps Pushdown (Seil)",
+            "w": 50,
+            "r": 11,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Trizeps Pushdown (Seil)",
+            "w": 50,
+            "r": 11,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Trizeps Pushdown (Seil)",
+            "w": 50,
+            "r": 11,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Overhead Extension (KH)",
+            "w": 16,
+            "r": 11,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Overhead Extension (KH)",
+            "w": 16,
+            "r": 11,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Overhead Extension (KH)",
+            "w": 16,
+            "r": 11,
+            "rpe": 8,
+            "pr": false
+          }
+        ]
+      }
+    ],
+    "weightLog": [],
+    "sleepLog": [],
+    "wearableLog": [],
+    "meals": []
+  }
+}

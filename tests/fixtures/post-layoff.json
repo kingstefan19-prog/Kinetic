@@ -1,0 +1,117 @@
+{
+  "version": 2,
+  "ts": 1791619200000,
+  "_fixture": {
+    "name": "post-layoff",
+    "description": "Schrägbankdrücken (KH) 42×9 vor 25 Tagen Pause, danach 34×10 bei Ø RPE 6,7",
+    "now": "2026-10-10T08:00:00Z",
+    "spec": "2.6",
+    "synthetic": true
+  },
+  "state": {
+    "user": {
+      "name": "Testathlet",
+      "age": 30,
+      "weight": 100,
+      "height": 185,
+      "kfa": 18,
+      "kfaGoal": 14,
+      "kcalTarget": 2800
+    },
+    "streak": 0,
+    "lastStreakDate": null,
+    "history": [
+      {
+        "ts": 1788627600000,
+        "dayName": "Push A",
+        "durationMs": 3300000,
+        "volume": 1134,
+        "sets": [
+          {
+            "ex": "Schrägbankdrücken (KH)",
+            "w": 42,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Schrägbankdrücken (KH)",
+            "w": 42,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Schrägbankdrücken (KH)",
+            "w": 42,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          }
+        ]
+      },
+      {
+        "ts": 1789232400000,
+        "dayName": "Push A",
+        "durationMs": 3300000,
+        "volume": 1134,
+        "sets": [
+          {
+            "ex": "Schrägbankdrücken (KH)",
+            "w": 42,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Schrägbankdrücken (KH)",
+            "w": 42,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Schrägbankdrücken (KH)",
+            "w": 42,
+            "r": 9,
+            "rpe": 8,
+            "pr": false
+          }
+        ]
+      },
+      {
+        "ts": 1791392400000,
+        "dayName": "Push A",
+        "durationMs": 3300000,
+        "volume": 1020,
+        "sets": [
+          {
+            "ex": "Schrägbankdrücken (KH)",
+            "w": 34,
+            "r": 10,
+            "rpe": 7,
+            "pr": false
+          },
+          {
+            "ex": "Schrägbankdrücken (KH)",
+            "w": 34,
+            "r": 10,
+            "rpe": 6.5,
+            "pr": false
+          },
+          {
+            "ex": "Schrägbankdrücken (KH)",
+            "w": 34,
+            "r": 10,
+            "rpe": 6.5,
+            "pr": false
+          }
+        ]
+      }
+    ],
+    "weightLog": [],
+    "sleepLog": [],
+    "wearableLog": [],
+    "meals": []
+  }
+}

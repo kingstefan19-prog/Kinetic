@@ -1,0 +1,138 @@
+{
+  "version": 2,
+  "ts": 1790841600000,
+  "_fixture": {
+    "name": "outliers",
+    "description": "Drei Datenfehler: Skull Crushers 125×12 (Tippfehler), RPE 78, Session-Dauer 48 h",
+    "now": "2026-10-01T08:00:00Z",
+    "spec": "1.4",
+    "synthetic": true
+  },
+  "state": {
+    "user": {
+      "name": "Testathlet",
+      "age": 30,
+      "weight": 100,
+      "height": 185,
+      "kfa": 18,
+      "kfaGoal": 14,
+      "kcalTarget": 2800
+    },
+    "streak": 0,
+    "lastStreakDate": null,
+    "history": [
+      {
+        "ts": 1789923600000,
+        "dayName": "Upper B (2. Frequenz)",
+        "durationMs": 3000000,
+        "volume": 2470,
+        "sets": [
+          {
+            "ex": "Skull Crushers (LH)",
+            "w": 18,
+            "r": 8,
+            "rpe": 6,
+            "pr": false
+          },
+          {
+            "ex": "Skull Crushers (LH)",
+            "w": 25,
+            "r": 10,
+            "rpe": 7,
+            "pr": false
+          },
+          {
+            "ex": "Skull Crushers (LH)",
+            "w": 125,
+            "r": 12,
+            "rpe": 7,
+            "pr": false
+          },
+          {
+            "ex": "Hammer Curl (KH)",
+            "w": 16,
+            "r": 12,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Hammer Curl (KH)",
+            "w": 16,
+            "r": 12,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Hammer Curl (KH)",
+            "w": 16,
+            "r": 12,
+            "rpe": 8,
+            "pr": false
+          }
+        ]
+      },
+      {
+        "ts": 1790182800000,
+        "dayName": "Push A",
+        "durationMs": 3300000,
+        "volume": 1750,
+        "sets": [
+          {
+            "ex": "Trizeps Pushdown (Seil)",
+            "w": 50,
+            "r": 12,
+            "rpe": 7,
+            "pr": false
+          },
+          {
+            "ex": "Trizeps Pushdown (Seil)",
+            "w": 50,
+            "r": 12,
+            "rpe": 78,
+            "pr": false
+          },
+          {
+            "ex": "Trizeps Pushdown (Seil)",
+            "w": 50,
+            "r": 11,
+            "rpe": 8,
+            "pr": false
+          }
+        ]
+      },
+      {
+        "ts": 1790355600000,
+        "dayName": "Pull A",
+        "durationMs": 172800000,
+        "volume": 2640,
+        "sets": [
+          {
+            "ex": "Latzug (Untergriff eng)",
+            "w": 80,
+            "r": 11,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Latzug (Untergriff eng)",
+            "w": 80,
+            "r": 11,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Latzug (Untergriff eng)",
+            "w": 80,
+            "r": 11,
+            "rpe": 8,
+            "pr": false
+          }
+        ]
+      }
+    ],
+    "weightLog": [],
+    "sleepLog": [],
+    "wearableLog": [],
+    "meals": []
+  }
+}

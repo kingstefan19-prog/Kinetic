@@ -1,0 +1,143 @@
+{
+  "version": 2,
+  "ts": 1792483200000,
+  "_fixture": {
+    "name": "bodyweight-plateau",
+    "description": "Klimmzüge 4×10 in 3 Sessions hintereinander (w = 105), Körpergewicht 105 kg",
+    "now": "2026-10-20T08:00:00Z",
+    "spec": "2.1",
+    "synthetic": true
+  },
+  "state": {
+    "user": {
+      "name": "Testathlet",
+      "age": 30,
+      "weight": 105,
+      "height": 185,
+      "kfa": 18,
+      "kfaGoal": 14,
+      "kcalTarget": 2800
+    },
+    "streak": 0,
+    "lastStreakDate": null,
+    "history": [
+      {
+        "ts": 1791478800000,
+        "dayName": "Pull A",
+        "durationMs": 3300000,
+        "volume": 4200,
+        "sets": [
+          {
+            "ex": "Klimmzüge",
+            "w": 105,
+            "r": 10,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Klimmzüge",
+            "w": 105,
+            "r": 10,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Klimmzüge",
+            "w": 105,
+            "r": 10,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Klimmzüge",
+            "w": 105,
+            "r": 10,
+            "rpe": 8,
+            "pr": false
+          }
+        ]
+      },
+      {
+        "ts": 1791910800000,
+        "dayName": "Pull A",
+        "durationMs": 3300000,
+        "volume": 4200,
+        "sets": [
+          {
+            "ex": "Klimmzüge",
+            "w": 105,
+            "r": 10,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Klimmzüge",
+            "w": 105,
+            "r": 10,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Klimmzüge",
+            "w": 105,
+            "r": 10,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Klimmzüge",
+            "w": 105,
+            "r": 10,
+            "rpe": 8,
+            "pr": false
+          }
+        ]
+      },
+      {
+        "ts": 1792256400000,
+        "dayName": "Pull A",
+        "durationMs": 3300000,
+        "volume": 4200,
+        "sets": [
+          {
+            "ex": "Klimmzüge",
+            "w": 105,
+            "r": 10,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Klimmzüge",
+            "w": 105,
+            "r": 10,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Klimmzüge",
+            "w": 105,
+            "r": 10,
+            "rpe": 8,
+            "pr": false
+          },
+          {
+            "ex": "Klimmzüge",
+            "w": 105,
+            "r": 10,
+            "rpe": 8,
+            "pr": false
+          }
+        ]
+      }
+    ],
+    "weightLog": [
+      {
+        "w": 105,
+        "d": "2026-10-15"
+      }
+    ],
+    "sleepLog": [],
+    "wearableLog": [],
+    "meals": []
+  }
+}
