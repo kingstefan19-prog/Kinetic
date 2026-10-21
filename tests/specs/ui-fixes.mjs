@@ -1,0 +1,47 @@
+// Bugfix-Runde fix/ui-hints – Toast, Satztabelle, Gewichtsschritt, Hinweise
+import fs from 'node:fs';
+import path from 'node:path';
+
+export const title = 'UI-Fixes · Toast, Satztabelle, Hinweise';
+
+function session(date, ex, rows) {
+  return { ts: Date.parse(`${date}T17:00:00Z`), dayName: 'Test', durationMs: 3e6, volume: 0,
+    sets: rows.map(([w, r, rpe]) => ({ ex, w, r, rpe })) };
+}
+
+export default function ({ test, assert, loadApp, REPO_ROOT }) {
+  test('Fix 1: Nach toast() und navigate() innerhalb von 2 s ist der Toast nicht mehr sichtbar', () => {
+    const ctx = loadApp({}, { now: '2026-10-21T10:00:00Z' });
+    const t = ctx.document.getElementById('toast');
+    ctx.toast('Satz gelöscht');
+    assert.equal(t.classList.contains('show'), true);
+    ctx.__harness.setNow('2026-10-21T10:00:01.500Z');     // 1,5 s später Seitenwechsel
+    ctx.navigate('log');
+    assert.equal(t.classList.contains('show'), false, 'Toast bleibt nach dem Seitenwechsel stehen');
+  });
+
+  test('Fix 1: Meldungen beim Seitenwechsel (Workout beenden/abbrechen) bleiben sichtbar', () => {
+    const ctx = loadApp({}, { now: '2026-10-21T10:00:00Z' });
+    const t = ctx.document.getElementById('toast');
+    ctx.AppState.activeSession = { dayId: 'mon', dayName: 'Test', startTs: ctx.Date.now() - 3e6, currentIdx: 0, restEndTs: 0,
+      exercises: [{ n: 'Beinstrecker', s: '3×12-15', isTimed: false, coach: {}, done: true, sets: [{ w: '45', r: '12', rpe: '8', done: true }] }] };
+    ctx.finishWorkout();
+    assert.equal(t.classList.contains('show'), true);
+    assert.match(t.textContent, /Workout abgeschlossen|neue PR/);
+    // Abbruch (zweiter Tipp bestätigt)
+    ctx.AppState.activeSession = { dayId: 'mon', dayName: 'Test', startTs: ctx.Date.now(), currentIdx: 0, restEndTs: 0, exercises: [] };
+    ctx.abortWorkout(); ctx.abortWorkout();
+    assert.equal(ctx.AppState.activeSession, null);
+    assert.equal(t.classList.contains('show'), true);
+    assert.equal(t.textContent, 'Training abgebrochen');
+  });
+
+  test('Fix 1: .toast bricht lange Texte um (max-width, white-space normal, zentriert)', () => {
+    const html = fs.readFileSync(path.join(REPO_ROOT, 'index.html'), 'utf8');
+    const rule = (html.match(/\.toast\{[^}]*\}/) || [''])[0];
+    assert.match(rule, /max-width:calc\(100vw - 32px\)/);
+    assert.match(rule, /white-space:normal/);
+    assert.match(rule, /text-align:center/);
+    assert.doesNotMatch(rule, /nowrap/);
+  });
+}

@@ -113,7 +113,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 .li::placeholder{color:var(--t3);font-weight:400}
 
 /* ── Toast ── */
-.toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:var(--card2);border:1px solid var(--border2);color:var(--t1);padding:10px 18px;border-radius:24px;font-size:13px;z-index:1000;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}
+.toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:var(--card2);border:1px solid var(--border2);color:var(--t1);padding:10px 18px;border-radius:24px;font-size:13px;z-index:1000;opacity:0;transition:opacity .2s;pointer-events:none;max-width:calc(100vw - 32px);width:max-content;white-space:normal;text-align:center;line-height:1.4}
 .toast.show{opacity:1}
 
 /* ── Auto-save bar ── */
@@ -1190,7 +1190,10 @@ function dayLabel(idx, day){
 
 function navigate(pageId){
   if(!pageId) return;
+  // Seitenwechsel: Toast sofort ausblenden – nur den Timer zu löschen ließ
+  // ihn sonst dauerhaft stehen (Klasse 'show' blieb gesetzt)
   Timers.clear('toast');
+  const tt=el('toast'); if(tt) tt.classList.remove('show');
   $$('.page').forEach(p=>p.classList.remove('active'));
   const target=$('#page-'+pageId);
   if(!target){ log.warn('navigate: no page',pageId); return; }
@@ -2236,8 +2239,8 @@ function abortWorkout(){
   Timers.clear('workoutTick');
   AppState.activeSession=null;
   AppState.saveSession();
-  toast('Training abgebrochen');
   navigate('plan');
+  toast('Training abgebrochen');
 }
 
 function lastWeightFor(exName){
@@ -2824,9 +2827,10 @@ function finishWorkout(){
   AppState.saveSession();
   AppState.save();
   const prs=sets.filter(x=>x.pr).length;
+  refreshDash(); renderLog(); navigate('dash');
+  // nach navigate(), sonst blendet der Seitenwechsel die Meldung sofort aus
   toast((prs?`💪 Fertig! ${prs} neue PR${prs>1?'s':''}! 🏆`:'💪 Workout abgeschlossen!')+(calib?' · 🎯 RPE-Kalibrierung: '+rpeOffsetText(calib):'')
     +(skipped?' · '+skipped+' Satz/Sätze mit mehr als 50 Wdh nicht gespeichert':''));
-  refreshDash(); renderLog(); navigate('dash');
 }
 
 // ── Offene Session (Spec 1.2) ───────────────────────────────────────────
@@ -4371,8 +4375,8 @@ function restoreFromSnapshot(){
 function applySnapshotRestore(info){
   applyBackupState(info.state);
   AppState.save();
-  toast('🛟 Aus Schattenkopie wiederhergestellt ('+info.historyCount+' Sessions)');
   refreshDash(); renderPlan(); safeCall(loadProfileInputs); navigate('dash');
+  toast('🛟 Aus Schattenkopie wiederhergestellt ('+info.historyCount+' Sessions)');
 }
 
 // ── Datei speichern – robust über Browser & PWA hinweg ────────────────────
