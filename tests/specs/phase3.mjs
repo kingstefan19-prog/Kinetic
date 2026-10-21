@@ -1,14 +1,26 @@
 // Phase 3: Volumen und Adherence – Akzeptanzkriterien (TODO bis zur Umsetzung)
 export const title = 'Phase 3 · Volumen und Adherence';
 
-export default function ({ todo, assert, loadApp, loadFixture }) {
-  todo('3.1 skipped-legs: "nicht trainiert"-Warnungen für quads, hams und wade', () => {
+export default function ({ test, todo, assert, loadApp, loadFixture }) {
+  test('3.1 skipped-legs: "nicht trainiert"-Warnungen für quads, hams und wade', () => {
     const advice = loadApp(loadFixture('skipped-legs')).volumeProgressionAdvice();
     for (const m of ['quads', 'hams', 'wade']) {
       const a = advice.find((x) => x.m === m);
       assert.ok(a, `keine Warnung für ${m}`);
-      assert.match(a.msg, /nicht trainiert/);
+      assert.match(a.msg, /nicht trainiert \(0\/\d+\)/);
     }
+    assert.ok(advice.slice(0, 3).every((a) => /nicht trainiert/.test(a.msg)), 'nicht trainierte Muskeln stehen vorn');
+  });
+
+  test('3.1 Muskeln, die der Plan nicht trainiert, erzeugen keine Warnung; Coach-Karte zeigt "nicht trainiert"', () => {
+    const plan = [{ id: 'mon', type: 'gym', name: 'Nur Brust', sub: '', ex: [{ n: 'Bankdrücken (LH)', s: '3×5-8' }] }];
+    const ctx = loadApp({ plan, history: [] }, { now: '2026-10-19T08:00:00Z' });
+    const advice = ctx.volumeProgressionAdvice();
+    assert.ok(advice.find((a) => a.m === 'brust' && /nicht trainiert/.test(a.msg)));
+    assert.equal(advice.find((a) => a.m === 'quads'), undefined);
+    const ctx2 = loadApp(loadFixture('skipped-legs'));
+    ctx2.renderCoachCard();
+    assert.match(ctx2.document.getElementById('coachCard').innerHTML, /quads<\/span><span[^>]*>0 Sätze · nicht trainiert/);
   });
 
   todo('3.2 Volumen-Ampel: Ø der letzten 14 Tage pro Woche statt rollierend 7 Tage');

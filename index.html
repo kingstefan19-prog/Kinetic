@@ -1361,10 +1361,12 @@ function renderCoachCard(){
       +'</div>';
   }
 
+  const inPlan=planMuscles();
   const rows=Object.entries(VOLUME_LM).map(function(pair){
     var m=pair[0], lm=pair[1], sets=vol[m]||0;
     var status, color;
-    if(sets<lm.mev){ status='unter MEV'; color='var(--orange)'; }
+    if(sets<=0 && inPlan[m]){ status='nicht trainiert'; color='var(--accent)'; }
+    else if(sets<lm.mev){ status='unter MEV'; color='var(--orange)'; }
     else if(sets<=lm.mav){ status='optimal'; color='var(--green)'; }
     else if(sets<=lm.mrv){ status='hoch'; color='var(--gold)'; }
     else { status='> MRV'; color='var(--accent)'; }
@@ -3053,15 +3055,29 @@ function targetRIR(){
 function volumeProgressionAdvice(){
   if(deloadActive()) return [];   // im Deload keine Steigerungs-Empfehlungen
   var vol = weeklyMuscleSets();
-  var advice = [];
+  var advice = [], inPlan = planMuscles();
   Object.keys(VOLUME_LM).forEach(function(m){
     var lm = VOLUME_LM[m], sets = vol[m]||0;
-    if(sets<=0) return;
+    // Spec 3.1: 0 Sätze ist kein "alles gut" – Muskeln aus dem Plan warnen
+    if(sets<=0){
+      if(inPlan[m]) advice.push({m:m, action:'add', untrained:true, msg:m+': nicht trainiert (0/'+lm.mev+') – Trainingstag nachholen oder Übung in einen anderen Tag legen.'});
+      return;
+    }
     if(sets > lm.mrv)      advice.push({m:m, action:'reduce', msg:m+': über MRV ('+sets+'/'+lm.mrv+') – nächste Woche −2–3 Sätze.'});
     else if(sets < lm.mev) advice.push({m:m, action:'add', msg:m+': unter MEV ('+sets+'/'+lm.mev+') – +2 Sätze diese Woche.'});
     else if(sets < lm.mav) advice.push({m:m, action:'add', msg:m+': Spielraum bis MAV ('+sets+'/'+lm.mav+') – nächste Woche +1 Satz.'});
   });
-  return advice;
+  // nicht trainierte Muskeln zuerst (die Coach-Karte zeigt nur 3)
+  return advice.filter(function(a){ return a.untrained; }).concat(advice.filter(function(a){ return !a.untrained; }));
+}
+// Muskeln, die der aktive Plan an Pflicht-Gymtagen trainiert ({m:true})
+function planMuscles(){
+  var out = {};
+  (AppState.plan||[]).forEach(function(d){
+    if(!d || d.type!=='gym' || d.optional) return;
+    (d.ex||[]).forEach(function(e){ musclesFor(e.n||'').forEach(function(x){ out[x.m] = true; }); });
+  });
+  return out;
 }
 
 // ── Helper: aktuelle Schlaf-Qualität (letzte 3 Tage gewichtet) ───────────
