@@ -281,6 +281,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
       <button id="editDaysBtn" class="btn bg2" style="width:auto;padding:6px 10px;font-size:11px;margin:0">✏️ Anpassen</button>
       <button onclick="resetToDefaultPlan()" class="btn bg2" style="width:auto;padding:6px 10px;font-size:11px;margin:0;color:var(--orange)">↺ Reset</button>
       <button onclick="openOnboarding()" class="btn bg2" style="width:auto;padding:6px 10px;font-size:11px;margin:0;color:var(--blue)">🎯 Plan erstellen</button>
+      <button onclick="offerPlan3plus1()" class="btn bg2" style="width:auto;padding:6px 10px;font-size:11px;margin:0;color:var(--green)">📋 Vorlage übernehmen</button>
     </div>
   </div>
 
@@ -299,6 +300,9 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 
   <div id="planList"></div>
 </section>
+
+<!-- ══ APP-DIALOG (Bestätigungen statt confirm()) ══ -->
+<div id="appDialog" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:700;align-items:flex-end;backdrop-filter:blur(4px)"></div>
 
 <!-- ══ DAY EDIT MODAL ══ -->
 <div id="dayEditModal">
@@ -1055,6 +1059,109 @@ function resetToDefaultPlan(){
   toast('✅ Wissenschaftlich optimierter Plan geladen');
 }
 
+// ── App-Dialog (ersetzt confirm(), CLAUDE.md) ────────────────────────────
+var _dialogOk = null;
+// o: {title, bodyHtml, okLabel, cancelLabel, danger, onOk}
+function showConfirmDialog(o){
+  var d = el('appDialog'); if(!d || !o) return;
+  _dialogOk = o.onOk || null;
+  d.innerHTML = '<div style="background:var(--card);border-radius:20px 20px 0 0;padding:24px 20px 40px;width:100%;max-height:85vh;overflow-y:auto">'
+    +'<div style="width:36px;height:4px;background:var(--border2);border-radius:2px;margin:0 auto 18px"></div>'
+    +'<div style="font-size:18px;font-weight:700;margin-bottom:8px">'+esc(o.title||'')+'</div>'
+    +'<div style="font-size:13px;color:var(--t2);line-height:1.6">'+(o.bodyHtml||'')+'</div>'
+    +'<div style="display:flex;gap:10px;margin-top:20px">'
+    +'<button type="button" class="btn bo" onclick="closeConfirmDialog()" style="flex:1">'+esc(o.cancelLabel||'Abbrechen')+'</button>'
+    +'<button type="button" class="btn bp" onclick="confirmDialogOk()" style="flex:2'+(o.danger?';background:var(--accent)':'')+'">'+esc(o.okLabel||'OK')+'</button>'
+    +'</div></div>';
+  d.style.display = 'flex';
+}
+function closeConfirmDialog(){
+  var d = el('appDialog'); if(d){ d.style.display = 'none'; d.innerHTML = ''; }
+  _dialogOk = null;
+}
+function confirmDialogOk(){
+  var fn = _dialogOk;
+  closeConfirmDialog();
+  if(fn) safeCall(fn);
+}
+
+// ── Plan-Vorlage "3+1 Fußball" (Spec 5) ──────────────────────────────────
+// 3 Pflicht-Gymtage (Mo/Mi/Sa) + optionaler Do, Fußball Di/Fr, Spiel So.
+// Übungsnamen exakt wie in Historie/Familien – sie sind die PR-Schlüssel.
+function plan3plus1(){
+  return withPlanSubs([
+    {id:'mon', type:'gym', name:'Upper A', sub:'Brust · Rücken · Schulter · Arme', ex:[
+      {n:'Bankdrücken (LH)',             s:'4×5-8',   note:'RIR 2 · E1RM tracken'},
+      {n:'Klimmzüge',                    s:'4×6-10',  note:'RIR 2 · ab 4×10 Zusatzlast'},
+      {n:'Schrägbankdrücken (KH)',       s:'3×8-12',  note:'RIR 2'},
+      {n:'Rudern (LH Untergriff)',       s:'3×8-10',  note:'RIR 2'},
+      {n:'Seitheben (Kabel)',            s:'3×12-15', note:'RIR 1'},
+      {n:'Trizeps Pushdown (Seil)',      s:'3×10-12', note:'RIR 2'},
+      {n:'Bizeps Curl (LH)',             s:'3×8-10',  note:'RIR 2'}
+    ]},
+    {id:'tue', type:'soccer', name:'Fußball Training', sub:'⚽ Training · kein Gym · +50g KH', ex:[]},
+    {id:'wed', type:'gym', name:'Lower', sub:'Quad · Hamstring · Adduktoren · Wade · 48 h vor Freitag', ex:[
+      {n:'Kniebeuge (LH)',               s:'3×5-8',   note:'RIR 2 · kein Versagen'},
+      {n:'Rumänisches Kreuzheben (LH)',  s:'3×8-10',  note:'RIR 2-3'},
+      {n:'Beinpresse',                   s:'2×10-12', note:'RIR 3'},
+      {n:'Beinstrecker',                 s:'2×12-15', note:'RIR 2'},
+      {n:'Nordic Curl (Beinbizeps)',     s:'2×4-6',   note:'Langsam absenken · Start mit Teil-ROM'},
+      {n:'Beinbeuger (Maschine liegend)',s:'2×10-12', note:'RIR 2'},
+      {n:'Copenhagen Adduction',         s:'2×20-30s', note:'Pro Seite', timed:true},
+      {n:'Abduktionsmaschine (sitzend)', s:'2×12-15', note:'RIR 2'},
+      {n:'Wadenheben stehend',           s:'3×10-15', note:'RIR 2 · tiefer Stretch'}
+    ]},
+    {id:'thu', type:'gym', optional:true, name:'Arme + Schulter + Core', sub:'Nur wenn Zeit · keine Beine', ex:[
+      {n:'Seitheben (KH)',               s:'3×12-15', note:'RIR 1'},
+      {n:'Incline Curl (KH) 45°',        s:'3×12-15', note:'RIR 1'},
+      {n:'Skull Crushers (LH)',          s:'3×8-10',  note:'RIR 2'},
+      {n:'Face Pulls (Kabel)',           s:'2×15-20', note:'Ellbogen hoch'},
+      {n:'Plank',                        s:'3×45s',   note:'Kern aktiv', timed:true}
+    ]},
+    {id:'fri', type:'soccer', name:'Fußball Training', sub:'⚽ Training · kein Gym · gut essen & früh schlafen (Spiel So)', ex:[]},
+    {id:'sat', type:'gym', name:'Upper B', sub:'Oberkörper · keine Beine (Spiel am So)', ex:[
+      {n:'Schrägbank Bankdrücken (LH)',  s:'3×6-8',   note:'RIR 2'},
+      {n:'Latzug (Untergriff eng)',      s:'3×10-12', note:'RIR 2'},
+      {n:'Schulterdrücken (KH sitzend)', s:'3×8-10',  note:'RIR 2'},
+      {n:'Einarmiges KH-Rudern',         s:'3×8-10',  note:'RIR 2'},
+      {n:'Pec Deck / Maschinen-Flys',    s:'2×12-15', note:'RIR 1'},
+      {n:'Seitheben (Kabel)',            s:'3×12-15', note:'RIR 1'},
+      {n:'Overhead Extension (KH)',      s:'3×10-12', note:'RIR 2'},
+      {n:'Face Pulls (Kabel)',           s:'2×12-15', note:'Ellbogen hoch'},
+      {n:'Hammer Curl (KH)',             s:'2×12-15', note:'RIR 2'}
+    ]},
+    {id:'sun', type:'match', name:'Fußball Spiel', sub:'🏟️ Wettkampf · danach: KH + Protein!', ex:[]}
+  ]);
+}
+// Vorlage übernehmen: Sicherung, neuer Plan; Historie und PRs bleiben.
+// planSource 'custom' schützt den Plan vor PLAN_VERSION-Updates.
+function applyPlan3plus1(){
+  if(typeof snapshotState==='function') snapshotState('pre-template');
+  AppState.plan = plan3plus1();
+  AppState.editMode = false;
+  DB.set('planSource', 'custom');
+  DB.set('planVersion', PLAN_VERSION);
+  AppState.save();
+  safeCall(renderPlan); safeCall(refreshDash);
+  toast('✅ Plan "3+1 Fußball" übernommen – Historie und PRs bleiben');
+}
+function offerPlan3plus1(){
+  navigate('plan');
+  var days = plan3plus1().map(function(d, i){
+    return '<div style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid var(--border)">'
+      +'<span style="color:var(--t3);width:28px">'+WEEKDAYS[i].slice(0,2)+'</span>'
+      +'<span style="flex:1;color:var(--t1)">'+esc(d.name)+(d.optional?' <span style="color:var(--t3)">(optional)</span>':'')+'</span>'
+      +'<span style="color:var(--t3);font-size:11px">'+(d.type==='gym'?planDayStats(d).sets+' Sätze':'')+'</span></div>';
+  }).join('');
+  showConfirmDialog({
+    title:'Vorlage "3+1 Fußball" übernehmen?',
+    bodyHtml:'3 feste Gymtage (Mo Upper A, Mi Lower, Sa Upper B) und ein optionaler Do – passend zu Fußball Di/Fr und Spiel So.'
+      +'<div style="margin:12px 0">'+days+'</div>'
+      +'Dein aktueller Plan wird ersetzt (vorher wird eine Sicherung angelegt). <b>Historie und PRs bleiben unverändert.</b>',
+    okLabel:'Übernehmen', onOk:applyPlan3plus1
+  });
+}
+
 function dayLabel(idx, day){
   const wd=WEEKDAYS[idx]||''; return wd ? wd+' · '+(day.name||'') : (day.name||'');
 }
@@ -1488,7 +1595,7 @@ function renderPlan(){
     const typeBadge={gym:'<span class="bd r">GYM</span>',soccer:'<span class="bd g">⚽ Fußball</span>',match:'<span class="bd b">🏟️ Spiel</span>',flex:'<span class="bd gr">Flex</span>'};
 
     list.innerHTML=AppState.plan.map(function(day,idx){
-      const badge=typeBadge[day.type]||typeBadge.flex;
+      const badge=(day.optional?'<span class="bd gr" style="margin-right:4px">OPTIONAL</span>':'')+(typeBadge[day.type]||typeBadge.flex);
       // Exercise rows with notes
       const exHtml=(day.ex&&day.ex.length)
         ? day.ex.map(function(e){
@@ -3740,6 +3847,7 @@ const EXERCISE_FAMILIES=[
     {lvl:2,n:'Sumo Squat (KH)',             s:'3×12–15'},
     {lvl:2,n:'Seitliche Ausfallschritte',   s:'3×10–12'},
     {lvl:3,n:'Kabelzug Adduktion (stehend)',s:'3×12–15'},
+    {lvl:3,n:'Copenhagen Adduction',        s:'2×20-30s', timed:true},
     {lvl:3,n:'Sumo Kreuzheben (LH)',        s:'4×6–8'}
   ]},
   // BEINE - ABDUKTOREN (Außenseite)

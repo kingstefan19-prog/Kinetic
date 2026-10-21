@@ -1,4 +1,4 @@
-// Phasen 4–7 – Akzeptanzkriterien (TODO bis zur Umsetzung)
+// Phasen 4–7 – Akzeptanzkriterien
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -157,14 +157,14 @@ export default function ({ test, todo, assert, loadApp, REPO_ROOT }) {
   });
 
   // ── Phase 5 ──
-  todo('5 plan3plus1(): 7 Tage, 3 Pflicht-Gymtage, 1 optionaler Tag', () => {
+  test('5 plan3plus1(): 7 Tage, 3 Pflicht-Gymtage, 1 optionaler Tag', () => {
     const p = loadApp({}).plan3plus1();
     assert.equal(p.length, 7);
     assert.equal(p.filter((d) => d.type === 'gym' && !d.optional).length, 3);
     assert.equal(p.filter((d) => d.optional === true).length, 1);
   });
 
-  todo('5 plan3plus1(): simulierte Woche ergibt für hams mindestens 6 Sätze', () => {
+  test('5 plan3plus1(): simulierte Woche ergibt für hams mindestens 6 Sätze', () => {
     const ctx = loadApp({}, { now: '2026-10-20T20:00:00Z' });
     const days = ctx.plan3plus1().filter((d) => d.type === 'gym' && !d.optional);
     ctx.AppState.history = days.map((d, i) => ({
@@ -178,7 +178,7 @@ export default function ({ test, todo, assert, loadApp, REPO_ROOT }) {
     assert.ok(hams >= 6, `hams ${hams}`);
   });
 
-  todo('5 plan3plus1(): bestehende Übungsnamen unverändert, Copenhagen Adduction als timed-Variante', () => {
+  test('5 plan3plus1(): bestehende Übungsnamen unverändert, Copenhagen Adduction als timed-Variante', () => {
     const ctx = loadApp({});
     const known = new Set([
       ...ctx.defaultPlan().flatMap((d) => d.ex.map((e) => e.n)),
@@ -188,6 +188,54 @@ export default function ({ test, todo, assert, loadApp, REPO_ROOT }) {
     assert.deepEqual([...new Set(neu)], [], `unbekannte Namen: ${neu.join(', ')}`);
     const cop = ctx.EXERCISE_FAMILIES.flatMap((f) => f.variants).find((v) => v.n === 'Copenhagen Adduction');
     assert.ok(cop && cop.timed === true, 'Copenhagen Adduction fehlt oder ist nicht timed');
+  });
+
+  test('5 plan3plus1(): Zielvolumen direkter Sätze laut Spec (Brust 12, Rücken 13, Quads 7, Hams 7 …)', () => {
+    const ctx = loadApp({});
+    const direct = {};
+    for (const d of ctx.plan3plus1().filter((x) => x.type === 'gym' && !x.optional)) {
+      for (const e of d.ex) {
+        const n = parseInt(e.s, 10);
+        for (const m of ctx.musclesFor(e.n)) if (m.w === 1) direct[m.m] = (direct[m.m] || 0) + n;
+      }
+    }
+    const soll = { brust: 12, ruecken: 13, trizeps: 6, bizeps: 5, quads: 7, hams: 7, wade: 3 };
+    for (const [m, n] of Object.entries(soll)) assert.equal(direct[m], n, m);
+    const seitlich = ctx.plan3plus1().filter((x) => !x.optional).flatMap((d) => d.ex)
+      .filter((e) => /seitheb/i.test(e.n)).reduce((a, e) => a + parseInt(e.s, 10), 0);
+    assert.equal(seitlich, 6, 'Schulter seitlich');
+    assert.ok(ctx.plan3plus1().every((d) => d.ex.every((e) => /^\d+×\d+(-\d+)?s?$/.test(e.s))), 'Format 3×8-10');
+  });
+
+  test('5 Vorlage übernehmen: Bestätigungsdialog (kein confirm), Historie und PRs bleiben', () => {
+    const fx = { history: [{ ts: Date.parse('2026-10-12T17:00:00Z'), dayName: 'Push A', durationMs: 3e6, volume: 0,
+      sets: [{ ex: 'Bankdrücken (LH)', w: 110, r: 8, rpe: 8 }] }] };
+    const ctx = loadApp(fx, { now: '2026-10-19T08:00:00Z' });
+    const prs = JSON.stringify(ctx.AppState.prs);
+    ctx.offerPlan3plus1();
+    const dlg = ctx.document.getElementById('appDialog');
+    assert.equal(dlg.style.display, 'flex');
+    assert.match(dlg.innerHTML, /Vorlage &quot;3\+1 Fußball&quot; übernehmen\?/);
+    assert.match(dlg.innerHTML, /Historie und PRs bleiben unverändert/);
+    assert.equal(ctx.AppState.plan[0].name, 'Push A', 'vor der Bestätigung unverändert');
+    ctx.closeConfirmDialog();
+    assert.equal(ctx.AppState.plan[0].name, 'Push A', 'Abbrechen ändert nichts');
+    ctx.offerPlan3plus1();
+    ctx.confirmDialogOk();
+    assert.equal(ctx.AppState.plan[0].name, 'Upper A');
+    assert.equal(ctx.AppState.history.length, 1);
+    assert.equal(JSON.stringify(ctx.AppState.prs), prs);
+    assert.equal(JSON.parse(ctx.localStorage.getItem('kinetic.planSource')), 'custom', 'vor PLAN_VERSION-Updates geschützt');
+    assert.equal(JSON.parse(ctx.localStorage.getItem('kinetic.plan'))[3].optional, true);
+    ctx.renderPlan();
+    assert.match(ctx.document.getElementById('planList').innerHTML, /OPTIONAL/);
+  });
+
+  test('5 Adherence-Karte bietet "3+1-Plan übernehmen" an; optionaler Tag zählt nicht', () => {
+    const ctx = loadApp({ history: [] }, { now: '2026-10-22T08:00:00Z' });   // Donnerstag
+    ctx.AppState.plan = ctx.plan3plus1();
+    assert.notEqual(ctx.upcomingGymDay().day.name, 'Arme + Schulter + Core');
+    assert.equal(ctx.planMuscles().core, undefined, 'Plank nur am optionalen Tag → keine Core-Warnung');
   });
 
   // ── Phase 6 ──

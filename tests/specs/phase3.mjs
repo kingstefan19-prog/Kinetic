@@ -47,6 +47,7 @@ export default function ({ test, todo, assert, loadApp, loadFixture }) {
     const html = ctx.document.getElementById('smartNotifs').innerHTML;
     assert.match(html, /Legs A[^<]*fällt oft aus/);
     assert.match(html, /moveMissedDay\(3\)[^>]*>Wochentag verschieben/);
+    assert.match(html, /offerPlan3plus1\(\)[^>]*>3\+1-Plan übernehmen/);
     // nur Legs A – Push/Pull/Upper wurden trotz Namenszusätzen erkannt
     const missed = ctx.oftenMissedDays().map((a) => a.name);
     assert.deepEqual(JSON.parse(JSON.stringify(missed)), ['Legs A']);
