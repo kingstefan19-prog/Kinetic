@@ -1652,8 +1652,9 @@ function proceedWithWorkout(dayId, day, applyAdjustments, suggestions){
       var isTimed = !!(e.timed || /\d+s/.test(e.s||'') || /plank/i.test(e.n));
       var w = sug.weight!=null ? String(sug.weight) : '';
       var r = sug.reps!=null ? String(sug.reps) : '';
+      var a = sug.add!=null ? String(sug.add) : '';
       return {n:e.n, s:e.s, isTimed:isTimed, coach:sug,
-        sets:Array.from({length:nSets},function(){return {w:w,r:r,secs:'',rpe:'',done:false};}), done:false};
+        sets:Array.from({length:nSets},function(){return {w:w,add:a,r:r,secs:'',rpe:'',done:false};}), done:false};
     }),
     currentIdx:0, startTs:Date.now(), restEndTs:0
   };
@@ -1733,6 +1734,7 @@ function renderWorkout(){
     const last=lastWeightFor(cur.n);
     const pr=AppState.prs[cur.n];
     const isTimed=cur.isTimed;
+    const isBWex=!isTimed && isLoadableBodyweight(cur.n);   // Feld "Zusatz (kg)" statt "kg"
 
     // Sets HTML
     const setsHtml=cur.sets.map((st,i)=>`
@@ -1740,7 +1742,9 @@ function renderWorkout(){
         <td style="color:var(--t3);font-size:12px;width:24px">${i+1}</td>
         ${isTimed
           ?`<td colspan="2"><input data-set-idx="${i}" data-set-field="secs" type="number" inputmode="numeric" placeholder="Sekunden (z.B. 60)" value="${st.secs||''}" style="width:100%;padding:8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-size:14px"></td>`
-          :`<td><input data-set-idx="${i}" data-set-field="w" type="number" inputmode="decimal" placeholder="kg" value="${st.w||''}" style="width:100%;padding:8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-size:14px"></td>
+          :`<td>${isBWex
+              ?`<input data-set-idx="${i}" data-set-field="add" type="number" inputmode="decimal" step="0.25" min="0" placeholder="+0" value="${st.add||''}" style="width:100%;padding:8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-size:14px">`
+              :`<input data-set-idx="${i}" data-set-field="w" type="number" inputmode="decimal" placeholder="kg" value="${st.w||''}" style="width:100%;padding:8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-size:14px">`}</td>
            <td><input data-set-idx="${i}" data-set-field="r" type="number" inputmode="numeric" placeholder="Wdh" value="${st.r||''}" style="width:100%;padding:8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-size:14px"></td>`
         }
         <td><input data-set-idx="${i}" data-set-field="rpe" type="number" inputmode="decimal" placeholder="RPE" value="${st.rpe||''}" style="width:58px;padding:8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-size:14px"></td>
@@ -1799,7 +1803,7 @@ function renderWorkout(){
           <div class="sl">Aktuelle Übung</div>
           <div style="font-size:20px;font-weight:700;margin-top:6px">${esc(cur.n)}</div>
           <div style="color:var(--t2);margin-top:4px;font-size:13px">Ziel: ${esc(cur.s)}${isTimed?' · <span style="color:var(--blue)">⏱ Zeitübung</span>':' · <span style="color:var(--violet)">RIR '+targetRIR()+' · Wo '+mesoWeek()+'</span>'}</div>
-          ${last?`<div style="color:var(--t3);font-size:11px;margin-top:6px">Letztes Mal: ${last.w} kg × ${last.r}${last.rpe?' @ RPE '+last.rpe:''}</div>`:''}
+          ${last?`<div style="color:var(--t3);font-size:11px;margin-top:6px">Letztes Mal: ${isBWex?(function(){var la=setAddKg(last);return la>0?'+'+la+' kg Zusatz':'Körpergewicht';})():last.w+' kg'} × ${last.r}${last.rpe?' @ RPE '+last.rpe:''}</div>`:''}
           ${(function(){
             if(isTimed) return '';
             var t=liftTrend(cur.n);
@@ -1817,11 +1821,11 @@ function renderWorkout(){
             if(!c) return '';
             var lastW = last ? (+last.w||0) : 0;
             var lastR = last ? (+last.r||0) : 0;
-            var isBW = (typeof equipmentType==='function') && equipmentType(cur.n)==='bodyweight' && !/plank|nordic/i.test(cur.n);
+            var isBW = isBWex;
             var isWeightIncrease = c.weight!=null && last && c.weight > lastW && !isBW;
             var isRepIncrease = isBW && last && c.reps && c.reps > lastR;
             var isDeload = c.hint && /Deload/i.test(c.hint);
-            var addWeightHint = isBW && c.hint && /Zusatzgewicht/i.test(c.hint);
+            var addWeightHint = isBW && c.hint && /\+2,5 kg Zusatz/i.test(c.hint);
 
             if(addWeightHint){
               return '<div style="margin-top:10px;padding:11px 13px;background:rgba(52,199,89,.14);border:1px solid rgba(52,199,89,.4);border-radius:10px;font-size:13px;color:var(--t1);font-weight:600">'
@@ -1852,7 +1856,7 @@ function renderWorkout(){
           <table style="width:100%;border-collapse:separate;border-spacing:6px 4px">
             <thead><tr>
               <th></th>
-              ${isTimed?'<th colspan="2" style="font-size:10px;color:var(--t3);font-weight:500;text-align:left">SEKUNDEN</th>':'<th style="font-size:10px;color:var(--t3);font-weight:500;text-align:left">KG</th><th style="font-size:10px;color:var(--t3);font-weight:500;text-align:left">WDH</th>'}
+              ${isTimed?'<th colspan="2" style="font-size:10px;color:var(--t3);font-weight:500;text-align:left">SEKUNDEN</th>':'<th style="font-size:10px;color:var(--t3);font-weight:500;text-align:left">'+(isBWex?'ZUSATZ (KG)':'KG')+'</th><th style="font-size:10px;color:var(--t3);font-weight:500;text-align:left">WDH</th>'}
               <th style="font-size:10px;color:var(--t3);font-weight:500;text-align:left">RPE</th>
               <th></th>
               <th></th>
@@ -1890,8 +1894,8 @@ function renderWorkout(){
     if(addBtn) addBtn.addEventListener('click',()=>{
       // Neuer Satz übernimmt Gewicht des letzten – spart Tippen
       const prev=cur.sets[cur.sets.length-1]||{};
-      cur.sets.push({w:prev.w||'',r:'',secs:'',rpe:'',done:false});
-      _focusAfterRender={idx:cur.sets.length-1, field:isTimed?'secs':(prev.w?'r':'w')};
+      cur.sets.push({w:prev.w||'',add:prev.add||'',r:'',secs:'',rpe:'',done:false});
+      _focusAfterRender={idx:cur.sets.length-1, field:isTimed?'secs':((isBWex||prev.w)?'r':'w')};
       AppState.saveSession(); renderWorkout();
     });
     $$('#workoutContent [data-set-del]').forEach(btn=>{
@@ -1928,7 +1932,7 @@ function renderWorkout(){
           // direkt in die nächste Satz-Zeile springen (erstes leeres Feld)
           const nxt=cur.sets[i+1];
           if(nxt){
-            const f = isTimed ? 'secs' : (String(nxt.w||'').trim() ? 'r' : 'w');
+            const f = isTimed ? 'secs' : ((isBWex || String(nxt.w||'').trim()) ? 'r' : 'w');
             _focusAfterRender={idx:i+1, field:f};
           }
         }
@@ -1971,16 +1975,22 @@ function finishWorkout(){
   let volume=0; const sets=[];
   s.exercises.forEach(ex=>{
     (ex.sets||[]).forEach(st=>{
-      const w=parseFloat(st.w)||0, r=parseInt(st.r,10)||0;
+      // Körpergewichtsübungen: w = Körpergewicht + Zusatz, plus Feld add (Spec 2.1)
+      const isBWex=!ex.isTimed && isLoadableBodyweight(ex.n);
+      const add=isBWex ? Math.max(0, parseFloat(st.add)||0) : 0;
+      const w=isBWex ? Math.round((bodyWeightKg()+add)*4)/4 : (parseFloat(st.w)||0);
+      const r=parseInt(st.r,10)||0;
       if(ex.isTimed&&st.secs){ sets.push({ex:ex.n,secs:parseInt(st.secs,10),pr:false}); return; }
-      if(w>0&&r>0){
+      if((w>0||isBWex)&&r>0){
         volume+=w*r;
         const rpe=parseFloat(st.rpe)||null;
         // PR = neues Best-E1RM (97,5×10 schlägt 100×1 – Kraft zählt, nicht nur Last)
         const setE1=Math.round(e1rm(w,r,rpe)*10)/10;
         let pr=false;
         if(setE1>(AppState.prs[ex.n]||0)){ AppState.prs[ex.n]=setE1; pr=true; }
-        sets.push({ex:ex.n,w,r,rpe,pr});
+        const rec={ex:ex.n,w,r,rpe,pr};
+        if(isBWex) rec.add=add;
+        sets.push(rec);
       }
     });
   });
@@ -2027,6 +2037,32 @@ function equipmentType(exName){
   // Kabel / Maschine
   if(/kabel|cable|seilzug|pulldown|latzug|pushdown|maschine|pec deck|pullover|beinpresse|beinstrecker|beinbeuger|adduktion|abduktion/i.test(n)) return 'cable_machine';
   return 'other';
+}
+
+// ── Körpergewichtsübungen mit Zusatzlast (Spec 2.1) ─────────────────────
+// Plank und Nordic bleiben ausgenommen: dort gibt es keine Zusatzlast-Progression.
+function isLoadableBodyweight(exName){
+  return equipmentType(exName)==='bodyweight' && !/plank|nordic/i.test(String(exName||''));
+}
+// Körpergewicht aus dem Profil, sonst aus dem neuesten weightLog-Eintrag
+// (weightLog ist neueste-zuerst) – nicht aus dem zuletzt geloggten w.
+function bodyWeightKg(){
+  var u = AppState.user||{};
+  if(+u.weight>0) return +u.weight;
+  var wl = AppState.weightLog||[];
+  return (wl.length && +wl[0].w>0) ? +wl[0].w : 0;
+}
+// Zusatzlast eines geloggten Satzes. Neue Sätze tragen `add`. Alt-Einträge
+// (vor 2.1) enthalten nur w = Körpergewicht zum damaligen Zeitpunkt – das
+// lässt sich nicht von Zusatzlast unterscheiden und zählt daher als 0.
+function setAddKg(set){
+  if(set && set.add!=null && set.add!=='') return Math.max(0, +set.add||0);
+  return 0;
+}
+// Empfehlung für Körpergewichtsübungen: weight = Körpergewicht + Zusatz
+// (kompatibel zu E1RM/Historie), add = Zusatzlast fürs Eingabefeld
+function bodyweightResult(bw, add, reps, hint){
+  return {weight: bw>0 ? Math.round((bw+add)*4)/4 : (add>0 ? add : null), add:add, reps:reps, hint:hint};
 }
 
 function lastSessionSetsFor(exName){
@@ -2585,7 +2621,18 @@ function coachSuggestion(exName, targetStr){
     return {weight:null, reps:range?range.lo:null, hint:note};
   }
 
+  // Körpergewichtsübungen rechnen mit der Zusatzlast, nicht mit w
+  var bwMode = isLoadableBodyweight(exName);
+  var bw = bwMode ? bodyWeightKg() : 0;
+  var bwAdds = bwMode ? last.map(function(x){ return setAddKg(x); }) : [];
+  var bwWorkAdd = bwAdds.length ? Math.max.apply(null, bwAdds) : 0;
+  var bwLo = range ? range.lo : null;
+
   // ── DELOAD AKTIV: −10% aufs Arbeitsgewicht, keine Progression ──
+  if(deloadActive() && bwMode){
+    var dAdd = Math.max(0, Math.round((bwWorkAdd*0.9)/1.25)*1.25);
+    return bodyweightResult(bw, dAdd, bwLo, '😌 Deload aktiv: '+(dAdd>0?'Zusatzlast '+dAdd+' kg, ':'ohne Zusatzlast, ')+'RIR 4–5, Technik-Fokus. Progression pausiert.');
+  }
   if(deloadActive()){
     var allWd = last.map(function(x){return +(x.w)||0;}).filter(function(w){return w>0;});
     var dW = allWd.length ? Math.max.apply(null, allWd) : 0;
@@ -2600,6 +2647,10 @@ function coachSuggestion(exName, targetStr){
   // ── PRIORITÄT 0 – TRAININGSPAUSE: Wiedereinstieg statt Progression ──
   // Ohne das schlägt die App nach Wochen Pause unverändert +2,5 kg vor.
   var layoff = layoffStatus(exName);
+  if(layoff && bwMode){
+    var lAdd = layoff.mod >= 1 ? bwWorkAdd : Math.max(0, Math.floor((bwWorkAdd*layoff.mod)/1.25)*1.25);
+    return bodyweightResult(bw, lAdd, bwLo, layoff.note+(bwWorkAdd>0 ? ' Zusatzlast heute: '+lAdd+' kg.' : ''));
+  }
   if(layoff){
     var allWp = last.map(function(x){return +(x.w)||0;}).filter(function(w){return w>0;});
     var pW = allWp.length ? Math.max.apply(null, allWp) : 0;
@@ -2648,33 +2699,43 @@ function coachSuggestion(exName, targetStr){
   var failedCount = range ? workReps.filter(function(r){return r<range.lo;}).length : 0;
   var failedLow = range ? (failedCount >= 2 || (workReps.length<=2 && failedCount>=1)) : false;
 
-  // ── KÖRPERGEWICHTS-ÜBUNGEN: Progression über WIEDERHOLUNGEN ──
-  // Bei Klimmzügen/Dips/Liegestützen kann man das Körpergewicht nicht erhöhen.
-  // Daher: erst Reps hochtreiben. Erst bei sehr hohen Reps (≥ obere Grenze + Puffer)
-  // einen Hinweis auf Zusatzgewicht geben.
-  var isBodyweight = equipmentType(exName) === 'bodyweight' && !/plank|nordic/i.test(exName);
-  if(isBodyweight){
-    var maxRbw = Math.max.apply(null, workReps);
+  // ── KÖRPERGEWICHTS-ÜBUNGEN: Wdh-Progression, dann Zusatzlast (Spec 2.1) ──
+  // Körpergewicht lässt sich nicht steigern: erst alle Arbeitssätze an die
+  // Obergrenze bringen, dann +2,5 kg Zusatzlast und wieder bei der
+  // Untergrenze starten. Arbeitssätze = Sätze mit der höchsten Zusatzlast.
+  if(bwMode){
+    var bwReps = [];
+    last.forEach(function(x,i){ if(bwAdds[i] >= bwWorkAdd) bwReps.push(+(x.r)||0); });
+    if(!bwReps.length) bwReps = allR;
+    var maxRbw = Math.max.apply(null, bwReps);
     var topR = range ? range.hi : 12;
-    // Failed low → leichtere Variante statt Gewicht runter
-    if(failedLow){
-      return {weight:workW||null, reps:range?range.lo:workReps[0], hint:'Wdh-Ziel verfehlt – nutze "↓ Leichter" für eine einfachere Variante (z.B. Negativ-Wdh) oder reduziere die Satzzahl.'};
+    var loR = range ? range.lo : Math.max(1, topR-4);
+    var bwFailCount = bwReps.filter(function(r){return r<loR;}).length;
+    var bwFailed = bwFailCount >= 2 || (bwReps.length<=2 && bwFailCount>=1);
+    var allTopBw = bwReps.every(function(r){return r>=topR;});
+    // Wdh-Ziel verfehlt → Zusatzlast senken bzw. leichtere Variante, kein −7 %
+    if(bwFailed){
+      if(bwWorkAdd > 0){
+        var lessAdd = Math.max(0, bwWorkAdd - 2.5);
+        return bodyweightResult(bw, lessAdd, loR, 'Wdh-Ziel verfehlt – Zusatzlast auf '+lessAdd+' kg senken und sauber wieder aufbauen.');
+      }
+      return bodyweightResult(bw, 0, loR, 'Wdh-Ziel verfehlt – nutze "↓ Leichter" für eine einfachere Variante (z.B. Negativ-Wdh) oder reduziere die Satzzahl.');
     }
-    // Reps deutlich über oberer Grenze → Zusatzgewicht empfehlen
-    if(maxRbw >= topR + 3){
-      var addW = workW > 0 ? workW + 2.5 : 2.5;
-      return {weight:(workW>0?addW:null), reps:topR, hint:'Stark! '+maxRbw+' Wdh geschafft. Jetzt Zusatzgewicht anschnallen (+2,5 kg Gürtel/Weste) und wieder bei '+topR+' Wdh starten.'};
+    // Alle Arbeitssätze an der Obergrenze (oder ein Satz weit darüber) → Zusatzlast
+    if(allTopBw || maxRbw >= topR + 3){
+      var newAdd = bwWorkAdd + 2.5;
+      return bodyweightResult(bw, newAdd, loR, 'Alle Sätze bei '+topR+' Wdh → +2,5 kg Zusatzlast (Gürtel/Weste, jetzt '+newAdd+' kg), wieder bei '+loR+' Wdh starten.');
     }
-    // Obere Grenze (Mehrheit) erreicht → +1-2 Wdh
+    // Mehrheit an der Obergrenze → restliche Sätze nachziehen
     if(hitTop){
-      return {weight:workW||null, reps:Math.min(topR+2, maxRbw+1), hint:'Obere Grenze geschafft → +1–2 Wdh draufpacken. Körpergewicht-Progression läuft über Wiederholungen.'};
+      return bodyweightResult(bw, bwWorkAdd, topR, 'Fast geschafft – alle Sätze auf '+topR+' Wdh bringen, dann kommt Zusatzlast.');
     }
     // Normal → +1 Wdh
     var bwTarget = Math.min(topR, maxRbw + 1);
-    var bwHint = 'Gleiche Übung – +1 Wdh anpeilen (Körpergewicht-Progression).';
+    var bwHint = 'Gleiche Last – +1 Wdh anpeilen (Körpergewicht-Progression).';
     if(sleep && sleep.q==='bad') bwHint = 'Recovery niedrig – heute Wdh halten, sauber ausführen. ' + sleepNote;
     else if(sleep && sleep.q==='top') bwHint += ' ' + sleepNote;
-    return {weight:workW||null, reps:bwTarget, hint:bwHint};
+    return bodyweightResult(bw, bwWorkAdd, bwTarget, bwHint);
   }
 
   // ── KARENZ NACH GEWICHTSSPRUNG (Double Progression) ──
@@ -2959,7 +3020,8 @@ function applyVariant(newName, newRange){
   const nSets=rng?rng.sets:cur.sets.length||3;
   const w=cur.coach.weight!=null?String(cur.coach.weight):'';
   const r=cur.coach.reps!=null?String(cur.coach.reps):'';
-  cur.sets=Array.from({length:nSets},()=>({w,r,secs:'',rpe:'',done:false}));
+  const add=cur.coach.add!=null?String(cur.coach.add):'';
+  cur.sets=Array.from({length:nSets},()=>({w,add,r,secs:'',rpe:'',done:false}));
 
   // PERSISTIERE den Tausch auch in AppState.plan, damit er beim nächsten Start erhalten bleibt
   var day = AppState.plan.find(function(d){return d.id===s.dayId;});

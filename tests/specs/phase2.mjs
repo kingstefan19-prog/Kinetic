@@ -6,14 +6,64 @@ function session(date, ex, rows) {
     sets: rows.map(([w, r, rpe]) => ({ ex, w, r, rpe })) };
 }
 
-export default function ({ todo, assert, loadApp, loadFixture }) {
-  todo('2.1 bodyweight-plateau: Hinweis "+2,5 kg" und reps = 6', () => {
+export default function ({ test, todo, assert, loadApp, loadFixture }) {
+  test('2.1 bodyweight-plateau: Hinweis "+2,5 kg" und reps = 6', () => {
     const r = loadApp(loadFixture('bodyweight-plateau')).coachSuggestion('Klimmzüge', '4×6-10');
     assert.match(r.hint, /\+2,5 kg/);
     assert.equal(r.reps, 6);
+    assert.equal(r.add, 2.5);
+    assert.equal(r.weight, 107.5, 'weight = Körpergewicht 105 + Zusatz 2,5');
   });
 
-  todo('2.1 UI: Feld "Zusatz (kg)", gespeichert als w = Körpergewicht + Zusatz plus Feld add');
+  test('2.1 Mehrheit an der Obergrenze reicht NICHT für Zusatzlast', () => {
+    const fx = loadFixture('bodyweight-plateau');
+    fx.state.history[2].sets[3].r = 8;          // 10,10,10,8
+    const r = loadApp(fx).coachSuggestion('Klimmzüge', '4×6-10');
+    assert.equal(r.add, 0);
+    assert.equal(r.reps, 10);
+  });
+
+  test('2.1 Körpergewicht kommt aus dem Profil, nicht aus dem geloggten w', () => {
+    const fx = loadFixture('bodyweight-plateau');
+    fx.state.user.weight = 100;                  // abgenommen: Alt-Einträge w = 105
+    const r = loadApp(fx).coachSuggestion('Klimmzüge', '4×6-10');
+    assert.equal(r.weight, 102.5, `${r.weight}`);
+    // Ohne Profilgewicht: neuester weightLog-Eintrag
+    const fx2 = loadFixture('bodyweight-plateau');
+    delete fx2.state.user.weight;
+    fx2.state.weightLog = [{ w: 98, d: '2026-10-18' }, { w: 105, d: '2026-10-01' }];
+    const ctx2 = loadApp(fx2);
+    ctx2.AppState.user.weight = 0;               // load() setzt sonst den Default
+    assert.equal(ctx2.bodyWeightKg(), 98);
+  });
+
+  test('2.1 Gespeichert wird w = Körpergewicht + Zusatz plus Feld add; Plank/Nordic ausgenommen', () => {
+    const ctx = loadApp(loadFixture('bodyweight-plateau'));
+    ctx.AppState.activeSession = { dayId: 'wed', dayName: 'Pull A', startTs: ctx.Date.now() - 3e6, currentIdx: 0, restEndTs: 0,
+      exercises: [{ n: 'Klimmzüge', s: '4×6-10', isTimed: false, coach: {}, done: true,
+        sets: [{ w: '', add: '2.5', r: '6', rpe: '8', done: true }, { w: '', add: '', r: '7', rpe: '8', done: true }] }] };
+    ctx.finishWorkout();
+    const sets = ctx.AppState.history[ctx.AppState.history.length - 1].sets;
+    assert.deepEqual(JSON.parse(JSON.stringify(sets.map((x) => [x.w, x.add, x.r]))), [[107.5, 2.5, 6], [105, 0, 7]]);
+    assert.equal(ctx.isLoadableBodyweight('Plank'), false);
+    assert.equal(ctx.isLoadableBodyweight('Nordic Curl (Beinbizeps)'), false);
+    assert.equal(ctx.isLoadableBodyweight('Dips (Brust)'), true);
+  });
+
+  test('2.1 UI: Körpergewichtsübung zeigt Feld "Zusatz (kg)" statt "kg"', () => {
+    const ctx = loadApp(loadFixture('bodyweight-plateau'));
+    const day = { id: 'wed', name: 'Pull A', ex: [{ n: 'Klimmzüge', s: '4×6-10' }, { n: 'Latzug (Untergriff eng)', s: '3×10-12' }] };
+    ctx.proceedWithWorkout('wed', day, false);
+    ctx.renderWorkout();
+    let html = ctx.document.getElementById('workoutContent').innerHTML;
+    assert.match(html, /ZUSATZ \(KG\)/);
+    assert.match(html, /data-set-field="add"[^>]*value="2.5"/, 'Zusatzlast nicht vorbelegt');
+    ctx.AppState.activeSession.currentIdx = 1;
+    ctx.renderWorkout();
+    html = ctx.document.getElementById('workoutContent').innerHTML;
+    assert.doesNotMatch(html, /ZUSATZ/);
+    assert.match(html, /data-set-field="w"/);
+  });
 
   todo('2.2 bench-oscillation (8,8,6,5): KEINE Steigerung', () => {
     const r = loadApp(loadFixture('bench-oscillation')).coachSuggestion('Bankdrücken (LH)', '4×5-8');
