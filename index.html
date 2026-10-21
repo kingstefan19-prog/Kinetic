@@ -1821,6 +1821,7 @@ function renderWorkout(){
     const isBWex=!isTimed && isLoadableBodyweight(cur.n);   // Feld "Zusatz (kg)" statt "kg"
     const rpeIdx=rpeTargetIdx(s, cur);                       // Satz, den die RPE-Schnellwahl füllt
     const isAmrapEx=!isTimed && !!s.amrapEx && s.amrapEx===cur.n;
+    const ask=(_plausAsk && _plausAsk.ts===s.startTs && _plausAsk.ex===s.currentIdx) ? _plausAsk : null;
 
     // Sets HTML
     const setsHtml=cur.sets.map((st,i)=>`
@@ -1831,12 +1832,21 @@ function renderWorkout(){
           :`<td>${isBWex
               ?`<input data-set-idx="${i}" data-set-field="add" type="number" inputmode="decimal" step="0.25" min="0" placeholder="+0" value="${st.add||''}" style="width:100%;padding:8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-size:14px">`
               :`<input data-set-idx="${i}" data-set-field="w" type="number" inputmode="decimal" placeholder="kg" value="${st.w||''}" style="width:100%;padding:8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-size:14px">`}</td>
-           <td><input data-set-idx="${i}" data-set-field="r" type="number" inputmode="numeric" placeholder="Wdh" value="${st.r||''}" style="width:100%;padding:8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-size:14px"></td>`
+           <td><input data-set-idx="${i}" data-set-field="r" type="number" inputmode="numeric" min="1" max="50" step="1" placeholder="Wdh" value="${st.r||''}" style="width:100%;padding:8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-size:14px"></td>`
         }
         <td><button type="button" data-rpe-pick="${i}" aria-label="RPE Satz ${i+1}" style="width:52px;padding:8px 2px;background:var(--card2);border:1px solid ${i===rpeIdx?'var(--violet)':'var(--border)'};border-radius:6px;color:${st.rpe?'var(--t1)':'var(--t3)'};font-size:14px;font-family:var(--f);cursor:pointer">${st.rpe?rpeFmt(st.rpe):'RPE'}</button></td>
         <td><button type="button" class="btn ${st.done?'bp':'bg2'}" data-set-done="${i}" style="padding:8px 10px;font-size:12px;margin:0;width:auto">${st.done?'✓':'○'}</button></td>
         <td>${cur.sets.length>1?`<button type="button" data-set-del="${i}" aria-label="Satz ${i+1} löschen" style="background:none;border:none;color:var(--t3);font-size:15px;cursor:pointer;padding:6px 2px;line-height:1">✕</button>`:''}</td>
-      </tr>`).join('');
+      </tr>${ask&&ask.idx===i?`
+      <tr><td></td><td colspan="5">
+        <div style="padding:8px 10px;background:rgba(255,149,0,.12);border:1px solid rgba(255,149,0,.4);border-radius:8px;font-size:12px;color:var(--t1)">
+          ⚠️ ${esc(ask.msg)}
+          <div style="display:flex;gap:6px;margin-top:6px">
+            ${ask.kind==='weight'?`<button type="button" id="plausOk" class="btn bp" style="flex:1;padding:7px;font-size:12px;margin:0">Bestätigen</button>`:''}
+            <button type="button" id="plausFix" class="btn bg2" style="flex:1;padding:7px;font-size:12px;margin:0">Korrigieren</button>
+          </div>
+        </div>
+      </td></tr>`:''}`).join('');
 
     const restLeft=Math.max(0,Math.floor(((s.restEndTs||0)-Date.now())/1000));
     const restHtml=restLeft>0
@@ -2061,22 +2071,10 @@ function renderWorkout(){
       });
     });
     $$('#workoutContent [data-set-done]').forEach(btn=>{
-      btn.addEventListener('click',()=>{
-        const i=parseInt(btn.dataset.setDone,10); if(!cur.sets[i]) return;
-        cur.sets[i].done=!cur.sets[i].done;
-        _rpeSel=null;
-        if(cur.sets[i].done){
-          s.restEndTs=Date.now()+restSecondsFor(cur.n, isTimed)*1000;
-          // direkt in die nächste Satz-Zeile springen (erstes leeres Feld)
-          const nxt=cur.sets[i+1];
-          if(nxt){
-            const f = isTimed ? 'secs' : ((isBWex || String(nxt.w||'').trim()) ? 'r' : 'w');
-            _focusAfterRender={idx:i+1, field:f};
-          }
-        }
-        AppState.saveSession(); renderWorkout();
-      });
+      btn.addEventListener('click',()=>{ toggleSetDone(parseInt(btn.dataset.setDone,10)); renderWorkout(); });
     });
+    const plausOk=el('plausOk'); if(plausOk) plausOk.addEventListener('click',()=>{ confirmPlausible(); renderWorkout(); });
+    const plausFix=el('plausFix'); if(plausFix) plausFix.addEventListener('click',()=>{ fixPlausible(); renderWorkout(); });
     $$('#workoutContent [data-rest]').forEach(btn=>{
       btn.addEventListener('click',()=>{ s.restEndTs=Date.now()+parseInt(btn.dataset.rest,10)*1000; AppState.saveSession(); renderWorkout(); });
     });
@@ -2096,6 +2094,75 @@ function renderWorkout(){
       }
     },1000,'workoutTick');
   } catch(e){ log.error('renderWorkout',e); if(el_) el_.innerHTML='<div class="empty">Fehler beim Anzeigen. <button class="btn bp" data-nav="plan" style="margin-top:10px;max-width:200px">→ Plan</button></div>'; }
+}
+
+// ── Plausibilität beim Abhaken (Spec 1.1) ────────────────────────────────
+var _plausAsk = null;   // {ts, ex, idx, kind, field, msg} – offene Rückfrage
+function fmtDe(v){ return String(Math.round(+v*100)/100).replace('.', ','); }
+// RPE nur 5–10 in 0,5-Schritten; alles andere wird nicht gespeichert
+function normRpe(v){
+  if(v===null || v===undefined || v==='') return null;
+  var x = parseFloat(v);
+  if(!(x>=5 && x<=10)) return null;
+  return Math.round(x*2)/2;
+}
+// Liefert eine Rückfrage, wenn der Satz unplausibel wirkt, sonst null.
+// Wdh: ganze Zahl 1–50. Gewicht: > 1,5× oder < 0,5× des letzten
+// Arbeitsgewichts (nicht bei Zeit- und Körpergewichtsübungen).
+function plausibilityIssue(exName, st, isTimed, isBWex){
+  if(isTimed || !st) return null;
+  if(st.r!=='' && st.r!=null){
+    var r = +st.r;
+    if(!(r>=1 && r<=50 && r%1===0)) return {kind:'reps', field:'r', msg:'Wdh '+st.r+'? Erlaubt sind 1–50 Wdh.'};
+  }
+  if(isBWex) return null;
+  var w = parseFloat(st.w);
+  if(!(w>0)) return null;
+  if(st.wOk!=null && +st.wOk===w) return null;      // schon bestätigt
+  var ref = lastWorkWeight(exName);
+  if(ref>0 && (w > ref*1.5 || w < ref*0.5)) return {kind:'weight', field:'w', msg:fmtDe(w)+' kg statt '+fmtDe(ref)+' kg?'};
+  return null;
+}
+// Satz abhaken bzw. zurücknehmen. 'ask' = Rückfrage statt Abhaken.
+function toggleSetDone(i){
+  var s = AppState.activeSession; if(!s) return null;
+  var cur = s.exercises[s.currentIdx]; if(!cur || !cur.sets || !cur.sets[i]) return null;
+  var st = cur.sets[i], isTimed = cur.isTimed, isBWex = !isTimed && isLoadableBodyweight(cur.n);
+  if(!st.done){
+    var iss = plausibilityIssue(cur.n, st, isTimed, isBWex);
+    if(iss){
+      _plausAsk = {ts:s.startTs, ex:s.currentIdx, idx:i, kind:iss.kind, field:iss.field, msg:iss.msg};
+      return 'ask';
+    }
+  }
+  _plausAsk = null;
+  st.done = !st.done;
+  _rpeSel = null;
+  if(st.done){
+    s.restEndTs = Date.now() + restSecondsFor(cur.n, isTimed)*1000;
+    // direkt in die nächste Satz-Zeile springen (erstes leeres Feld)
+    var nxt = cur.sets[i+1];
+    if(nxt){
+      var f = isTimed ? 'secs' : ((isBWex || String(nxt.w||'').trim()) ? 'r' : 'w');
+      _focusAfterRender = {idx:i+1, field:f};
+    }
+  }
+  AppState.saveSession();
+  return st.done ? 'done' : 'undone';
+}
+// "Bestätigen": Gewicht gilt als gewollt, Satz wird abgehakt
+function confirmPlausible(){
+  var a = _plausAsk, s = AppState.activeSession; if(!a || !s) return;
+  var st = ((s.exercises[a.ex]||{}).sets||[])[a.idx]; if(!st) return;
+  st.wOk = st.w;
+  _plausAsk = null;
+  toggleSetDone(a.idx);
+}
+// "Korrigieren": zurück ins Feld, nichts wird abgehakt
+function fixPlausible(){
+  var a = _plausAsk; if(!a) return;
+  _plausAsk = null;
+  _focusAfterRender = {idx:a.idx, field:a.field};
 }
 
 // ── RPE-Schnellwahl (Spec 4.1) ───────────────────────────────────────────
@@ -2262,7 +2329,7 @@ function nextExercise(){
 function finishWorkout(){
   const s=AppState.activeSession; if(!s) return;
   Timers.clear('workoutTick');
-  let volume=0; const sets=[];
+  let volume=0, skipped=0; const sets=[];
   s.exercises.forEach(ex=>{
     (ex.sets||[]).forEach(st=>{
       // Körpergewichtsübungen: w = Körpergewicht + Zusatz, plus Feld add (Spec 2.1)
@@ -2271,9 +2338,10 @@ function finishWorkout(){
       const w=isBWex ? Math.round((bodyWeightKg()+add)*4)/4 : (parseFloat(st.w)||0);
       const r=parseInt(st.r,10)||0;
       if(ex.isTimed&&st.secs){ sets.push({ex:ex.n,secs:parseInt(st.secs,10),pr:false}); return; }
+      if(r>50){ skipped++; return; }                          // Spec 1.1: Wdh 1–50
       if((w>0||isBWex)&&r>0){
         volume+=w*r;
-        const rpe=parseFloat(st.rpe)||null;
+        const rpe=normRpe(st.rpe);                            // Spec 1.1: RPE 5–10, sonst nicht speichern
         // PR = neues Best-E1RM (97,5×10 schlägt 100×1 – Kraft zählt, nicht nur Last)
         const setE1=Math.round(e1rm(w,r,rpe)*10)/10;
         let pr=false;
@@ -2293,7 +2361,8 @@ function finishWorkout(){
   AppState.saveSession();
   AppState.save();
   const prs=sets.filter(x=>x.pr).length;
-  toast((prs?`💪 Fertig! ${prs} neue PR${prs>1?'s':''}! 🏆`:'💪 Workout abgeschlossen!')+(calib?' · 🎯 RPE-Kalibrierung: '+rpeOffsetText(calib):''));
+  toast((prs?`💪 Fertig! ${prs} neue PR${prs>1?'s':''}! 🏆`:'💪 Workout abgeschlossen!')+(calib?' · 🎯 RPE-Kalibrierung: '+rpeOffsetText(calib):'')
+    +(skipped?' · '+skipped+' Satz/Sätze mit mehr als 50 Wdh nicht gespeichert':''));
   refreshDash(); renderLog(); navigate('dash');
 }
 
@@ -2555,6 +2624,27 @@ function daysSinceLastWorkout(){
 // Vergleicht die Arbeitsgewichte (Maximum) der letzten beiden Sessions
 // derselben Übung. true → niedrigere Wdh sind Double-Progression-normal.
 // Sätze der letzten n Sessions einer Übung, neueste zuerst: [[sets…], …]
+// Arbeitsgewicht einer Session: das häufigste (Modus) bzw. höchste Gewicht,
+// nicht der Aufwärmsatz. Beispiel: 100,110,110,110 → 110 (nicht 100!)
+function workWeightOf(weights){
+  var allW = (weights||[]).map(function(w){ return +w||0; }).filter(function(w){ return w>0; });
+  var workW = allW.length ? Math.max.apply(null, allW) : 0;
+  if(allW.length >= 3){
+    var freq = {};
+    allW.forEach(function(w){ freq[w] = (freq[w]||0)+1; });
+    var modeW = workW, modeCount = 0;
+    Object.keys(freq).forEach(function(w){
+      if(freq[w] > modeCount || (freq[w]===modeCount && +w>modeW)){ modeCount = freq[w]; modeW = +w; }
+    });
+    workW = modeW;
+  }
+  return workW;
+}
+// Arbeitsgewicht der letzten Session einer Übung (0 = keine Historie)
+function lastWorkWeight(exName){
+  var ss = recentSessionSets(exName, 1)[0] || [];
+  return workWeightOf(ss.map(function(x){ return x.w; }));
+}
 function recentSessionSets(exName, n){
   var h = AppState.history||[], out = [];
   for(var i=h.length-1; i>=0 && out.length<n; i--){
@@ -3041,19 +3131,7 @@ function coachSuggestionCore(exName, targetStr){
   var avgRpe = allRpe.length ? allRpe.reduce(function(a,b){return a+b;},0)/allRpe.length : null;
 
   // ── ARBEITSGEWICHT statt Minimum ──
-  // Nutze das häufigste (Modus) bzw. höchste Arbeitsgewicht, nicht den Aufwärmsatz.
-  // Beispiel: 100,110,110,110 → Arbeitsgewicht 110 (nicht 100!)
-  var workW = allW.length ? Math.max.apply(null, allW) : 0;
-  if(allW.length >= 3){
-    // Modus: das am häufigsten geloggte Gewicht ist das echte Arbeitsgewicht
-    var freq = {};
-    allW.forEach(function(w){ freq[w] = (freq[w]||0)+1; });
-    var modeW = workW, modeCount = 0;
-    Object.keys(freq).forEach(function(w){
-      if(freq[w] > modeCount || (freq[w]===modeCount && +w>modeW)){ modeCount = freq[w]; modeW = +w; }
-    });
-    workW = modeW;
-  }
+  var workW = workWeightOf(allW);
   // Nur Sätze mit Arbeitsgewicht für Wdh-Analyse (Aufwärmsätze ignorieren)
   var workReps = [];
   last.forEach(function(x){ if((+(x.w)||0) >= workW) workReps.push(+(x.r)||0); });
