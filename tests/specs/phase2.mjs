@@ -187,9 +187,36 @@ export default function ({ test, todo, assert, loadApp, loadFixture }) {
     assert.equal(ctx.coachSuggestion('Schrägbankdrücken (KH)', '3×8-12').weight, 34);
   });
 
-  todo('2.6 post-layoff: 36 kg statt 34 kg und Hinweis "Vor der Pause: 42 kg × 9"', () => {
+  test('2.6 post-layoff: 36 kg statt 34 kg und Hinweis "Vor der Pause: 42 kg × 9"', () => {
     const r = loadApp(loadFixture('post-layoff')).coachSuggestion('Schrägbankdrücken (KH)', '3×8-12');
     assert.equal(r.weight, 36);
     assert.match(r.hint, /Vor der Pause: 42 kg × 9/);
+  });
+
+  const SB = 'Schrägbankdrücken (KH)';
+  const vorPause = [session('2026-09-05', SB, [[42, 9, 8], [42, 9, 8], [42, 9, 8]]),
+    session('2026-09-12', SB, [[42, 9, 8], [42, 9, 8], [42, 9, 8]])];
+
+  test('2.6 Wiederaufbau endet am alten Niveau (40 kg → 42 kg, nicht darüber)', () => {
+    const ctx = loadApp({ history: [...vorPause, session('2026-10-07', SB, [[40, 10, 7], [40, 10, 7], [40, 10, 7]])] },
+      { now: '2026-10-10T08:00:00Z' });
+    assert.equal(ctx.coachSuggestion(SB, '3×8-12').weight, 42);
+  });
+
+  test('2.6 RPE > 8 → kein Wiederaufbau-Schritt, aber Vor-Pausen-Hinweis', () => {
+    const ctx = loadApp({ history: [...vorPause, session('2026-10-07', SB, [[34, 10, 9], [34, 9, 9], [34, 9, 9]])] },
+      { now: '2026-10-10T08:00:00Z' });
+    const r = ctx.coachSuggestion(SB, '3×8-12');
+    assert.equal(r.weight, 34);
+    assert.match(r.hint, /Vor der Pause: 42 kg × 9/);
+  });
+
+  test('2.6 Erste Session nach der Pause zeigt den Hinweis, nach 4 Sessions verschwindet er', () => {
+    const erste = loadApp({ history: vorPause }, { now: '2026-10-07T08:00:00Z' }).coachSuggestion(SB, '3×8-12');
+    assert.match(erste.hint, /Vor der Pause: 42 kg × 9/);
+    const nach = ['2026-10-01', '2026-10-03', '2026-10-05', '2026-10-07']
+      .map((d) => session(d, SB, [[34, 10, 9], [34, 10, 9], [34, 10, 9]]));
+    const r = loadApp({ history: [...vorPause, ...nach] }, { now: '2026-10-10T08:00:00Z' }).coachSuggestion(SB, '3×8-12');
+    assert.doesNotMatch(r.hint, /Vor der Pause/);
   });
 }

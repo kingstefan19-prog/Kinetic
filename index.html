@@ -2300,6 +2300,36 @@ function avgSessionRpe(sets){
   return r.length ? r.reduce(function(a,b){return a+b;},0)/r.length : null;
 }
 
+// ── Vor-Pausen-Referenz (Spec 2.6) ───────────────────────────────────────
+// Bester Arbeitssatz (höchstes Gewicht, dabei meiste Wdh) über Sessions
+function bestWorkSet(sessionSetLists){
+  var bw = 0, br = 0;
+  sessionSetLists.forEach(function(ss){ ss.forEach(function(x){
+    var w = +x.w||0, r = +x.r||0;
+    if(w > bw){ bw = w; br = r; } else if(w === bw && r > br){ br = r; }
+  }); });
+  return bw > 0 ? {w:bw, r:br} : null;
+}
+// Liegt die letzte Pause (> 10 Tage zwischen zwei Sessions der Übung) höchstens
+// 3 abgeschlossene Sessions zurück, gilt das Maximum der letzten 2 Sessions
+// davor als Referenz – damit deckt der Hinweis die Sessions 2–4 nach der Pause
+// ab (Session 1 übernimmt der Pausen-Zweig in coachSuggestion).
+function preLayoffRef(exName){
+  var h = AppState.history||[], sess = [];
+  h.forEach(function(s){
+    var ss = (s.sets||[]).filter(function(x){ return x.ex===exName && +x.w>0; });
+    if(ss.length) sess.push({ts:s.ts, sets:ss});
+  });
+  var gapIdx = -1;
+  for(var i=sess.length-1; i>=1; i--){
+    if(sess[i].ts - sess[i-1].ts > 10*86400000){ gapIdx = i; break; }
+  }
+  if(gapIdx < 0 || sess.length - gapIdx > 3) return null;
+  var ref = bestWorkSet(sess.slice(Math.max(0, gapIdx-2), gapIdx).map(function(x){ return x.sets; }));
+  if(ref) ref.sessionsSince = sess.length - gapIdx;
+  return ref;
+}
+
 function justIncreasedWeight(exName){
   var h = AppState.history||[], found = [];
   for(var i=h.length-1; i>=0 && found.length<2; i--){
@@ -2660,7 +2690,18 @@ function readinessScore(){
 }
 
 // ── 17. PROGRESSION ALGORITHM (mit Schlaf + HRV + Periodisierung) ─────────
+// Einstiegspunkt: Kern-Empfehlung plus Vor-Pausen-Hinweis in den Sessions
+// 2–4 nach einer Pause (Spec 2.6), falls die Kernlogik ihn nicht schon setzt
 function coachSuggestion(exName, targetStr){
+  var res = coachSuggestionCore(exName, targetStr);
+  if(res && typeof res.hint==='string' && res.hint.indexOf('Vor der Pause')<0 && !isLoadableBodyweight(exName)){
+    var ref = preLayoffRef(exName);
+    if(ref) res.hint += ' Vor der Pause: '+ref.w+' kg × '+ref.r+'.';
+  }
+  return res;
+}
+
+function coachSuggestionCore(exName, targetStr){
   var range = parseRepRange(targetStr);
   var last = lastSessionSetsFor(exName);
   var sleep = recoveryStatus(); // Schlaf + HRV kombiniert (Luna-ready)
@@ -2706,14 +2747,16 @@ function coachSuggestion(exName, targetStr){
     var allWp = last.map(function(x){return +(x.w)||0;}).filter(function(w){return w>0;});
     var pW = allWp.length ? Math.max.apply(null, allWp) : 0;
     if(pW>0){
+      var pre = bestWorkSet(recentSessionSets(exName, 2));
+      var preNote = pre ? ' Vor der Pause: '+pre.w+' kg × '+pre.r+'.' : '';
       if(layoff.mod >= 1){
         // ≤4 Wochen: Kraft weitgehend erhalten → gleiches Gewicht, kein Push
-        return {weight:pW, reps:range?range.lo:null, hint:layoff.note};
+        return {weight:pW, reps:range?range.lo:null, hint:layoff.note+preNote};
       }
       var stepP = plateStep(exName, pW);
       var backW = Math.max(stepP, Math.round((pW*layoff.mod)/stepP)*stepP);
       return {weight:backW, reps:range?range.lo:null,
-              hint:layoff.note+' ('+pW+' → '+backW+' kg). Steigere erst wieder, wenn sich die Technik sicher anfühlt.'};
+              hint:layoff.note+' ('+pW+' → '+backW+' kg). Steigere erst wieder, wenn sich die Technik sicher anfühlt.'+preNote};
     }
     return {weight:null, reps:range?range.lo:null,
             hint:layoff.note+' Starte mit weniger Wdh als zuletzt und taste dich heran.'};
@@ -2813,6 +2856,17 @@ function coachSuggestion(exName, targetStr){
   if(avgRpe !== null && avgRpe > 9){
     return {weight:workW, reps:range?range.hi:workReps[0], hint:'Hohe Anstrengung (RPE>9) – Gewicht halten, Technik sauber.'+(sleepNote&&sleep.q!=='ok'?' '+sleepNote:'')};
   }
+  // PRIORITÄT 2b – Wiederaufbau nach Pause: liegt das Gewicht unter dem
+  // Vor-Pausen-Niveau und sitzen die Wdh bei RPE ≤ 8, pro Session ein Schritt
+  // bis zum alten Niveau (Spec 2.6)
+  var preRef = preLayoffRef(exName);
+  if(preRef && range && workW>0 && workW < preRef.w && avgRpe!==null && avgRpe<=8 &&
+     workReps.every(function(r){ return r >= range.lo; })){
+    var rebuildW = Math.min(preRef.w, Math.round((workW + loadIncrement(workW, exName))*4)/4);
+    return {weight:rebuildW, reps:Math.min(range.hi, Math.max.apply(null, workReps)),
+            hint:'Vor der Pause: '+preRef.w+' kg × '+preRef.r+' – Wiederaufbau: '+workW+' → '+rebuildW+' kg, pro Session ein Schritt bis zum alten Niveau.'};
+  }
+
   // PRIORITÄT 3 – Obere Grenze erreicht (oder ein Satz ≥ Obergrenze + 2) → +Gewicht
   var maxWorkR = Math.max.apply(null, workReps);
   var overTop = range ? maxWorkR >= range.hi + 2 : false;
