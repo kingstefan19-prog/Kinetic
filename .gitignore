@@ -1,0 +1,4 @@
+# Persönliche Daten – das Repo ist öffentlich (siehe CLAUDE.md)
+kinetic-backup-*.json
+*.backup.json
+/local/
