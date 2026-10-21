@@ -1146,6 +1146,13 @@ function renderSmartNotifs(){
     }
   }
 
+  // RPE-Varianz-Check (Spec 4.2) → AMRAP-Satz zur Kalibrierung
+  var amrap = amrapSuggestion();
+  if(amrap){
+    notifs.push({icon:'🎯', title:'RPE-Check: '+Math.round(amrap.variance.share*100)+' % deiner letzten 40 Sätze mit RPE '+rpeFmt(amrap.variance.value),
+      body:'Deine RPE wirkt gewohnheitsmäßig. '+(amrap.today?'Heute':'Im nächsten Training ('+amrap.day.name+')')+' im letzten Satz von '+amrap.ex+' so viele Wdh wie möglich (AMRAP).', type:'sleep'});
+  }
+
   // PR-Erkennung: pr-Flags der letzten Session (in finishWorkout gesetzt)
   var lastSess = (AppState.history||[]).slice(-1)[0];
   if(lastSess){
@@ -1182,7 +1189,7 @@ function renderSmartNotifs(){
     notifs.unshift({icon:'🛟', title:'Daten wiederherstellbar', body:'Deine Daten wirken leer, aber eine Schattenkopie vom '+new Date(rec.ts).toLocaleDateString('de')+' mit '+rec.historyCount+' Sessions existiert. Tippen zum Wiederherstellen.', type:'warn', action:'restoreSnapshot'});
   }
 
-  c.innerHTML = notifs.slice(0,3).map(function(n){
+  c.innerHTML = notifs.slice(0,4).map(function(n){
     var clickAttr = n.backup ? ' onclick="navigate(\'data\')" style="cursor:pointer"'
                   : n.action==='startDeload'     ? ' onclick="startDeload()" style="cursor:pointer"'
                   : n.action==='endDeload'       ? ' onclick="endDeload()" style="cursor:pointer"'
@@ -1662,6 +1669,11 @@ function proceedWithWorkout(dayId, day, applyAdjustments, suggestions){
     }),
     currentIdx:0, startTs:Date.now(), restEndTs:0
   };
+  // RPE-Kalibrierung (Spec 4.2): letzter Satz der letzten Isolationsübung = AMRAP
+  if(rpeHabitual()){
+    var amEx = amrapExerciseFor(AppState.activeSession.exercises);
+    if(amEx) AppState.activeSession.amrapEx = amEx;
+  }
   AppState.saveSession();
   navigate('workout');
   if(applyAdjustments) toast('🧠 Plan für heute optimiert (Volumen-Check)');
@@ -1740,11 +1752,12 @@ function renderWorkout(){
     const isTimed=cur.isTimed;
     const isBWex=!isTimed && isLoadableBodyweight(cur.n);   // Feld "Zusatz (kg)" statt "kg"
     const rpeIdx=rpeTargetIdx(s, cur);                       // Satz, den die RPE-Schnellwahl füllt
+    const isAmrapEx=!isTimed && !!s.amrapEx && s.amrapEx===cur.n;
 
     // Sets HTML
     const setsHtml=cur.sets.map((st,i)=>`
       <tr>
-        <td style="color:var(--t3);font-size:12px;width:24px">${i+1}</td>
+        <td style="color:${isAmrapEx&&i===cur.sets.length-1?'var(--violet)':'var(--t3)'};font-size:12px;width:24px;font-weight:${isAmrapEx&&i===cur.sets.length-1?700:400}">${isAmrapEx&&i===cur.sets.length-1?'AM':i+1}</td>
         ${isTimed
           ?`<td colspan="2"><input data-set-idx="${i}" data-set-field="secs" type="number" inputmode="numeric" placeholder="Sekunden (z.B. 60)" value="${st.secs||''}" style="width:100%;padding:8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-size:14px"></td>`
           :`<td>${isBWex
@@ -1860,6 +1873,7 @@ function renderWorkout(){
             // Standard blauer Coach-Hinweis
             return '<div style="margin-top:10px;padding:8px 10px;background:rgba(10,132,255,.10);border-left:3px solid var(--blue);border-radius:6px;font-size:12px;color:var(--t1)">🧠 <b>Coach:</b> '+wrapTerms(c.hint)+(c.weight!=null?' <span style="color:var(--blue);font-weight:600">→ '+c.weight+' kg × '+c.reps+'</span>':(c.reps?' <span style="color:var(--blue);font-weight:600">→ '+c.reps+' Wdh</span>':''))+'</div>';
           })()}
+          ${isAmrapEx?`<div style="margin-top:10px;padding:9px 11px;background:rgba(191,90,242,.12);border:1px solid rgba(191,90,242,.35);border-radius:8px;font-size:12px;color:var(--t1)">🎯 <b>AMRAP im letzten Satz:</b> so viele saubere Wdh wie möglich (bis RPE 10). Damit prüft KINETIC, wie gut deine RPE-Angaben passen.</div>`:''}
           ${tip?`<div style="margin-top:10px;padding:8px 10px;background:rgba(10,132,255,.06);border-left:3px solid rgba(10,132,255,.3);border-radius:6px;font-size:12px;color:var(--t2);line-height:1.5"><b style="color:var(--blue)">Technik:</b> ${esc(tip)}</div>`:''}
           ${stepHtml}
           ${varHtml}
@@ -2060,6 +2074,56 @@ function rpeQuickHtml(cur, idx){
     +'<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:5px">'+btns+'</div>'
     +'<div id="rirInfo" style="font-size:11px;color:var(--t2);margin-top:6px">'+esc(info)+'</div>'
     +'</div>';
+}
+
+// ── RPE-Varianz-Check (Spec 4.2) ─────────────────────────────────────────
+// Häufigster RPE-Wert in den letzten 40 Sätzen mit RPE. Unter 40 bewerteten
+// Sätzen gibt es kein Urteil.
+function rpeVariance(){
+  var vals = [], h = AppState.history||[];
+  for(var i=h.length-1; i>=0 && vals.length<40; i--){
+    var ss = h[i].sets||[];
+    for(var j=ss.length-1; j>=0 && vals.length<40; j--){
+      var v = +ss[j].rpe;
+      if(v>=5 && v<=10) vals.push(v);
+    }
+  }
+  if(vals.length < 40) return null;
+  var cnt = {}, top = null;
+  vals.forEach(function(v){ cnt[v] = (cnt[v]||0)+1; if(top===null || cnt[v]>cnt[top]) top = v; });
+  return {n:vals.length, value:top, share:cnt[top]/vals.length};
+}
+// > 70 % gleicher Wert = gewohnheitsmäßige RPE
+function rpeHabitual(){
+  var v = rpeVariance();
+  return !!(v && v.share > 0.7);
+}
+// Letzte Isolationsübung einer Übungsliste (dort ist ein AMRAP-Satz ungefährlich)
+function amrapExerciseFor(exList){
+  var hit = null;
+  (exList||[]).forEach(function(e){
+    var timed = e.timed || e.isTimed || /\d+s/.test(e.s||'');
+    if(!timed && isIsolationLift(e.n)) hit = e.n;
+  });
+  return hit;
+}
+// Heutiger Gym-Tag im Plan, sonst der nächste
+function upcomingGymDay(){
+  var ids = ['sun','mon','tue','wed','thu','fri','sat'], plan = AppState.plan||[];
+  var d = new Date().getDay();
+  for(var k=0; k<7; k++){
+    var id = ids[(d+k)%7];
+    var day = plan.find(function(x){ return x && x.id===id && x.type==='gym' && (x.ex||[]).length; });
+    if(day) return {day:day, today:k===0};
+  }
+  return null;
+}
+// AMRAP fällig: RPE gewohnheitsmäßig und es gibt eine passende Isolationsübung
+function amrapSuggestion(){
+  if(!rpeHabitual()) return null;
+  var g = upcomingGymDay(); if(!g) return null;
+  var ex = amrapExerciseFor(g.day.ex);
+  return ex ? {ex:ex, day:g.day, today:g.today, variance:rpeVariance()} : null;
 }
 
 function nextExercise(){
@@ -2425,6 +2489,10 @@ function justIncreasedWeight(exName){
 // Isolation regeneriert schneller, 60–90 s genügen.
 function isCompoundLift(exName){
   return /bank|drück|press|kniebeug|squat|kreuzheb|deadlift|rudern|row|klimm|latzug|pulldown|^dip|beinpresse|hip thrust|ausfallschritt|lunge/i.test(String(exName||''));
+}
+// Isolationsübung: keine Grundübung, nicht Körpergewicht, keine Zeitübung
+function isIsolationLift(exName){
+  return !isCompoundLift(exName) && equipmentType(exName)!=='bodyweight' && !/plank|\d+s\b/i.test(String(exName||''));
 }
 function restSecondsFor(exName, isTimed){
   if(isTimed) return 60;

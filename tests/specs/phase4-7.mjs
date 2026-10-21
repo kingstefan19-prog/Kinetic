@@ -47,7 +47,53 @@ export default function ({ test, todo, assert, loadApp, REPO_ROOT }) {
     ctx.finishWorkout();
     assert.equal(ctx.AppState.history[0].sets[0].rpe, 8.5);
   });
-  todo('4.2 Varianz-Check: > 70 % gleiche RPE in den letzten 40 Sätzen → AMRAP-Karte');
+  // 40 Sätze in 4 Sessions, davon `gleich` mit RPE 8, der Rest RPE 7
+  function rpeHistory(gleich) {
+    const rpes = Array.from({ length: 40 }, (_, i) => (i < gleich ? 8 : 7));
+    return [0, 1, 2, 3].map((k) => session(`2026-10-${String(5 + k * 3).padStart(2, '0')}`,
+      rpes.slice(k * 10, k * 10 + 10).map((rpe) => ({ ex: 'Seitheben (Kabel)', w: 20, r: 14, rpe }))));
+  }
+
+  test('4.2 Varianz-Check: > 70 % gleiche RPE in den letzten 40 Sätzen → AMRAP-Karte', () => {
+    // 19.10.2026 ist ein Montag → Push A, letzte Isolationsübung: Overhead Extension (KH)
+    const ctx = loadApp({ history: rpeHistory(30) }, { now: '2026-10-19T08:00:00Z' });
+    const v = ctx.rpeVariance();
+    assert.equal(v.value, 8);
+    assert.equal(v.share, 0.75);
+    ctx.renderSmartNotifs();
+    const html = ctx.document.getElementById('smartNotifs').innerHTML;
+    assert.match(html, /Deine RPE wirkt gewohnheitsmäßig\. Heute im letzten Satz von Overhead Extension \(KH\) so viele Wdh wie möglich \(AMRAP\)/);
+  });
+
+  test('4.2 Genau 70 % oder weniger als 40 bewertete Sätze → keine Karte', () => {
+    const ctx = loadApp({ history: rpeHistory(28) }, { now: '2026-10-19T08:00:00Z' });
+    assert.equal(ctx.rpeHabitual(), false);
+    ctx.renderSmartNotifs();
+    assert.doesNotMatch(ctx.document.getElementById('smartNotifs').innerHTML, /AMRAP/);
+    const wenig = loadApp({ history: rpeHistory(40).slice(0, 3) }, { now: '2026-10-19T08:00:00Z' });
+    assert.equal(wenig.rpeVariance(), null);
+  });
+
+  test('4.2 Kein Gym-Tag heute → Karte nennt das nächste Training', () => {
+    const ctx = loadApp({ history: rpeHistory(40) }, { now: '2026-10-20T08:00:00Z' });   // Dienstag
+    ctx.renderSmartNotifs();
+    assert.match(ctx.document.getElementById('smartNotifs').innerHTML, /Im nächsten Training \(Pull A\) im letzten Satz von Face Pulls \(Kabel\)/);
+  });
+
+  test('4.2 Workout markiert den letzten Satz der letzten Isolationsübung als AMRAP', () => {
+    const ctx = loadApp({ history: rpeHistory(40) }, { now: '2026-10-19T08:00:00Z' });
+    const day = ctx.AppState.plan.find((d) => d.id === 'mon');
+    ctx.proceedWithWorkout('mon', day, false);
+    const s = ctx.AppState.activeSession;
+    assert.equal(s.amrapEx, 'Overhead Extension (KH)');
+    s.currentIdx = s.exercises.findIndex((e) => e.n === 'Overhead Extension (KH)');
+    ctx.renderWorkout();
+    const html = ctx.document.getElementById('workoutContent').innerHTML;
+    assert.match(html, /AMRAP im letzten Satz/);
+    s.currentIdx = 0;
+    ctx.renderWorkout();
+    assert.doesNotMatch(ctx.document.getElementById('workoutContent').innerHTML, /AMRAP im letzten Satz/);
+  });
   todo('4.3 Kalibrierung: AppState.rpeOffset aus AMRAP-Satz, angezeigt, nicht in e1rm eingerechnet');
 
   // ── Phase 5 ──
