@@ -3187,6 +3187,16 @@ function preLayoffRef(exName){
   return ref;
 }
 
+// Vor-Pausen-Hinweis nur, solange man noch darunter liegt: Arbeitsgewicht
+// ODER bestes E1RM der Session unter der Referenz. Beide ohne RPE-Korrektur,
+// weil die Referenz (bestWorkSet) keine RPE kennt.
+function belowPreLayoff(ref, sets){
+  if(!ref || !sets || !sets.length) return false;
+  var curW = workWeightOf(sets.map(function(x){ return x.w; }));
+  var curE = Math.max.apply(null, sets.map(function(x){ return e1rm(x.w, x.r); }));
+  return curW < ref.w || curE < e1rm(ref.w, ref.r) - 0.05;
+}
+
 function justIncreasedWeight(exName){
   var h = AppState.history||[], found = [];
   for(var i=h.length-1; i>=0 && found.length<2; i--){
@@ -3571,7 +3581,7 @@ function coachSuggestion(exName, targetStr){
   var res = coachSuggestionCore(exName, targetStr);
   if(res && typeof res.hint==='string' && res.hint.indexOf('Vor der Pause')<0 && !isLoadableBodyweight(exName)){
     var ref = preLayoffRef(exName);
-    if(ref) res.hint += ' Vor der Pause: '+ref.w+' kg × '+ref.r+'.';
+    if(ref && belowPreLayoff(ref, recentSessionSets(exName, 1)[0])) res.hint += ' Vor der Pause: '+ref.w+' kg × '+ref.r+'.';
   }
   return res;
 }
@@ -3622,14 +3632,16 @@ function coachSuggestionCore(exName, targetStr){
     var allWp = last.map(function(x){return +(x.w)||0;}).filter(function(w){return w>0;});
     var pW = allWp.length ? Math.max.apply(null, allWp) : 0;
     if(pW>0){
+      // Vor-Pausen-Hinweis nur, wenn die heutige Last darunter liegt
       var pre = bestWorkSet(recentSessionSets(exName, 2));
-      var preNote = pre ? ' Vor der Pause: '+pre.w+' kg × '+pre.r+'.' : '';
+      var preNoteFor = function(todayW){ return (pre && todayW < pre.w) ? ' Vor der Pause: '+pre.w+' kg × '+pre.r+'.' : ''; };
       if(layoff.mod >= 1){
         // ≤4 Wochen: Kraft weitgehend erhalten → gleiches Gewicht, kein Push
-        return {weight:pW, reps:range?range.lo:null, hint:layoff.note+preNote};
+        return {weight:pW, reps:range?range.lo:null, hint:layoff.note+preNoteFor(pW)};
       }
       var stepP = plateStep(exName, pW);
       var backW = Math.max(stepP, Math.round((pW*layoff.mod)/stepP)*stepP);
+      var preNote = preNoteFor(backW);
       return {weight:backW, reps:range?range.lo:null,
               hint:layoff.note+' ('+pW+' → '+backW+' kg). Steigere erst wieder, wenn sich die Technik sicher anfühlt.'+preNote};
     }

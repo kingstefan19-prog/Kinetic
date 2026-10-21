@@ -212,8 +212,14 @@ export default function ({ test, todo, assert, loadApp, loadFixture }) {
   });
 
   test('2.6 Erste Session nach der Pause zeigt den Hinweis, nach 4 Sessions verschwindet er', () => {
-    const erste = loadApp({ history: vorPause }, { now: '2026-10-07T08:00:00Z' }).coachSuggestion(SB, '3×8-12');
+    // 38 Tage Pause → −10 % (38 kg) → unter dem alten Niveau → Hinweis
+    const erste = loadApp({ history: vorPause }, { now: '2026-10-20T08:00:00Z' }).coachSuggestion(SB, '3×8-12');
+    assert.ok(erste.weight < 42);
     assert.match(erste.hint, /Vor der Pause: 42 kg × 9/);
+    // 25 Tage Pause → gleiches Gewicht wie vorher → kein Hinweis (Fix 4)
+    const gleich = loadApp({ history: vorPause }, { now: '2026-10-07T08:00:00Z' }).coachSuggestion(SB, '3×8-12');
+    assert.equal(gleich.weight, 42);
+    assert.doesNotMatch(gleich.hint, /Vor der Pause/);
     const nach = ['2026-10-01', '2026-10-03', '2026-10-05', '2026-10-07']
       .map((d) => session(d, SB, [[34, 10, 9], [34, 10, 9], [34, 10, 9]]));
     const r = loadApp({ history: [...vorPause, ...nach] }, { now: '2026-10-10T08:00:00Z' }).coachSuggestion(SB, '3×8-12');

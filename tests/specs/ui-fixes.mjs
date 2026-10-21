@@ -88,4 +88,17 @@ export default function ({ test, assert, loadApp, REPO_ROOT }) {
     assert.match(html, /Standard: 5 kg/);
     assert.equal(ctx.loadIncrement(95, ex), 2.5, 'eigener Schritt gilt für die Rechnung');
   });
+
+  test('Fix 4: Vor-Pausen-Hinweis nur, wenn Arbeitsgewicht oder E1RM unter der Referenz liegt', () => {
+    const SB = 'Schrägbankdrücken (KH)';
+    const vor = [session('2026-09-05', SB, [[42, 9, 8], [42, 9, 8], [42, 9, 8]]), session('2026-09-12', SB, [[42, 9, 8], [42, 9, 8], [42, 9, 8]])];
+    const hint = (rows) => loadApp({ history: [...vor, session('2026-10-07', SB, rows)] }, { now: '2026-10-10T08:00:00Z' })
+      .coachSuggestion(SB, '3×8-12').hint;
+    assert.match(hint([[34, 10, 9], [34, 9, 9], [34, 9, 9]]), /Vor der Pause: 42 kg × 9/, 'Gewicht darunter');
+    assert.match(hint([[42, 7, 9], [42, 7, 9], [42, 7, 9]]), /Vor der Pause: 42 kg × 9/, 'gleiches Gewicht, E1RM darunter');
+    assert.doesNotMatch(hint([[42, 9, 8], [42, 9, 8], [42, 9, 8]]), /Vor der Pause/, 'altes Niveau erreicht');
+    assert.doesNotMatch(hint([[44, 9, 8], [44, 9, 8], [44, 8, 8]]), /Vor der Pause/, 'darüber');
+    // "oder": Gewicht darunter reicht, auch wenn das E1RM (40×12 ≈ 56) schon über 42×9 (≈ 54,6) liegt
+    assert.match(hint([[40, 12, 9], [40, 12, 9], [40, 12, 9]]), /Vor der Pause: 42 kg × 9/);
+  });
 }
