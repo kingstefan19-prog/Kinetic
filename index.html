@@ -1049,7 +1049,11 @@ function withPlanSubs(plan){
 }
 
 function resetToDefaultPlan(){
-  if(!confirm('Plan zurücksetzen? Eigene Änderungen gehen verloren.')) return;
+  showConfirmDialog({title:'Plan zurücksetzen?',
+    bodyHtml:'Eigene Änderungen am Plan gehen verloren (vorher wird eine Sicherung angelegt). <b>Historie und PRs bleiben unverändert.</b>',
+    okLabel:'Zurücksetzen', danger:true, onOk:applyDefaultPlanReset});
+}
+function applyDefaultPlanReset(){
   if(typeof snapshotState==='function') snapshotState('pre-reset'); // Sicherung
   AppState.plan=defaultPlan();
   DB.set('planSource','default');
@@ -4338,8 +4342,15 @@ function checkForDataRecovery(){
 function restoreFromSnapshot(){
   var info = snapshotInfo();
   if(!info){ toast('Keine Schattenkopie vorhanden'); return; }
-  if((AppState.history||[]).length>0 &&
-     !confirm('Aktuelle Daten mit der Schattenkopie vom '+new Date(info.ts).toLocaleString('de')+' überschreiben? ('+info.historyCount+' Sessions)')) return;
+  if((AppState.history||[]).length>0){
+    showConfirmDialog({title:'Schattenkopie wiederherstellen?',
+      bodyHtml:'Aktuelle Daten werden mit der Schattenkopie vom <b>'+esc(new Date(info.ts).toLocaleString('de'))+'</b> ('+info.historyCount+' Sessions) überschrieben.',
+      okLabel:'Wiederherstellen', danger:true, onOk:function(){ applySnapshotRestore(info); }});
+    return;
+  }
+  applySnapshotRestore(info);
+}
+function applySnapshotRestore(info){
   applyBackupState(info.state);
   AppState.save();
   toast('🛟 Aus Schattenkopie wiederhergestellt ('+info.historyCount+' Sessions)');
