@@ -1208,6 +1208,15 @@ function renderSmartNotifs(){
     notifs.push({icon:'💾', title:'Backup empfohlen', body:bkReason+'. Tippen → Profil/Daten zum Exportieren.', type:'warn', backup:true, prio:1});
   }
 
+  // OFFENE SESSION > 3 h (Spec 1.2): beenden oder verwerfen
+  var stale = staleSession();
+  if(stale){
+    var sd = new Date(stale.startTs);
+    notifs.unshift({icon:'⏱', title:'Offene Session von '+sd.toLocaleDateString('de',{weekday:'short',day:'2-digit',month:'2-digit'})+' '+sd.toLocaleTimeString('de',{hour:'2-digit',minute:'2-digit'})+' beenden?',
+      body:(stale.dayName||'Workout')+(stale.lastSetTs ? ' · letzter Satz '+new Date(stale.lastSetTs).toLocaleTimeString('de',{hour:'2-digit',minute:'2-digit'}) : ' · kein Satz abgehakt')+'. Beenden speichert bis zum letzten Satz.',
+      type:'warn', prio:0, buttons:[{label:'Beenden', fn:'finishStaleSession()'}, {label:'Verwerfen', fn:'discardStaleSession()'}]});
+  }
+
   // DATEN-WIEDERHERSTELLUNG – Daten leer, aber Schattenkopie vorhanden
   if(checkForDataRecovery()){
     var rec = snapshotInfo();
@@ -1231,7 +1240,11 @@ function renderSmartNotifs(){
                   : '';
     return '<div class="sm-banner sm-'+n.type+'"'+clickAttr+'>'
       +'<div class="sm-icon">'+n.icon+'</div>'
-      +'<div class="sm-body"><strong>'+esc(n.title)+'</strong>'+esc(n.body)+'</div>'
+      +'<div class="sm-body"><strong>'+esc(n.title)+'</strong>'+esc(n.body)
+      +(n.buttons ? '<div style="display:flex;gap:6px;margin-top:8px">'+n.buttons.map(function(b, bi){
+          return '<button type="button" class="btn '+(bi===0?'bp':'bg2')+'" onclick="'+b.fn+'" style="flex:1;padding:7px;font-size:12px;margin:0">'+esc(b.label)+'</button>';
+        }).join('')+'</div>' : '')
+      +'</div>'
       +'</div>';
   }).join('');
 }
@@ -1490,7 +1503,7 @@ function renderLog(){
   var wkAgo=Date.now()-7*24*3600*1000;
   var wkSessions=h.filter(function(e){return e.ts>=wkAgo;});
   var wkVol=wkSessions.reduce(function(a,e){return a+(e.volume||0);},0);
-  var wkTime=wkSessions.reduce(function(a,e){return a+(e.durationMs||0);},0);
+  var wkTime=wkSessions.filter(sessionTimeValid).reduce(function(a,e){return a+(e.durationMs||0);},0);
   var prCount=Object.keys(AppState.prs||{}).length;
 
   var statsHtml='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">'
@@ -1528,7 +1541,7 @@ function renderLog(){
     var timeStr=d.toLocaleTimeString('de',{hour:'2-digit',minute:'2-digit'});
     var prInSession=(e.sets||[]).filter(function(s){return s.pr;}).length;
     var vol=Math.round(e.volume||0);
-    var dur=formatTime(e.durationMs||0);
+    var dur=sessionTimeValid(e) ? formatTime(e.durationMs) : '–';   // > 4 h = unplausibel
 
     // Group sets by exercise
     var exMap={};
@@ -2139,6 +2152,7 @@ function toggleSetDone(i){
   st.done = !st.done;
   _rpeSel = null;
   if(st.done){
+    s.lastSetTs = Date.now();                       // Spec 1.2: Ende der Session = letzter Satz
     s.restEndTs = Date.now() + restSecondsFor(cur.n, isTimed)*1000;
     // direkt in die nächste Satz-Zeile springen (erstes leeres Feld)
     var nxt = cur.sets[i+1];
@@ -2353,9 +2367,12 @@ function finishWorkout(){
     });
   });
   const calib=s.amrapEx ? applyRpeCalibration(s.amrapEx, sets) : null;
-  AppState.history.push({ts:Date.now(),dayName:s.dayName,durationMs:Date.now()-s.startTs,volume,sets});
+  // Spec 1.2: Dauer bis zum letzten abgehakten Satz – eine vergessene Session
+  // zählt sonst die Stunden bis zum Beenden mit
+  const endTs=s.lastSetTs||Date.now();
+  AppState.history.push({ts:endTs,dayName:s.dayName,durationMs:Math.max(0,endTs-s.startTs),volume,sets});
   // Streak
-  const today=new Date().toDateString();
+  const today=new Date(endTs).toDateString();
   if(AppState.lastStreakDate!==today){ AppState.streak+=1; AppState.lastStreakDate=today; }
   AppState.activeSession=null;
   AppState.saveSession();
@@ -2365,6 +2382,26 @@ function finishWorkout(){
     +(skipped?' · '+skipped+' Satz/Sätze mit mehr als 50 Wdh nicht gespeichert':''));
   refreshDash(); renderLog(); navigate('dash');
 }
+
+// ── Offene Session (Spec 1.2) ───────────────────────────────────────────
+var STALE_SESSION_MS = 3*3600000, MAX_SESSION_MS = 4*3600000;
+function staleSession(){
+  var s = AppState.activeSession;
+  return (s && s.startTs && Date.now() - s.startTs > STALE_SESSION_MS) ? s : null;
+}
+// "Beenden": speichert bis zum letzten abgehakten Satz (lastSetTs)
+function finishStaleSession(){ if(AppState.activeSession) finishWorkout(); }
+// "Verwerfen": Session ohne Speichern löschen
+function discardStaleSession(){
+  if(!AppState.activeSession) return;
+  Timers.clear('workoutTick');
+  AppState.activeSession = null;
+  AppState.saveSession();
+  toast('Offene Session verworfen');
+  safeCall(refreshDash);
+}
+// Zeit-Kennzahlen ignorieren Sessions über 4 h (vergessen zu beenden)
+function sessionTimeValid(e){ return !!e && +e.durationMs>0 && +e.durationMs <= MAX_SESSION_MS; }
 
 function formatTime(ms){
   const t=Math.max(0,Math.floor(ms/1000));
@@ -4211,7 +4248,7 @@ function initApp(){
     }
   }
 
-  if(AppState.activeSession && AppState.activeSession.dayId) navigate('workout');
+  if(AppState.activeSession && AppState.activeSession.dayId && !staleSession()) navigate('workout');
   if(window.speechSynthesis) Timers.set(function(){window.speechSynthesis.getVoices();},100,'ttsInit');
   log.info('KINETIC v'+PLAN_VERSION+' · '+AppState.history.length+' sessions');
 }

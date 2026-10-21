@@ -70,7 +70,58 @@ export default function ({ test, todo, assert, loadApp, loadFixture }) {
     ctx.finishWorkout();
     assert.deepEqual(JSON.parse(JSON.stringify(ctx.AppState.history[0].sets.map((x) => x.rpe))), [null, 8.5, null, 9.5]);
   });
-  todo('1.2 Session-Dauer über lastSetTs, Karte für offene Session > 3 h, > 4 h aus Zeit-Kennzahlen');
+  test('1.2 Abhaken setzt lastSetTs, finishWorkout misst die Dauer bis zum letzten Satz', () => {
+    const ctx = loadApp({}, { now: '2026-10-19T17:00:00Z' });
+    workout(ctx, [{ n: 'Beinstrecker', s: '3×12-15', sets: [{ w: '45', r: '12', rpe: '8', done: false }] }],
+      { startTs: Date.parse('2026-10-19T16:00:00Z') });
+    ctx.toggleSetDone(0);
+    assert.equal(ctx.AppState.activeSession.lastSetTs, Date.parse('2026-10-19T17:00:00Z'));
+    ctx.__harness.setNow('2026-10-19T21:00:00Z');             // erst 4 h später beendet
+    ctx.finishWorkout();
+    const h = ctx.AppState.history[0];
+    assert.equal(h.durationMs, 3600e3, 'Dauer bis zum letzten Satz, nicht bis zum Beenden');
+    assert.equal(h.ts, Date.parse('2026-10-19T17:00:00Z'));
+  });
+
+  test('1.2 Offene Session > 3 h: Karte mit "Beenden" (nutzt lastSetTs) und "Verwerfen"', () => {
+    const start = Date.parse('2026-10-18T16:00:00Z');
+    const mk = () => {
+      const ctx = loadApp({}, { now: '2026-10-19T08:00:00Z' });
+      workout(ctx, [{ n: 'Beinstrecker', s: '3×12-15', sets: [{ w: '45', r: '12', rpe: '8', done: true }] }],
+        { startTs: start, lastSetTs: start + 50 * 60e3, dayName: 'Legs A' });
+      return ctx;
+    };
+    const ctx = mk();
+    ctx.renderSmartNotifs();
+    const card = ctx.document.getElementById('smartNotifs').innerHTML;
+    assert.match(card, /Offene Session von .*18\.10\..* beenden\?/);
+    assert.match(card, /finishStaleSession\(\)[^>]*>Beenden/);
+    assert.match(card, /discardStaleSession\(\)[^>]*>Verwerfen/);
+    ctx.finishStaleSession();
+    assert.equal(ctx.AppState.history[0].durationMs, 50 * 60e3);
+    assert.equal(ctx.AppState.activeSession, null);
+
+    const weg = mk();
+    weg.discardStaleSession();
+    assert.equal(weg.AppState.history.length, 0);
+    assert.equal(weg.AppState.activeSession, null);
+
+    // frische Session (< 3 h) → keine Karte
+    const frisch = loadApp({}, { now: '2026-10-19T08:00:00Z' });
+    workout(frisch, [{ n: 'Beinstrecker', s: '3×12-15', sets: [] }]);
+    frisch.renderSmartNotifs();
+    assert.doesNotMatch(frisch.document.getElementById('smartNotifs').innerHTML, /Offene Session/);
+  });
+
+  test('1.2 Sessions > 4 h zählen nicht in Zeit-Kennzahlen (Log zeigt "–")', () => {
+    const ctx = loadApp(loadFixture('outliers'));
+    assert.equal(ctx.sessionTimeValid({ durationMs: 48 * 3600e3 }), false);
+    assert.equal(ctx.sessionTimeValid({ durationMs: 70 * 60e3 }), true);
+    ctx.renderLog();
+    const log = ctx.document.getElementById('logList').innerHTML;
+    assert.match(log, />–<\/div><div style="font-size:9px;color:var\(--t3\)">DAUER/);
+    assert.doesNotMatch(log, /2880:00/);
+  });
   todo('1.3 Log: Satz bearbeiten/löschen, Session löschen, PRs neu berechnen, "Mehr laden"');
   todo('1.4 Bereinigungs-Assistent: outliers.json liefert genau 3 Funde');
 
