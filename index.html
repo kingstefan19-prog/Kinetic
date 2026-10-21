@@ -812,6 +812,7 @@ const AppState = {
   weightLog: [],       // [{w,d}]
   sleepLog: [],        // [{h,d}]
   wearableLog: [],     // [{d, hrv, rhr}] – Luna Band / Wearable Morgen-Daten
+  equipSteps: {},      // {Übungsname: kg} – Gewichtsschritt am eigenen Gerät (optional)
   editMode: false,
 
   load(){
@@ -827,6 +828,8 @@ const AppState = {
       this.weightLog     = DB.get('weightLog', []);
       this.sleepLog      = DB.get('sleepLog', []);
       this.wearableLog   = DB.get('wearableLog', []);
+      var es = DB.get('equipSteps', {});
+      this.equipSteps    = (es && typeof es==='object' && !Array.isArray(es)) ? es : {};
       this.activeSession = DB.get('activeSession', null);
 
       // Plan-Versionierung: alten Plan ersetzen wenn neue Version
@@ -883,6 +886,7 @@ const AppState = {
       DB.set('weightLog', this.weightLog);
       DB.set('sleepLog', this.sleepLog);
       DB.set('wearableLog', this.wearableLog);
+      DB.set('equipSteps', this.equipSteps||{});
       if(typeof maybeAutoSnapshot==='function') maybeAutoSnapshot(); // tägliche Schattenkopie
     } catch(e){ log.error('AppState.save',e); }
   },
@@ -1779,6 +1783,13 @@ function renderWorkout(){
 
     // Form tip
     const tip=FORM_TIPS[cur.n]||'';
+    // Gewichtsschritt am eigenen Gerät (Spec 2.4) – nur bei Gewichtsübungen
+    const stepVal=customEquipStep(cur.n);
+    const stepHtml=(isTimed||isBWex)?'':`<div style="margin-top:10px;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--t2)">
+        <span style="flex:1">Gewichtsschritt an deinem Gerät</span>
+        <input id="equipStepInp" type="number" inputmode="decimal" step="0.25" min="0" placeholder="${plateStep(cur.n, last?last.w:0)} kg" value="${stepVal||''}" style="width:84px;padding:6px 8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-size:13px">
+        <span>kg</span>
+      </div>`;
 
     el_.innerHTML=`
       <div class="workout-active">
@@ -1849,6 +1860,7 @@ function renderWorkout(){
             return '<div style="margin-top:10px;padding:8px 10px;background:rgba(10,132,255,.10);border-left:3px solid var(--blue);border-radius:6px;font-size:12px;color:var(--t1)">🧠 <b>Coach:</b> '+wrapTerms(c.hint)+(c.weight!=null?' <span style="color:var(--blue);font-weight:600">→ '+c.weight+' kg × '+c.reps+'</span>':(c.reps?' <span style="color:var(--blue);font-weight:600">→ '+c.reps+' Wdh</span>':''))+'</div>';
           })()}
           ${tip?`<div style="margin-top:10px;padding:8px 10px;background:rgba(10,132,255,.06);border-left:3px solid rgba(10,132,255,.3);border-radius:6px;font-size:12px;color:var(--t2);line-height:1.5"><b style="color:var(--blue)">Technik:</b> ${esc(tip)}</div>`:''}
+          ${stepHtml}
           ${varHtml}
         </div>
 
@@ -1907,6 +1919,16 @@ function renderWorkout(){
       });
     });
     $$('#workoutContent [data-diff]').forEach(btn=>btn.addEventListener('click',()=>changeVariantBy(parseInt(btn.dataset.diff,10))));
+    const stepInp=el('equipStepInp');
+    if(stepInp) stepInp.addEventListener('change',()=>{
+      const v=parseFloat(stepInp.value);
+      if(!AppState.equipSteps) AppState.equipSteps={};
+      if(v>0) AppState.equipSteps[cur.n]=Math.round(v*4)/4; else delete AppState.equipSteps[cur.n];
+      AppState.save();
+      cur.coach=coachSuggestion(cur.n, cur.s);   // Empfehlung neu, eingetragene Sätze bleiben
+      toast(v>0?'Gewichtsschritt: '+AppState.equipSteps[cur.n]+' kg':'Standard-Gewichtsschritt');
+      renderWorkout();
+    });
     const vsel=el('varSel');
     if(vsel) vsel.addEventListener('change',()=>{ const[n,sStr]=vsel.value.split('|'); applyVariant(n,sStr); });
     const setInputs=$$('#workoutContent input[data-set-idx]');
@@ -2194,7 +2216,15 @@ function stalledLifts(){
 // Bei leichten Isolationsübungen sind 2,5 kg schnell >10 % Sprung; dort
 // braucht es feinere Stufen (Kabel-Zusatzgewichte, kleine KH-Paare).
 // plateStep = kleinste reale Stufe zum RUNDEN von Vorschlägen.
+// Vom Nutzer hinterlegter Gewichtsschritt am eigenen Gerät (Spec 2.4)
+function customEquipStep(exName){
+  var m = AppState.equipSteps;
+  var v = m ? +m[exName] : 0;
+  return v > 0 ? v : 0;
+}
 function plateStep(exName, w){
+  var custom = customEquipStep(exName);
+  if(custom) return custom;
   var t = equipmentType(exName);
   w = +w || 0;
   if(t==='db' || t==='db_single')  return (w>0 && w<10) ? 1 : 2;
@@ -2206,6 +2236,8 @@ function plateStep(exName, w){
 // ~2–5 % der Last, auf reale Hantel-/Stack-Schritte gelegt. Fixe +2,5 kg
 // wären auf 20 kg Seitheben +12,5 % → Wdh brechen ein → Pseudo-Deload.
 function loadIncrement(w, exName){
+  var custom = customEquipStep(exName);
+  if(custom) return custom;                      // Gerät gibt den Sprung vor
   var t = equipmentType(exName);
   w = +w || 0;
   var inc;
@@ -2772,6 +2804,12 @@ function coachSuggestion(exName, targetStr){
   if(hitTop || overTop){
     var stepH = plateStep(exName, workW);
     var inc = loadIncrement(workW, exName);
+    // Großer Gerätesprung (> 15 % der Last): erst Wdh-Puffer aufbauen,
+    // sonst brechen die Wdh nach dem Sprung ein (Kabel-Seitheben 15 → 20 kg)
+    if(range && workW>0 && inc/workW > 0.15 && maxWorkR < range.hi + 3){
+      return {weight:workW, reps:Math.min(range.hi+3, maxWorkR+1),
+              hint:'Nächster Schritt +'+inc+' kg wären '+Math.round(inc/workW*100)+' % – erst bis '+(range.hi+3)+' Wdh (Obergrenze + 3), dann steigern.'};
+    }
     if(sleep && sleep.q==='bad') inc = Math.max(stepH, Math.round(inc*0.5/stepH)*stepH);
     var newW = Math.round((workW + inc) * 4)/4;   // 0,25er-Raster erlaubt 1,25-Schritte
     var topNote = hitTop
@@ -3311,7 +3349,7 @@ function buildBackupObject(){
     user:AppState.user, streak:AppState.streak, lastStreakDate:AppState.lastStreakDate,
     plan:AppState.plan, history:AppState.history, prs:AppState.prs,
     weightLog:AppState.weightLog, sleepLog:AppState.sleepLog,
-    wearableLog:AppState.wearableLog, meals:AppState.meals
+    wearableLog:AppState.wearableLog, meals:AppState.meals, equipSteps:AppState.equipSteps
   }};
 }
 function applyBackupState(s){
@@ -3325,6 +3363,7 @@ function applyBackupState(s){
   if(Array.isArray(s.weightLog)) AppState.weightLog=s.weightLog;
   if(Array.isArray(s.sleepLog)) AppState.sleepLog=s.sleepLog;
   if(Array.isArray(s.wearableLog)) AppState.wearableLog=s.wearableLog;
+  if(s.equipSteps && typeof s.equipSteps==='object' && !Array.isArray(s.equipSteps)) AppState.equipSteps=s.equipSteps;
   if(Array.isArray(s.meals)) AppState.meals=s.meals;
   return true;
 }

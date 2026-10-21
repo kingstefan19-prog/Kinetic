@@ -120,13 +120,56 @@ export default function ({ test, todo, assert, loadApp, loadFixture }) {
     assert.equal(r.add, 0);
   });
 
-  todo('2.4 Geräteschritt pro Übung (AppState.equipSteps) wird von plateStep/loadIncrement genutzt', () => {
+  test('2.4 Geräteschritt pro Übung (AppState.equipSteps) wird von plateStep/loadIncrement genutzt', () => {
     const ctx = loadApp({ equipSteps: { 'Seitheben (Kabel)': 5 } });
     assert.equal(ctx.plateStep('Seitheben (Kabel)', 15), 5);
     assert.equal(ctx.loadIncrement(15, 'Seitheben (Kabel)'), 5);
+    assert.equal(ctx.loadIncrement(15, 'Face Pulls (Kabel)'), 1.25, 'andere Übungen unverändert');
   });
 
-  todo('2.4 Schritt > 15 % der Last → "erst bis Obergrenze + 3 Wdh, dann steigern"');
+  test('2.4 Schritt > 15 % der Last → erst bis Obergrenze + 3 Wdh, dann steigern', () => {
+    const hist = (reps) => ({ equipSteps: { 'Seitheben (Kabel)': 5 },
+      history: [session('2026-10-15', 'Seitheben (Kabel)', reps.map((r) => [15, r, 8]))] });
+    const now = { now: '2026-10-20T08:00:00Z' };
+    const hold = loadApp(hist([15, 15, 15]), now).coachSuggestion('Seitheben (Kabel)', '3×12-15');
+    assert.equal(hold.weight, 15);
+    assert.equal(hold.reps, 16);
+    assert.match(hold.hint, /Obergrenze \+ 3/);
+    const go = loadApp(hist([18, 18, 18]), now).coachSuggestion('Seitheben (Kabel)', '3×12-15');
+    assert.equal(go.weight, 20);
+  });
+
+  test('2.4 15-%-Regel greift auch beim Standardschritt (Kurzhantel 12 → 14 kg = 17 %)', () => {
+    const ctx = loadApp({ history: [session('2026-10-15', 'Seitheben (KH)', [[12, 15, 8], [12, 15, 8], [12, 15, 8]])] },
+      { now: '2026-10-20T08:00:00Z' });
+    const r = ctx.coachSuggestion('Seitheben (KH)', '3×12-15');
+    assert.equal(r.weight, 12);
+    assert.equal(r.reps, 16);
+  });
+
+  test('2.4 equipSteps wird gespeichert, exportiert und importiert', () => {
+    const ctx = loadApp({ equipSteps: { 'Latzug (Untergriff eng)': 5 } });
+    assert.equal(ctx.AppState.equipSteps['Latzug (Untergriff eng)'], 5);
+    const bk = JSON.parse(JSON.stringify(ctx.buildBackupObject()));
+    assert.equal(bk.state.equipSteps['Latzug (Untergriff eng)'], 5);
+    const ctx2 = loadApp({});
+    ctx2.applyBackupState(bk.state);
+    assert.equal(ctx2.AppState.equipSteps['Latzug (Untergriff eng)'], 5);
+    // altes Backup ohne equipSteps bleibt importierbar
+    const ctx3 = loadApp({});
+    ctx3.applyBackupState({ history: [] });
+    assert.equal(typeof ctx3.AppState.equipSteps, 'object');
+  });
+
+  test('2.4 UI: Feld "Gewichtsschritt an deinem Gerät" bei Gewichtsübungen', () => {
+    const ctx = loadApp(loadFixture('bench-oscillation'));
+    ctx.proceedWithWorkout('mon', { id: 'mon', name: 'Push A', ex: [{ n: 'Bankdrücken (LH)', s: '4×5-8' }, { n: 'Klimmzüge', s: '4×6-10' }] }, false);
+    ctx.renderWorkout();
+    assert.match(ctx.document.getElementById('workoutContent').innerHTML, /Gewichtsschritt an deinem Gerät/);
+    ctx.AppState.activeSession.currentIdx = 1;
+    ctx.renderWorkout();
+    assert.doesNotMatch(ctx.document.getElementById('workoutContent').innerHTML, /Gewichtsschritt an deinem Gerät/);
+  });
 
   todo('2.5 Ø RPE ≤ 7 in 2 Sessions hintereinander und Wdh im Zielbereich → echte Steigerung', () => {
     const ctx = loadApp({ history: [
