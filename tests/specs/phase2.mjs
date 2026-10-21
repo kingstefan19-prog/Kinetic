@@ -171,12 +171,20 @@ export default function ({ test, todo, assert, loadApp, loadFixture }) {
     assert.doesNotMatch(ctx.document.getElementById('workoutContent').innerHTML, /Gewichtsschritt an deinem Gerät/);
   });
 
-  todo('2.5 Ø RPE ≤ 7 in 2 Sessions hintereinander und Wdh im Zielbereich → echte Steigerung', () => {
+  test('2.5 Ø RPE ≤ 7 in 2 Sessions hintereinander und Wdh im Zielbereich → echte Steigerung', () => {
     const ctx = loadApp({ history: [
       session('2026-10-12', 'Schrägbankdrücken (KH)', [[34, 10, 7], [34, 10, 7], [34, 10, 7]]),
       session('2026-10-16', 'Schrägbankdrücken (KH)', [[34, 10, 7], [34, 10, 6.5], [34, 10, 7]]),
     ] }, { now: '2026-10-20T08:00:00Z' });
     assert.equal(ctx.coachSuggestion('Schrägbankdrücken (KH)', '3×8-12').weight, 36);
+  });
+
+  test('2.5 Nur eine Session mit niedriger RPE → keine Steigerung', () => {
+    const ctx = loadApp({ history: [
+      session('2026-10-12', 'Schrägbankdrücken (KH)', [[34, 10, 8], [34, 10, 8], [34, 10, 8]]),
+      session('2026-10-16', 'Schrägbankdrücken (KH)', [[34, 10, 7], [34, 10, 6.5], [34, 10, 7]]),
+    ] }, { now: '2026-10-20T08:00:00Z' });
+    assert.equal(ctx.coachSuggestion('Schrägbankdrücken (KH)', '3×8-12').weight, 34);
   });
 
   todo('2.6 post-layoff: 36 kg statt 34 kg und Hinweis "Vor der Pause: 42 kg × 9"', () => {

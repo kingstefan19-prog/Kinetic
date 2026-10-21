@@ -2285,6 +2285,21 @@ function daysSinceLastWorkout(){
 // ── Karenz-Check: wurde beim letzten Mal das Gewicht erhöht? ──────────────
 // Vergleicht die Arbeitsgewichte (Maximum) der letzten beiden Sessions
 // derselben Übung. true → niedrigere Wdh sind Double-Progression-normal.
+// Sätze der letzten n Sessions einer Übung, neueste zuerst: [[sets…], …]
+function recentSessionSets(exName, n){
+  var h = AppState.history||[], out = [];
+  for(var i=h.length-1; i>=0 && out.length<n; i--){
+    var ss = (h[i].sets||[]).filter(function(x){ return x.ex===exName; });
+    if(ss.length) out.push(ss);
+  }
+  return out;
+}
+// Ø RPE einer Session (nur Sätze mit RPE); null, wenn keine RPE geloggt
+function avgSessionRpe(sets){
+  var r = sets.map(function(x){ return +x.rpe||0; }).filter(Boolean);
+  return r.length ? r.reduce(function(a,b){return a+b;},0)/r.length : null;
+}
+
 function justIncreasedWeight(exName){
   var h = AppState.history||[], found = [];
   for(var i=h.length-1; i>=0 && found.length<2; i--){
@@ -2818,6 +2833,20 @@ function coachSuggestion(exName, targetStr){
     if(sleepNote && sleep.q !== 'ok') topNote += ' ' + sleepNote;
     return {weight:newW, reps:range?range.lo:workReps[0], hint:topNote};
   }
+  // PRIORITÄT 3b – Ø RPE ≤ 7 in 2 Sessions hintereinander, Wdh im Zielbereich
+  // → echte Steigerung statt nur Hinweis (Spec 2.5)
+  if(range && workW>0 && !(sleep && sleep.q==='bad')){
+    var last2 = recentSessionSets(exName, 2);
+    var rpeA = last2.length===2 ? avgSessionRpe(last2[0]) : null;
+    var rpeB = last2.length===2 ? avgSessionRpe(last2[1]) : null;
+    var inRange = workReps.every(function(r){ return r >= range.lo; });
+    var incE = loadIncrement(workW, exName);
+    if(rpeA!==null && rpeB!==null && rpeA<=7 && rpeB<=7 && inRange && incE/workW <= 0.15){
+      return {weight:Math.round((workW+incE)*4)/4, reps:range.lo,
+              hint:'RPE 2 Sessions in Folge ≤ 7 (Ø '+(Math.round(rpeB*10)/10)+' / '+(Math.round(rpeA*10)/10)+') → +'+incE+' kg, die Reserve nutzen.'};
+    }
+  }
+
   // PRIORITÄT 4 – Normal: +1 Wdh anpeilen
   var maxR = Math.max.apply(null, workReps);
   var targetReps = Math.min(range?range.hi:maxR+1, maxR+1);
