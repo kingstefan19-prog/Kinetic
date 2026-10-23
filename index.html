@@ -1643,12 +1643,16 @@ function renderPlan(){
       // Exercise rows with notes
       const exHtml=(day.ex&&day.ex.length)
         ? day.ex.map(function(e){
+            const note=planNoteDisplay(e.note);
+            const timed=!!(e.timed || /\d+s\b/.test(e.s||''));
             return '<div class="er">'
               +'<div style="flex:1">'
               +'<div class="en">'+esc(e.n)+'</div>'
-              +(e.note?'<div style="font-size:11px;color:var(--t3);margin-top:2px">'+esc(e.note)+'</div>':'')
+              +(note?'<div style="font-size:11px;color:var(--t3);margin-top:2px">'+esc(note)+'</div>':'')
               +'</div>'
-              +'<div class="es" style="flex-shrink:0">'+esc(e.s)+'</div>'
+              +'<div class="es" style="flex-shrink:0;text-align:right">'+esc(e.s)
+              +(day.type==='gym' && !timed ? '<div style="font-size:10px;color:var(--violet);margin-top:2px">'+esc(targetRIRLabel(e.n))+'</div>' : '')
+              +'</div>'
               +'</div>';
           }).join('')
         : '<div style="color:var(--t3);font-size:12px;padding:8px 0">'+(typeIcon[day.type]||'')+(day.type==='soccer'?' Fußball Training heute – Gym Pause':day.type==='match'?' Spieltag – Regeneration danach':' Kein Training geplant')+'</div>';
@@ -2395,7 +2399,7 @@ function renderWorkout(){
         <div class="c">
           <div class="sl">Aktuelle Übung</div>
           <div style="font-size:20px;font-weight:700;margin-top:6px">${esc(cur.n)}</div>
-          <div style="color:var(--t2);margin-top:4px;font-size:13px">Ziel: ${esc(cur.s)}${isTimed?' · <span style="color:var(--blue)">⏱ Zeitübung</span>':' · <span style="color:var(--violet)">RIR '+targetRIR(cur.n)+' · '+mesoLabel()+'</span>'}</div>
+          <div style="color:var(--t2);margin-top:4px;font-size:13px">Ziel: ${esc(cur.s)}${isTimed?' · <span style="color:var(--blue)">⏱ Zeitübung</span>':' · <span style="color:var(--violet)">'+targetRIRLabel(cur.n)+' · '+mesoLabel()+'</span>'}</div>
           ${last?`<div style="color:var(--t3);font-size:11px;margin-top:6px">Letztes Mal: ${isBWex?(function(){var la=setAddKg(last);return la>0?'+'+la+' kg Zusatz':'Körpergewicht';})():last.w+' kg'} × ${last.r}${rirOf(last.rpe)!==null?' · '+rirLabel(last.rpe):''}</div>`:''}
           ${(function(){
             if(isTimed) return '';
@@ -3279,7 +3283,7 @@ function layoffStatus(exName){
 function loadForReps(exName, reps, rir){
   var e = currentE1rm(exName);
   if(e<=0 || !reps) return 0;
-  if(rir==null) rir = targetRIR();       // Default: RIR der aktuellen Meso-Woche
+  if(rir==null) rir = targetRIR(exName); // Default: Ziel-RIR der Übung in der Zykluswoche
   var effReps = reps + rir;              // Wdh bis Versagen
   if(effReps>12) effReps = 12;
   var w = e / (1 + effReps/30);
@@ -3405,11 +3409,47 @@ function mesoDeloadDue(){
   return done >= idxs.length || todayPlanIdx() > Math.max.apply(null, idxs);
 }
 
-// ── Ziel-RIR der Zykluswoche ─────────────────────────────────────────────
-// Woche 1–3: RIR 2 · Woche 4 und Peak Week: RIR 1 · Deload: RIR 4
-function targetRIR(exName){
+// ── Ziel-RIR je Zykluswoche und Übungstyp (feat/rir-meso, Punkt 4) ────────
+// Woche 1–3: RIR 2 · Woche 4 und Peak Week: RIR 1 · Deload: RIR 4.
+// Grundübungen und Bein-Isolation gehen nie unter RIR 1 (Fußball,
+// Verletzungsrisiko; Mi Lower, Fr Training). Nur Oberkörper-Isolations-
+// und Maschinenübungen gehen in der Peak Week im letzten Satz auf RIR 0.
+var LEG_MUSCLES = {quads:1, hams:1, adduktoren:1, abduktoren:1, wade:1, glutes:1};
+var UPPER_MUSCLES = {brust:1, ruecken:1, schulter:1, bizeps:1, trizeps:1};
+function primaryMuscles(exName){
+  return musclesFor(exName||'').filter(function(x){ return x.w===1; }).map(function(x){ return x.m; });
+}
+// Beinstrecker, Beinbeuger, Adduktion, Abduktion, Waden, Nordic …
+function isLegIsolation(exName){
+  return !isCompoundLift(exName) && primaryMuscles(exName).some(function(m){ return LEG_MUSCLES[m]; });
+}
+// Seitheben, Curls, Trizeps, Flys, Face Pulls, Pec Deck …
+function isUpperIsolation(exName){
+  if(isCompoundLift(exName) || /plank|\d+s\b/i.test(String(exName||''))) return false;
+  var pm = primaryMuscles(exName);
+  return pm.length>0 && pm.every(function(m){ return UPPER_MUSCLES[m]; });
+}
+// lastSet: Ziel für den letzten Satz der Übung (Peak Week: Oberkörper-Isolation RIR 0)
+function targetRIR(exName, lastSet){
   if(deloadActive()) return 4;
-  return mesoWeek() <= 3 ? 2 : 1;
+  var w = mesoWeek();
+  var rir = w <= 3 ? 2 : 1;
+  if(w===5 && exName && lastSet && isUpperIsolation(exName)) return 0;
+  // Untergrenze RIR 1 für Grundübungen und Bein-Isolation (auch Peak Week)
+  if(exName && (isCompoundLift(exName) || isLegIsolation(exName))) rir = Math.max(1, rir);
+  return rir;
+}
+// Anzeige: "RIR 1 · letzter Satz RIR 0" (Peak Week) bzw. "RIR 2"
+function targetRIRLabel(exName){
+  var r = targetRIR(exName), last = targetRIR(exName, true);
+  return 'RIR '+r+(last!==r ? ' · letzter Satz RIR '+last : '');
+}
+// Plan-Notizen: feste "RIR x"-Angaben ausblenden – die Ziel-RIR kommt aus
+// targetRIR() und wechselt mit der Zykluswoche
+function planNoteDisplay(note){
+  return String(note||'').split(/\s*·\s*/).filter(function(p){
+    return p && !/^RIR\s*\d+([,.]\d+)?(\s*[–-]\s*\d+)?$/i.test(p.trim());
+  }).join(' · ');
 }
 
 // ── Volumen-Progression: Satz-Empfehlung übers Mesozyklus (MEV→MAV→MRV) ───
@@ -3925,7 +3965,7 @@ function coachSuggestionCore(exName, targetStr){
     hint = joinHint(hint, '⚠️ E1RM seit '+trend.sessions+' Sessions flach – Variante wechseln (↑ Schwerer) oder Extra-Satz');
   }
   // RPE-Autoregulation: Ziel-Gewicht aus E1RM + Ziel-RIR der aktuellen Meso-Woche
-  var tRIR = targetRIR();
+  var tRIR = targetRIR(exName);
   var arReps = range ? range.hi : targetReps;
   var arW = loadForReps(exName, arReps, tRIR);
   if(arW>0 && Math.abs(arW - workW) > plateStep(exName, workW)){

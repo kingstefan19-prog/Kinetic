@@ -147,4 +147,41 @@ export default function ({ test, assert, loadApp }) {
     ctx.applyPlan3plus1();
     assert.equal(ctx.mesoWeek(), 1);
   });
+
+  // ── 4 Ziel-RIR je Übungstyp ──
+  const woche5 = () => loadApp({ meso: { start: MO('2026-09-07') }, history: train(['2026-09-08', '2026-09-15', '2026-09-22', '2026-09-29']) },
+    { now: '2026-10-07T08:00:00Z' });
+
+  test('4 targetRIR in Woche 5: Kniebeuge (LH) = 1, Beinstrecker = 1, Seitheben (Kabel) = 0 im letzten Satz', () => {
+    const ctx = woche5();
+    assert.equal(ctx.mesoInfo().phase, 'Peak Week');
+    assert.equal(ctx.targetRIR('Kniebeuge (LH)', true), 1, 'Grundübung nie unter RIR 1');
+    assert.equal(ctx.targetRIR('Beinstrecker', true), 1, 'Bein-Isolation nie unter RIR 1');
+    assert.equal(ctx.targetRIR('Seitheben (Kabel)', true), 0, 'Oberkörper-Isolation: letzter Satz RIR 0');
+    assert.equal(ctx.targetRIR('Seitheben (Kabel)', false), 1, 'übrige Sätze RIR 1');
+    for (const ex of ['Wadenheben stehend', 'Adduktionsmaschine (sitzend)', 'Abduktionsmaschine (sitzend)', 'Beinbeuger (Maschine liegend)', 'Bankdrücken (LH)', 'Klimmzüge'])
+      assert.equal(ctx.targetRIR(ex, true), 1, ex);
+    for (const ex of ['Pec Deck / Maschinen-Flys', 'Trizeps Pushdown (Seil)', 'Bizeps Curl (LH)', 'Face Pulls (Kabel)'])
+      assert.equal(ctx.targetRIR(ex, true), 0, ex);
+    // außerhalb der Peak Week kein RIR 0, im Deload RIR 4
+    const w1 = loadApp({}, { now: '2026-10-07T08:00:00Z' });
+    assert.equal(w1.targetRIR('Seitheben (Kabel)', true), 2);
+    assert.equal(w1.targetRIR('Kniebeuge (LH)', true), 2);
+  });
+
+  test('4 Ziel-RIR immer aus targetRIR(): Plan-Notizen ohne "RIR x", Anzeige je Übung', () => {
+    const ctx = woche5();
+    ctx.AppState.plan = ctx.plan3plus1();
+    ctx.renderPlan();
+    const plan = html(ctx, 'planList');
+    assert.doesNotMatch(plan, /RIR 2-3|>RIR 2 ·|· RIR 2</, 'feste RIR-Angaben aus den Notizen sind ausgeblendet');
+    assert.match(plan, /Klimmzüge.*ab 4×10 Zusatzlast/s, 'restliche Notiz bleibt');
+    assert.match(plan, /3×12-15<div[^>]*>RIR 1 · letzter Satz RIR 0<\/div>/, 'Seitheben in der Peak Week');
+    assert.match(plan, /4×5-8<div[^>]*>RIR 1<\/div>/, 'Bankdrücken');
+    assert.equal(ctx.AppState.plan[0].ex[0].note, 'RIR 2 · E1RM tracken', 'gespeicherte Notiz bleibt unverändert');
+    // Workout-Kopf
+    workout(ctx, [{ n: 'Seitheben (Kabel)', s: '3×12-15', sets: [{ w: '20', r: '', rpe: '', done: false }] }]);
+    ctx.renderWorkout();
+    assert.match(html(ctx), /RIR 1 · letzter Satz RIR 0 · Wo 5 · Peak Week/);
+  });
 }
