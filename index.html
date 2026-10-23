@@ -3803,6 +3803,10 @@ function restSecondsFor(exName, isTimed){
 // 2013). Bis 21 Tage: keine Pause · 22–28: gleiches Gewicht ohne Steigerung
 // · 29–56: −10 % · darüber −20 %. Die Ziel-RIR (+1) liefert targetRIR().
 var LAYOFF_FREE_DAYS = 21;
+// Veraltete Daten (fix/polish, Punkt 2): Liegt die letzte Session genau
+// dieser Übung länger zurück, wird nie gesteigert – auch wenn wegen einer
+// weiterlaufenden Variante keine Pause gilt.
+var STALE_DAYS = 28;
 // Verwandte Übung (fix/integration, Punkt 3): gleiche Familie
 // (EXERCISE_FAMILIES über findFamilyFor) oder gleicher Primärmuskel (w = 1).
 // Beispiel: Seitheben (Kabel) und Seitheben (KH).
@@ -4494,6 +4498,18 @@ function coachSuggestionCore(exName, targetStr){
   var workReps = [];
   last.forEach(function(x){ if((+(x.w)||0) >= workW) workReps.push(+(x.r)||0); });
   if(!workReps.length) workReps = allR;
+
+  // ── VERALTETE DATEN: letzte Session dieser Übung > 28 Tage ──
+  // Ohne Pause (Variante lief weiter) würde sonst auf Monate alten Wdh
+  // gesteigert. Letztes Arbeitsgewicht halten, kein Wdh-Sprung.
+  var daysEx = daysSinceExercise(exName);
+  if(daysEx != null && daysEx > STALE_DAYS){
+    var staleHint = joinHint('Letztes Mal vor '+Math.round(daysEx/7)+' Wochen – Gewicht halten, dann normal weiter', sleep && sleep.q!=='ok' ? sleepNote : '');
+    var staleR = Math.max.apply(null, workReps);
+    if(range) staleR = Math.min(range.hi, Math.max(range.lo, staleR));
+    if(bwMode) return bodyweightResult(bw, bwWorkAdd, staleR, staleHint);
+    return {weight:workW, reps:staleR, hint:staleHint};
+  }
 
   // ── Obere Grenze: Grundübungen ALLE Arbeitssätze, Isolation Mehrheit ──
   // Bei Grundübungen führte die Mehrheitsregel zu Sprüngen, die in der

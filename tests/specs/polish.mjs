@@ -51,4 +51,33 @@ export default function ({ test, assert, loadApp }) {
       }
     }
   });
+
+  // ── 2 Keine Steigerung auf veralteten Daten ──
+  const kabel = session('2026-10-14', 'Seitheben (Kabel)', [[20, 14, 8], [20, 13, 8]]);
+  test('2 Seitheben (KH) vor 18 Wochen 15 kg × 18, Kabel letzte Woche: 15 kg halten, keine Steigerung', () => {
+    const ctx = loadApp({ history: [session('2026-06-17', 'Seitheben (KH)', [[15, 18, 8], [15, 18, 8], [15, 17, 8]]), kabel] },
+      { now: '2026-10-21T08:00:00Z' });
+    assert.equal(ctx.layoffStatus('Seitheben (KH)'), null, 'keine Pause, weil Kabel-Seitheben läuft');
+    const r = ctx.coachSuggestion('Seitheben (KH)', '3×12-15');
+    assert.equal(r.weight, 15);
+    assert.equal(r.reps, 15, 'kein Wdh-Sprung über die Obergrenze');
+    assert.equal(r.hint, 'Letztes Mal vor 18 Wochen – Gewicht halten, dann normal weiter.');
+    assert.doesNotMatch(r.hint, /\+\d/);
+  });
+
+  test('2 Grenze 28 Tage; Körpergewichtsübung hält die Zusatzlast; frische Daten steigern normal', () => {
+    const rows = [[15, 18, 8], [15, 18, 8], [15, 17, 8]];
+    const at = (date) => loadApp({ history: [session(date, 'Seitheben (KH)', rows), kabel] }, { now: '2026-10-21T08:00:00Z' })
+      .coachSuggestion('Seitheben (KH)', '3×12-15');
+    assert.match(at('2026-09-21').hint, /^Letztes Mal vor 4 Wochen/, '29 volle Tage');
+    assert.doesNotMatch(at('2026-09-22').hint, /Letztes Mal/, '28 volle Tage: normale Logik');
+    assert.ok(at('2026-10-10').weight > 15, '11 Tage: Obergrenze geschafft → Steigerung');
+    // Klimmzüge vor 6 Wochen mit +5 kg, Latzug lief weiter: Zusatzlast halten
+    const kz = { ts: Date.parse('2026-09-10T17:00:00Z'), dayName: 'Test', durationMs: 3e6, volume: 0,
+      sets: [{ ex: 'Klimmzüge', w: 105, add: 5, r: 10, rpe: 8 }, { ex: 'Klimmzüge', w: 105, add: 5, r: 10, rpe: 8 }] };
+    const c = loadApp({ history: [kz, session('2026-10-14', 'Latzug (Untergriff eng)', [[90, 12, 8]])] }, { now: '2026-10-21T08:00:00Z' });
+    const r = c.coachSuggestion('Klimmzüge', '4×6-10');
+    assert.equal(r.add, 5);
+    assert.match(r.hint, /^Letztes Mal vor 6 Wochen – Gewicht halten/);
+  });
 }
