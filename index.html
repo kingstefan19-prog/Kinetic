@@ -3043,6 +3043,8 @@ function plausibilityIssue(exName, st, isTimed, isBWex){
   if(st.wOk!=null && +st.wOk===w) return null;      // schon bestätigt
   var ref = lastWorkWeight(exName);
   if(ref>0 && (w > ref*1.5 || w < ref*0.5)) return {kind:'weight', field:'w', msg:fmtDe(w)+' kg statt '+fmtDe(ref)+' kg?'};
+  // Kurzhanteln gibt es nur in geraden Zahlen (fix/polish, Punkt 5)
+  if(dbGridApplies(exName) && w%2!==0) return {kind:'weight', field:'w', msg:'Kurzhanteln gibt es in 2-kg-Schritten – '+fmtDe(w)+' kg korrekt?'};
   return null;
 }
 // Satz abhaken bzw. zurücknehmen. 'ask' = Rückfrage statt Abhaken.
@@ -3474,7 +3476,7 @@ function equipmentType(exName){
   // Einarmige Kurzhantel-Übungen (niedrigstes Gewicht) – höchste Priorität
   if(/einarm|single.?arm|einarmig/i.test(n)) return 'db_single';
   // Kurzhantel beidseitig – VOR cable/press (matcht auch "(kh sitzend)")
-  if(/\(kh|kurzhantel|dumbbell/i.test(n)) return 'db';
+  if(/\(kh|\bkh-|kurzhantel|dumbbell/i.test(n)) return 'db';
   // Langhantel (matcht auch "(lh untergriff)")
   if(/\(lh|langhantel|barbell|kreuzheb|kniebeug|military|pendlay/i.test(n)) return 'barbell';
   // Körpergewicht
@@ -3636,9 +3638,24 @@ function plateStep(exName, w, noCustom){
   if(custom) return custom;
   var t = equipmentType(exName);
   w = +w || 0;
-  if(t==='db' || t==='db_single')  return (w>0 && w<10) ? 1 : 2;
+  if(t==='db' || t==='db_single')  return 2;      // Kurzhanteln nur in 2-kg-Schritten (fix/polish, Punkt 5)
   if(t==='cable_machine')          return (w>0 && w<25) ? 1.25 : 2.5;
   return (w>0 && w<40) ? 1.25 : 2.5;             // LH: leichte Übungen feiner
+}
+
+// Kurzhantel-Raster (fix/polish, Punkt 5): Im Gym gibt es Kurzhanteln nur in
+// geraden Zahlen. Gilt für db/db_single ohne eigenen Geräteschritt –
+// ein eingetragener Schritt (equipSteps) hat Vorrang.
+function dbGridApplies(exName){
+  var t = equipmentType(exName);
+  return (t==='db' || t==='db_single') && !customEquipStep(exName);
+}
+// Auf das nächste Vielfache von 2; genau dazwischen (15) nach unten, damit
+// "halten" nie zur Steigerung wird: 42,5 → 42 halten, 15 → 14 (Steigerung 16)
+function dbGridWeight(exName, w){
+  w = +w || 0;
+  if(!(w>0) || !dbGridApplies(exName)) return w;
+  return Math.max(2, Math.ceil(w/2 - 0.5)*2);
 }
 
 // loadIncrement = der GEWICHTSSPRUNG bei erreichter oberer Wdh-Grenze:
@@ -3651,7 +3668,7 @@ function loadIncrement(w, exName, noCustom){
   w = +w || 0;
   var inc;
   if(t==='db' || t==='db_single'){
-    inc = w<10 ? 1 : 2;                           // KH-Paare gibt es in 2-kg-Schritten
+    inc = 2;                                      // KH gibt es nur in 2-kg-Schritten, auch unter 10 kg
   } else if(t==='cable_machine'){
     inc = w<25 ? 1.25 : (w<=70 ? 2.5 : 5);
   } else if(t==='barbell'){
@@ -4374,6 +4391,8 @@ function coachSuggestion(exName, targetStr){
     if(ref && belowPreLayoff(ref, recentSessionSets(exName, 1)[0])) res.hint = joinHint(res.hint, 'Vor der Pause: '+ref.w+' kg × '+ref.r);
   }
   if(res && typeof res.hint==='string') res.hint = joinHint(res.hint);   // sauberes Satzende
+  // Jeder Kurzhantel-Vorschlag liegt im 2-kg-Raster (auch Vor-Pausen-Niveau, Schätzungen)
+  if(res && typeof res.weight==='number' && res.weight>0) res.weight = dbGridWeight(exName, res.weight);
   return res;
 }
 
@@ -4472,7 +4491,7 @@ function coachSuggestionCore(exName, targetStr){
   }
   if(layoff){
     var allWp = last.map(function(x){return +(x.w)||0;}).filter(function(w){return w>0;});
-    var pW = allWp.length ? Math.max.apply(null, allWp) : 0;
+    var pW = dbGridWeight(exName, allWp.length ? Math.max.apply(null, allWp) : 0);
     if(pW>0){
       // Vor-Pausen-Hinweis nur, wenn die heutige Last darunter liegt
       var pre = bestWorkSet(recentSessionSets(exName, 2));
@@ -4497,11 +4516,13 @@ function coachSuggestionCore(exName, targetStr){
   var avgRpe = allRpe.length ? allRpe.reduce(function(a,b){return a+b;},0)/allRpe.length : null;
 
   // ── ARBEITSGEWICHT statt Minimum ──
-  var workW = workWeightOf(allW);
+  var workWRaw = workWeightOf(allW);
   // Nur Sätze mit Arbeitsgewicht für Wdh-Analyse (Aufwärmsätze ignorieren)
   var workReps = [];
-  last.forEach(function(x){ if((+(x.w)||0) >= workW) workReps.push(+(x.r)||0); });
+  last.forEach(function(x){ if((+(x.w)||0) >= workWRaw) workReps.push(+(x.r)||0); });
   if(!workReps.length) workReps = allR;
+  // Kurzhanteln: Rechnung ab dem Rastergewicht (42,5 → 42, +2 → 44)
+  var workW = dbGridWeight(exName, workWRaw);
 
   // ── VERALTETE DATEN: letzte Session dieser Übung > 28 Tage ──
   // Ohne Pause (Variante lief weiter) würde sonst auf Monate alten Wdh
