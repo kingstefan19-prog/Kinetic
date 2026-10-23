@@ -80,4 +80,15 @@ export default function ({ test, assert, loadApp }) {
     assert.equal(r.add, 5);
     assert.match(r.hint, /^Letztes Mal vor 6 Wochen – Gewicht halten/);
   });
+
+  // ── 3 Hinweistext 2.5 ──
+  test('3 Zwei Sessions mit RIR ≥ 3: "2 Sessions in Folge mit RIR 3 oder mehr → +2 kg, die Reserve nutzen."', () => {
+    const SB = 'Schrägbankdrücken (KH)';
+    const ctx = loadApp({ history: [session('2026-10-12', SB, [[34, 10, 7], [34, 10, 7], [34, 10, 7]]),
+      session('2026-10-16', SB, [[34, 10, 7], [34, 10, 6.5], [34, 10, 7]])] }, { now: '2026-10-20T08:00:00Z' });
+    const r = ctx.coachSuggestion(SB, '3×8-12');
+    assert.equal(r.weight, 36);
+    assert.equal(r.hint, '2 Sessions in Folge mit RIR 3 oder mehr → +2 kg, die Reserve nutzen.');
+    assert.doesNotMatch(r.hint, /Ø RIR|≥/);
+  });
 }

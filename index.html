@@ -4624,7 +4624,7 @@ function coachSuggestionCore(exName, targetStr){
     var incE = loadIncrement(workW, exName);
     if(rpeA!==null && rpeB!==null && rpeA<=7 && rpeB<=7 && inRange && incE/workW <= 0.15){
       return {weight:Math.round((workW+incE)*4)/4, reps:range.lo,
-              hint:'RIR 2 Sessions in Folge ≥ 3 (Ø RIR '+rpeFmt(Math.round((10-rpeB)*10)/10)+' / '+rpeFmt(Math.round((10-rpeA)*10)/10)+') → +'+incE+' kg, die Reserve nutzen.'};
+              hint:'2 Sessions in Folge mit RIR 3 oder mehr → +'+incE+' kg, die Reserve nutzen.'};
     }
   }
 
