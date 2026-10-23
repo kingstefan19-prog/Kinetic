@@ -1394,7 +1394,7 @@ function renderSmartNotifs(){
   }
 
   // Schlaf-Warnung (Quelle: deine eigene Eingabe im Profil)
-  var lastSleep = (AppState.sleepLog||[]).slice(-1)[0];
+  var lastSleep = (AppState.sleepLog||[]).filter(function(e){ return e && isRecentLogDate(e.d); }).slice(-1)[0];
   if(lastSleep && lastSleep.h <= 5){
     notifs.push({icon:'😴', title:'Wenig Schlaf', body:'Du hast '+lastSleep.h+'h eingetragen – Progression heute automatisch reduziert.', type:'sleep'});
   }
@@ -4040,9 +4040,32 @@ function planMuscles(){
   return out;
 }
 
-// ── Helper: aktuelle Schlaf-Qualität (letzte 3 Tage gewichtet) ───────────
+// ── Altersgrenze für Schlaf- und Wearable-Daten (fix/integration, Punkt 1) ─
+// Gewertet werden nur Einträge der letzten 3 Kalendertage (heute, gestern,
+// vorgestern). Ein einzelner Eintrag von vor Monaten darf die Progression
+// nicht dauerhaft bremsen.
+var RECOVERY_DAYS = 3;
+function isRecentLogDate(d){
+  if(typeof d!=='string' || !/^\d{4}-\d{2}-\d{2}/.test(d)) return false;
+  var oldest = new Date(); oldest.setDate(oldest.getDate() - (RECOVERY_DAYS-1));
+  var day = d.slice(0, 10);
+  return day >= localDateStr(oldest) && day <= localDateStr();
+}
+// Neuester Wearable-Eintrag innerhalb der Altersgrenze (chronologisch sortiert)
+function recentWearable(field){
+  var logs = (AppState.wearableLog||[]).filter(function(e){ return e && typeof e.d==='string'; })
+    .slice().sort(function(a,b){ return a.d<b.d ? -1 : (a.d>b.d ? 1 : 0); });
+  for(var i=logs.length-1; i>=0; i--){
+    if(logs[i][field] > 0){
+      return isRecentLogDate(logs[i].d) ? {entry:logs[i], prev:logs.slice(Math.max(0, i-7), i)} : null;
+    }
+  }
+  return null;
+}
+
+// ── Helper: aktuelle Schlaf-Qualität (letzte 3 Kalendertage) ─────────────
 function recentSleepQuality(){
-  var logs = (AppState.sleepLog||[]).slice(-3);
+  var logs = (AppState.sleepLog||[]).filter(function(e){ return e && isRecentLogDate(e.d); }).slice(-3);
   if(!logs.length) return null;
   var avg = logs.reduce(function(a,s){return a+(s.h||7);},0)/logs.length;
   if(avg>=7.5) return {q:'top',mod:1.05,note:'😴 Gut erholt → aggressive Progression möglich'};
@@ -4055,19 +4078,18 @@ function recentSleepQuality(){
 // Wissenschaft: HRV-gesteuertes Training liefert signifikant bessere Anpassungen
 // und günstigere Responder-Verteilung als starre Pläne (Düking et al. 2021, Meta-Analyse)
 function hrvStatus(){
-  var logs = (AppState.wearableLog||[]);
-  if(!logs.length) return null;
-  var today = logs[logs.length-1];
-  // NUR heutige Daten steuern das Training – ein Tage-alter HRV-Wert darf
-  // Readiness/Coach nicht dauerhaft beeinflussen (stale data)
-  if(!today || !today.hrv || today.d !== localDateStr()) return null;
-  // Baseline: Durchschnitt der letzten 7 Einträge VOR heute
-  var prev = logs.slice(-8, -1).filter(function(e){return e.hrv>0;});
+  // Nur ein Wert der letzten 3 Kalendertage steuert das Training – ältere
+  // Werte dürfen Readiness/Coach nicht dauerhaft beeinflussen (stale data)
+  var cur = recentWearable('hrv');
+  if(!cur) return null;
+  var today = cur.entry;
+  // Baseline: Durchschnitt der bis zu 7 Einträge davor
+  var prev = cur.prev.filter(function(e){return e.hrv>0;});
   if(prev.length < 3) return {delta:0, status:'baseline', hrv:today.hrv, note:'HRV-Baseline wird aufgebaut ('+prev.length+'/3 Tage)'};
   var baseline = prev.reduce(function(a,e){return a+e.hrv;},0)/prev.length;
   var delta = ((today.hrv - baseline) / baseline) * 100;
   // Ruhepuls als Zweitsignal: deutlich erhöhter RHR (≥ +7%) = Ermüdungsmarker
-  var rhrPrev = logs.slice(-8, -1).filter(function(e){return e.rhr>0;});
+  var rhrPrev = cur.prev.filter(function(e){return e.rhr>0;});
   var rhrElevated = false;
   if(today.rhr && rhrPrev.length >= 3){
     var rhrBase = rhrPrev.reduce(function(a,e){return a+e.rhr;},0)/rhrPrev.length;
@@ -4084,11 +4106,10 @@ function hrvStatus(){
 // Ein um ≥5 bpm erhöhter Morgen-Ruhepuls ist ein eigenständiges Frühwarn-
 // signal für Stress/Infekt/Unterrecovery – auch bei unauffälliger HRV.
 function rhrStatus(){
-  var logs = (AppState.wearableLog||[]);
-  if(!logs.length) return null;
-  var today = logs[logs.length-1];
-  if(!today || !today.rhr || today.d !== localDateStr()) return null;
-  var prev = logs.slice(-8, -1).filter(function(e){return e.rhr>0;});
+  var cur = recentWearable('rhr');
+  if(!cur) return null;
+  var today = cur.entry;
+  var prev = cur.prev.filter(function(e){return e.rhr>0;});
   if(prev.length < 3) return null;                 // Baseline noch im Aufbau
   var base = prev.reduce(function(a,e){return a+e.rhr;},0)/prev.length;
   var delta = today.rhr - base;
