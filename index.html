@@ -1129,7 +1129,7 @@ function plan3plus1(){
       {n:'Seitheben (KH)',               s:'3×12-15', note:'RIR 1'},
       {n:'Incline Curl (KH) 45°',        s:'3×12-15', note:'RIR 1'},
       {n:'Skull Crushers (LH)',          s:'3×8-10',  note:'RIR 2'},
-      {n:'Face Pulls (Kabel)',           s:'2×15-20', note:'Ellbogen hoch'},
+      {n:'Face Pulls (Kabel)',           s:'2×12-15', note:'Ellbogen hoch'},   // gleicher Bereich wie Upper B
       {n:'Plank',                        s:'3×45s',   note:'Kern aktiv', timed:true}
     ]},
     {id:'fri', type:'soccer', name:'Fußball Training', sub:'⚽ Training · kein Gym · gut essen & früh schlafen (Spiel So)', ex:[]},
@@ -5760,7 +5760,8 @@ function buildOnboardingPlan(s){
     pv:  full?E('Klimmzüge',vol.m,'Volle Streckung · '+rn):E('Klimmzüge',vol.m,rn),
     la:  hasM?E('Latzug (Untergriff eng)','3×10–12',rn):E('Klimmzüge (Untergriff)','3×10–12',rn),
     rh:  full?E('Rudern (LH Untergriff)',vol.m,'Schulterblätter · '+rn):E('Einarmiges KH-Rudern',vol.m,rn),
-    rc:  hasM?E('Seilzugrudern (eng)',vol.i,'Volle Streckung · '+rn):E('Einarmiges KH-Rudern',vol.i,rn),
+    // Ohne Gym ist rh schon Einarmiges KH-Rudern → gleicher Wdh-Bereich, sonst widersprechen sich die Vorschläge
+    rc:  hasM?E('Seilzugrudern (eng)',vol.i,'Volle Streckung · '+rn):E('Einarmiges KH-Rudern',full?vol.i:vol.m,rn),
     b1:  full?E('Bizeps Curl (LH)',vol.i,'Kein Schwung · '+rn):E('Bizeps Curl (KH)',vol.i,rn),
     b2:  full?E('Incline Curl (KH) 45°','3×12–15','Stretch · '+rn):E('Hammer Curl (KH)','3×12–15',rn),
     fp:  hasM?E('Face Pulls (Kabel)','3×12–15','Schultergesundheit!'):E('Band Face Pulls','3×12–15','Schultergesundheit!'),
