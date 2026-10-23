@@ -54,10 +54,13 @@ export default function ({ test, todo, assert, loadApp, REPO_ROOT }) {
     assert.equal(ctx.AppState.history[0].sets[0].rpe, 8.5);
   });
   // 40 Sätze in 4 Sessions, davon `gleich` mit RPE 8, der Rest RPE 7
+  // je Session ein Beinsatz ohne RIR: zählt nicht im Varianz-Check, verhindert aber,
+  // dass die Wochen-Warteschlange "Beine 2 Wochen ausgefallen" erkennt
   function rpeHistory(gleich) {
     const rpes = Array.from({ length: 40 }, (_, i) => (i < gleich ? 8 : 7));
     return [0, 1, 2, 3].map((k) => session(`2026-10-${String(5 + k * 3).padStart(2, '0')}`,
-      rpes.slice(k * 10, k * 10 + 10).map((rpe) => ({ ex: 'Seitheben (Kabel)', w: 20, r: 14, rpe }))));
+      rpes.slice(k * 10, k * 10 + 10).map((rpe) => ({ ex: 'Seitheben (Kabel)', w: 20, r: 14, rpe }))
+        .concat([{ ex: 'Beinstrecker', w: 45, r: 12 }])));
   }
 
   test('4.2 Varianz-Check: > 70 % gleiche RPE in den letzten 40 Sätzen → AMRAP-Karte', () => {

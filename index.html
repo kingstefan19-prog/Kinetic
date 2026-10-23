@@ -1676,6 +1676,31 @@ function compactLegDay(day){
       {n:pick(/waden|calf/i, 'Wadenheben stehend'),    s:'3×10-15', note:'Kompakt'}
     ]};
 }
+// ── Restwochen-Check (feat/week-queue, Punkt 4) ──────────────────────────
+// Nichts wird in die nächste Woche übertragen. Ausnahme: Fehlte das Bein-
+// Training 2 Wochen in Folge (trainiert, aber ohne Beine), ist es in der
+// dritten Woche nicht streichbar und wird zuerst eingeplant.
+function legsMustDo(date){
+  var now = date==null ? Date.now() : +new Date(date);
+  if(!mandatoryGymDays().some(function(m){ return isLegPlanDay(m.day); })) return false;
+  var wk = weekKeyOf(now);
+  for(var k=1; k<=2; k++){
+    var w = weekKeyOf(wk - (k*7 - 3.5)*DAY_MS_WQ);    // DST-fest: Mitte der Vorwoche
+    var ss = weekSessions(w);
+    if(!ss.length || ss.some(sessionIsLeg)) return false;
+  }
+  return true;
+}
+// "Diese Woche nur noch 1 von 2: Upper B, Lower entfällt." – oder null
+function restWeekNotice(date){
+  var sch = weekSchedule(date);
+  if(!sch.dropped.length) return null;
+  var names = sch.dropped.map(function(x){ return x.name; });
+  var dropTxt = names.length > 1 ? names.slice(0, -1).join(', ')+' und '+names[names.length-1]+' entfallen' : names[0]+' entfällt';
+  var y = sch.queue.open.length, x = sch.assign.length;
+  if(!x) return 'Diese Woche ist kein Pflichttraining mehr möglich: '+dropTxt+'.';
+  return 'Diese Woche nur noch '+x+' von '+y+': '+sch.assign.map(scheduleLabel).join(', ')+', '+dropTxt+'.';
+}
 // Anzeigename einer Belegung: "Lower kompakt"
 function scheduleLabel(a){ return a.it.name + (a.variant==='compact' ? ' kompakt' : ''); }
 // Empfehlung für heute (bzw. date): {kind:'train'|'optional'|'rest'|'done', …}
@@ -1694,6 +1719,7 @@ function recommendedDay(date){
     if(isFootballType(todayType)) hints.push('Mit mindestens 3 h Abstand zum Fußball, idealerweise danach.');
     if(a.variant==='compact') hints.push('Morgen Fußball-Training: Lower kompakt – nur Kniebeuge, Beinpresse und Waden, RIR 3.');
     if(a.consec) hints.push('Gestern Oberkörper: heute RIR +1');
+    if(a.it.isLeg && sch.mustLegs) hints.push('Beine sind 2 Wochen in Folge ausgefallen – diese Woche zuerst.');
     return Object.assign(base, {kind:'train', day:a.it.day, idx:a.it.idx, variant:a.variant,
       moved:a.it.idx!==todayIdx, rirBonus:a.consec ? 1 : 0, label:scheduleLabel(a), hints:hints});
   }
@@ -1722,6 +1748,7 @@ function renderTodayCard(){
     +((r.hints||[]).length ? '<div style="margin-top:8px;font-size:12px;color:var(--t2);line-height:1.5">'+r.hints.map(function(x){ return '• '+esc(x); }).join('<br>')+'</div>' : '')
     +(r.kind==='train' && r.variant==='compact' ? '<div style="margin-top:6px;font-size:12px;color:var(--t1)">'+compactLegDay(r.day).ex.map(function(e){ return esc(e.n)+' '+esc(e.s); }).join(' · ')+'</div>' : '')
     +(nextTxt ? '<div style="margin-top:6px;font-size:11px;color:var(--t3)">'+esc(nextTxt)+'</div>' : '')
+    +(restWeekNotice() ? '<div style="margin-top:8px;padding:8px 10px;background:rgba(255,149,0,.12);border:1px solid rgba(255,149,0,.35);border-radius:8px;font-size:12px;color:var(--t1)">⚠️ '+esc(restWeekNotice())+'</div>' : '')
     +((r.kind==='train' || r.kind==='optional') ? '<button type="button" class="btn bp" onclick="startRecommended()" style="margin-top:10px">Workout starten →</button>' : '')
     +'</div>';
 }

@@ -135,4 +135,46 @@ export default function ({ test, assert, loadApp }) {
     assert.equal(ctx.AppState.history.at(-1).dayName, 'Lower (kompakt)');
     assert.equal(ctx.weekQueue().items.find((x) => x.name === 'Lower').done, true);
   });
+
+  // ── 4 Restwochen-Check ──
+  test('4 Mittwoch und Donnerstag verpasst, Samstag: kein Bein-Training (Spiel am Sonntag), Hinweis "Lower entfällt"', () => {
+    const ctx = app([sess(DATE.mo, 'Upper A')], `${DATE.sa}T08:00:00Z`);
+    const r = ctx.recommendedDay();
+    assert.equal(r.label, 'Upper B');
+    assert.equal(ctx.legVariantAt(5), null, 'Samstag vor dem Spiel nie Beine');
+    assert.equal(ctx.restWeekNotice(), 'Diese Woche nur noch 1 von 2: Upper B, Lower entfällt.');
+    ctx.renderTodayCard();
+    assert.match(text(ctx, 'todayCard'), /Diese Woche nur noch 1 von 2: Upper B, Lower entfällt\./);
+    // Freitag geht auch nicht (heute Fußball, morgen kein Fußball → weder voll noch kompakt)
+    assert.equal(ctx.legVariantAt(4), null);
+    // genug Tage → kein Hinweis
+    assert.equal(app([sess(DATE.mo, 'Upper A')], `${DATE.mi}T08:00:00Z`).restWeekNotice(), null);
+  });
+
+  test('4 Lower 2 Wochen in Folge entfallen: in Woche 3 vor allen anderen eingeplant', () => {
+    const vorwochen = [sess('2026-10-05', 'Upper A'), sess('2026-10-10', 'Upper B'), sess('2026-10-12', 'Upper A'), sess('2026-10-17', 'Upper B')];
+    const ctx = app(vorwochen, `${DATE.mo}T08:00:00Z`);
+    assert.equal(ctx.legsMustDo(), true);
+    const r = ctx.recommendedDay();
+    assert.equal(r.label, 'Lower kompakt', 'schon Montag (Di Fußball → kompakt) statt Upper A');
+    assert.ok(r.hints.includes('Beine sind 2 Wochen in Folge ausgefallen – diese Woche zuerst.'));
+    assert.equal(r.schedule.assign[0].it.name, 'Lower');
+    // nur eine Woche ohne Beine → normale Woche
+    const eine = app([sess('2026-10-05', 'Lower'), sess('2026-10-12', 'Upper A')], `${DATE.mo}T08:00:00Z`);
+    assert.equal(eine.legsMustDo(), false);
+    assert.equal(eine.recommendedDay().label, 'Upper A');
+    // zwei Wochen ganz ohne Training zählen nicht als "Beine ausgefallen"
+    assert.equal(app([sess('2026-09-28', 'Upper A')], `${DATE.mo}T08:00:00Z`).legsMustDo(), false);
+  });
+
+  test('4 Nichts wird in die nächste Woche übertragen: Montag gilt wieder der Grundplan', () => {
+    const ctx = app([sess(DATE.mo, 'Upper A')], `${DATE.sa}T08:00:00Z`);
+    assert.equal(ctx.weekSchedule().dropped[0].name, 'Lower');
+    ctx.__harness.setNow('2026-10-26T08:00:00Z');
+    const r = ctx.recommendedDay();
+    assert.equal(r.label, 'Upper A');
+    assert.equal(r.moved, false);
+    assert.equal(ctx.weekQueue().open.length, 3);
+    assert.equal(ctx.restWeekNotice(), null);
+  });
 }
