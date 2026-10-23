@@ -140,4 +140,34 @@ export default function ({ test, assert, loadApp }) {
     assert.equal(ctx.coachSuggestion('Nordic Curl (Beinbizeps)', '2×4-6').weight, null);
     assert.equal(ctx.coachSuggestion('Copenhagen Adduction', '2×20-30s').weight, null);
   });
+
+  // ── 6 Kein Nachholen am Spieltag ──
+  test('6 Spieltag: Empfehlung "Kein Gym – Spieltag", Restwochen-Hinweis vom Samstag passt dazu', () => {
+    const PLAN = plain(loadApp({}).plan3plus1());
+    const sess = (date, name) => ({ ts: Date.parse(`${date}T17:00:00Z`), dayName: name, durationMs: 3e6, volume: 0,
+      sets: PLAN.find((d) => d.name === name).ex.filter((e) => !e.timed).map((e) => ({ ex: e.n, w: 50, r: 8, rpe: 8 })) });
+    const hist = [sess('2026-10-21', 'Lower')];   // Upper A (Mo) verpasst
+    const sa = loadApp({ plan: plain(PLAN), history: hist }, { now: '2026-10-24T08:00:00Z' });
+    assert.equal(sa.recommendedDay().label, 'Upper B');
+    assert.equal(sa.restWeekNotice(), 'Diese Woche nur noch 1 von 2: Upper B, Upper A entfällt.');
+    const so = loadApp({ plan: plain(PLAN), history: [...hist, sess('2026-10-24', 'Upper B')] }, { now: '2026-10-25T08:00:00Z' });
+    const r = so.recommendedDay();
+    assert.equal(r.kind, 'rest');
+    assert.equal(r.label, 'Kein Gym – Spieltag');
+    assert.equal(r.schedule.assign.length, 0);
+    assert.match(so.restWeekNotice(), /Upper A entfällt/);
+    // Fußball-Training (soccer) bleibt für Oberkörper erlaubt
+    const di = loadApp({ plan: plain(PLAN), history: [] }, { now: '2026-10-20T08:00:00Z' });
+    assert.equal(di.recommendedDay().label, 'Upper A');
+  });
+
+  test('6 Manueller Start am Spieltag bleibt möglich, mit Hinweis "Spieltag: Glykogen zuerst auffüllen"', () => {
+    const PLAN = plain(loadApp({}).plan3plus1());
+    const ctx = loadApp({ plan: plain(PLAN), history: [] }, { now: '2026-10-25T08:00:00Z' });
+    ctx.startWorkout(ctx.AppState.plan.find((d) => d.name === 'Upper B').id);
+    const s = ctx.AppState.activeSession;
+    assert.ok(s, 'keine Sperre');
+    assert.equal(s.hints[0], 'Spieltag: Glykogen zuerst auffüllen');
+    assert.match(ctx.document.getElementById('toast').textContent, /Spieltag: Glykogen zuerst auffüllen/);
+  });
 }

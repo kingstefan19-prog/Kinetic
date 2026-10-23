@@ -88,10 +88,10 @@ export default function ({ test, assert, loadApp }) {
     assert.match(html(ctx, 'workoutContent'), /Gestern Oberkörper: heute RIR \+1/);
   });
 
-  test('2 Spieltag: Oberkörper heute erlaubt (mit Hinweis), aber nie vorausgeplant', () => {
+  test('2 Spieltag: kein Gym (fix/integration Punkt 6), auch wenn ein Training offen ist', () => {
     const so = app([sess(DATE.mo, 'Upper A'), sess(DATE.mi, 'Lower')], `${DATE.so}T08:00:00Z`).recommendedDay();
-    assert.equal(so.label, 'Upper B');
-    assert.ok(so.hints.includes('Mit mindestens 3 h Abstand zum Fußball, idealerweise danach.'));
+    assert.equal(so.kind, 'rest');
+    assert.equal(so.label, 'Kein Gym – Spieltag');
     const sa = app([sess(DATE.mo, 'Upper A'), sess(DATE.mi, 'Lower'), sess(DATE.sa, 'Upper B')], `${DATE.sa}T19:00:00Z`).recommendedDay();
     assert.equal(sa.kind, 'done');
   });

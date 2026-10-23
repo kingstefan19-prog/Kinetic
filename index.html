@@ -1597,8 +1597,8 @@ function sessionsOnDay(ts){
 // geplante Tage an ihrem Wochentag (Vorrang des heute geplanten Tags) ·
 // Beine behalten · voll vor kompakt · wenig Oberkörper an Folgetagen ·
 // möglichst früh nachholen · Planreihenfolge.
-// Spieltage werden nicht vorausgeplant; trainierst du am Spieltag selbst,
-// ist Oberkörper erlaubt (Hinweis 3 h Abstand).
+// Spieltage (match) bekommen nie ein Training – auch nicht heute
+// (fix/integration, Punkt 6). Fußball-Trainingstage bleiben für Oberkörper.
 var _wsCache = {key:null, val:null};
 function weekSchedule(date, opts){
   var now = date==null ? Date.now() : +new Date(date);
@@ -1642,13 +1642,11 @@ function weekSchedule(date, opts){
       return;
     }
     rec(d+1, false, rest, assign);                    // Tag d ohne Pflichttraining
+    if(planTypeAt(d)==='match') return;               // Spieltag: kein Gym
     rest.forEach(function(it, k){
       var variant;
       if(it.isLeg){ variant = legVariantAt(d); if(!variant) return; }
-      else {
-        if(d > todayIdx && planTypeAt(d)==='match') return;   // Spieltag nicht vorausplanen
-        variant = 'upper';
-      }
+      else variant = 'upper';
       assign.push({d:d, it:it, variant:variant, consec:!it.isLeg && prevUp});
       rec(d+1, !it.isLeg, rest.slice(0, k).concat(rest.slice(k+1)), assign);
       assign.pop();
@@ -1826,13 +1824,15 @@ function recommendedDay(date){
     return Object.assign(base, {kind:'train', day:a.it.day, idx:a.it.idx, variant:a.variant,
       moved:a.it.idx!==todayIdx, rirBonus:a.consec ? 1 : 0, label:scheduleLabel(a), hints:hints});
   }
-  // Kein Pflichttraining passt: optionaler Tag an seinem Wochentag, sonst Ruhetag
+  // Kein Pflichttraining passt: optionaler Tag an seinem Wochentag, sonst
+  // Ruhetag. Am Spieltag nie Gym.
+  if(todayType==='match') return Object.assign(base, {kind:'rest', label:'Kein Gym – Spieltag'});
   var pd = (AppState.plan||[])[todayIdx];
   if(pd && pd.type==='gym' && pd.optional && (pd.ex||[]).length && !(sch.prevUpper && !isLegPlanDay(pd))){
     return Object.assign(base, {kind:'optional', day:pd, idx:todayIdx, variant:null, rirBonus:0, label:pd.name, hints:['Optional – nur wenn Zeit ist.']});
   }
   return Object.assign(base, {kind:'rest',
-    label: todayType==='soccer' ? 'Kein Gym – ⚽ Fußball Training' : todayType==='match' ? 'Kein Gym – 🏟️ Spieltag' : 'Ruhetag'});
+    label: todayType==='soccer' ? 'Kein Gym – ⚽ Fußball Training' : 'Ruhetag'});
 }
 // Dashboard-Karte "Heute"
 function renderTodayCard(){
@@ -1868,6 +1868,7 @@ function startRecommended(){
 function manualStartCheck(day, variant, date){
   var r = recommendedDay(date), i = r.todayIdx, hints = [], bonus = 0;
   var todayT = planTypeAt(i), tomorrowT = planTypeAt(i+1);
+  if(todayT==='match') hints.push('Spieltag: Glykogen zuerst auffüllen');
   if(r.kind==='train' && r.day && r.day.id !== day.id) hints.push('Empfohlen wäre heute: '+r.label+'.');
   else if(r.kind==='done') hints.push('Heute schon trainiert.');
   else if(r.kind==='rest' && day.type==='gym' && !day.optional) hints.push('Laut Wochenplan heute kein Pflichttraining.');
@@ -1879,7 +1880,7 @@ function manualStartCheck(day, variant, date){
     else if(!v) hints.push('Fußball heute: Bein-Training wird heute nicht empfohlen.');
     else if(v==='compact' && variant!=='compact') hints.push('Morgen Fußball-Training: Lower kompakt wäre empfohlen.');
   } else {
-    if(isFootballType(todayT)) hints.push('Mit mindestens 3 h Abstand zum Fußball, idealerweise danach.');
+    if(todayT==='soccer') hints.push('Mit mindestens 3 h Abstand zum Fußball, idealerweise danach.');
     var sch = r.schedule;
     if(!day.optional && sch.prevUpper && !sch.trainedToday){ hints.push('Gestern Oberkörper: heute RIR +1'); bonus = 1; }
   }
