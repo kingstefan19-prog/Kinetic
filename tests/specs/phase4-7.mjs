@@ -82,7 +82,9 @@ export default function ({ test, todo, assert, loadApp, REPO_ROOT }) {
   });
 
   test('4.2 Kein Gym-Tag heute → Karte nennt das nächste Training', () => {
-    const ctx = loadApp({ history: rpeHistory(40) }, { now: '2026-10-20T08:00:00Z' });   // Dienstag
+    // Montag Push A erledigt, Dienstag Fußball → nächstes Training laut Wochen-Warteschlange: Pull A (Mi)
+    const mo = session('2026-10-19', [{ ex: 'Bankdrücken (LH)', w: 100, r: 8, rpe: 8 }], 'Push A');
+    const ctx = loadApp({ history: [...rpeHistory(40), mo] }, { now: '2026-10-20T08:00:00Z' });   // Dienstag
     ctx.renderSmartNotifs();
     assert.match(ctx.document.getElementById('smartNotifs').innerHTML, /Im nächsten Training \(Pull A\) im letzten Satz von Face Pulls \(Kabel\)/);
   });

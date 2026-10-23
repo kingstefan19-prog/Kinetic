@@ -42,4 +42,69 @@ export default function ({ test, assert, loadApp }) {
     assert.equal(lower.compact, true);
     assert.equal(lower.doneIdx, 3, 'am Donnerstag erledigt');
   });
+
+  // ── 2 Empfehlung für heute ──
+  test('2 Normale Woche: geplanter Tag hat Vorrang, Fußballtag ohne Gym, Do optionaler Tag', () => {
+    const mo = app([], `${DATE.mo}T08:00:00Z`).recommendedDay();
+    assert.equal(mo.kind, 'train');
+    assert.equal(mo.label, 'Upper A');
+    assert.equal(mo.moved, false);
+    const di = app([sess(DATE.mo, 'Upper A')], `${DATE.di}T08:00:00Z`).recommendedDay();
+    assert.equal(di.kind, 'rest', 'Upper B am Folgetag nach Upper A nur, wenn es sonst entfiele');
+    assert.match(di.label, /Fußball Training/);
+    assert.equal(di.next.it.name, 'Lower');
+    assert.equal(di.next.variant, 'full', 'Mi Lower voll: Mi und Do kein Fußball');
+    const don = app([sess(DATE.mo, 'Upper A'), sess(DATE.mi, 'Lower')], `${DATE.do}T08:00:00Z`).recommendedDay();
+    assert.equal(don.kind, 'optional');
+    assert.equal(don.label, 'Arme + Schulter + Core');
+    const sa = app([sess(DATE.mo, 'Upper A'), sess(DATE.mi, 'Lower')], `${DATE.sa}T08:00:00Z`).recommendedDay();
+    assert.equal(sa.label, 'Upper B');
+    assert.equal(sa.rirBonus, 0);
+  });
+
+  test('2 Montag (Upper A) verpasst, Dienstag (Fußball): Empfehlung Upper A mit 3-h-Hinweis', () => {
+    const r = app([], `${DATE.di}T08:00:00Z`).recommendedDay();
+    assert.equal(r.kind, 'train');
+    assert.equal(r.label, 'Upper A');
+    assert.equal(r.moved, true);
+    assert.ok(r.hints.includes('Mit mindestens 3 h Abstand zum Fußball, idealerweise danach.'));
+    assert.ok(r.hints.includes('Verschoben von Montag.'));
+  });
+
+  test('2 Upper A am Freitag nachgeholt, Upper B Samstag: erlaubt, weil sonst entfallend, targetRIR +1', () => {
+    const ctx = app([sess(DATE.mi, 'Lower'), sess(DATE.fr, 'Upper A')], `${DATE.sa}T08:00:00Z`);
+    const r = ctx.recommendedDay();
+    assert.equal(r.label, 'Upper B');
+    assert.equal(r.rirBonus, 1);
+    assert.ok(r.hints.includes('Gestern Oberkörper: heute RIR +1'));
+    const ex = 'Schrägbank Bankdrücken (LH)';
+    assert.equal(ctx.targetRIR(ex), 2);
+    ctx.startRecommended();
+    const s = ctx.AppState.activeSession;
+    assert.equal(s.dayName, 'Upper B');
+    assert.equal(s.rirBonus, 1);
+    assert.equal(ctx.targetRIR(ex), 3, 'in dieser Session RIR +1');
+    ctx.renderWorkout();
+    assert.match(html(ctx, 'workoutContent'), /Gestern Oberkörper: heute RIR \+1/);
+  });
+
+  test('2 Spieltag: Oberkörper heute erlaubt (mit Hinweis), aber nie vorausgeplant', () => {
+    const so = app([sess(DATE.mo, 'Upper A'), sess(DATE.mi, 'Lower')], `${DATE.so}T08:00:00Z`).recommendedDay();
+    assert.equal(so.label, 'Upper B');
+    assert.ok(so.hints.includes('Mit mindestens 3 h Abstand zum Fußball, idealerweise danach.'));
+    const sa = app([sess(DATE.mo, 'Upper A'), sess(DATE.mi, 'Lower'), sess(DATE.sa, 'Upper B')], `${DATE.sa}T19:00:00Z`).recommendedDay();
+    assert.equal(sa.kind, 'done');
+  });
+
+  test('2 Dashboard-Karte "Heute" mit Start; AMRAP-Vorschlag nutzt die Empfehlung', () => {
+    const ctx = app([], `${DATE.di}T08:00:00Z`);
+    ctx.renderTodayCard();
+    const t = text(ctx, 'todayCard');
+    assert.match(t, /Heute: Upper A/);
+    assert.match(t, /Diese Woche: Upper A · Lower · Upper B/);
+    assert.match(html(ctx, 'todayCard'), /onclick="startRecommended\(\)"/);
+    const g = ctx.upcomingGymDay();
+    assert.equal(g.today, true);
+    assert.equal(g.day.name, 'Upper A');
+  });
 }

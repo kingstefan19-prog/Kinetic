@@ -239,6 +239,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 <!-- ══ PAGE: DASHBOARD ══ -->
 <section id="page-dash" class="page active">
   <div id="smartNotifs"></div>
+  <div id="todayCard"></div>
   <div class="sh"><div class="sh-t">Übersicht</div></div>
   <div class="c-row">
     <div class="c">
@@ -1264,6 +1265,7 @@ function refreshDash(){
     renderHeroStats();
     renderCoachCard();
     renderSmartNotifs();
+    renderTodayCard();
     renderWeightChart();
     renderStrengthCard();
   } catch(e){ log.error('refreshDash',e); }
@@ -1559,6 +1561,154 @@ function weekQueue(date){
   return {weekStart:wk, items:items,
           done:items.filter(function(x){ return x.done; }),
           open:items.filter(function(x){ return !x.done; })};
+}
+
+// ── Empfehlung für heute (feat/week-queue, Punkt 2) ──────────────────────
+function planTypeAt(idx){
+  var d = (AppState.plan||[])[((idx%7)+7)%7];
+  return d ? d.type : 'flex';
+}
+function isFootballType(t){ return t==='soccer' || t==='match'; }
+// Bein-Training an Plan-Position idx: 'full', 'compact' oder null.
+// Voll nur, wenn heute und morgen kein Fußball ist. Kompakt, wenn morgen
+// Fußball-Training (kein Spiel) ist und heute keiner. Vor einem Spiel nie.
+function legVariantAt(idx){
+  var today = planTypeAt(idx), tomorrow = planTypeAt(idx+1);
+  if(tomorrow==='match') return null;
+  if(!isFootballType(today) && !isFootballType(tomorrow)) return 'full';
+  if(tomorrow==='soccer' && !isFootballType(today)) return 'compact';
+  return null;
+}
+function sessionsOnDay(ts){
+  var k = dayKeyOf(ts);
+  return (AppState.history||[]).filter(function(e){ return e && e.ts && dayKeyOf(e.ts)===k; });
+}
+// Bestmögliche Belegung der restlichen Woche (heute bis Sonntag). Probiert
+// alle Zuordnungen der offenen Pflichttrainings auf die Tage durch und wählt
+// lexikografisch: (Bein-Pflicht zuerst) · möglichst viele Trainings ·
+// geplante Tage an ihrem Wochentag (Vorrang des heute geplanten Tags) ·
+// Beine behalten · voll vor kompakt · wenig Oberkörper an Folgetagen ·
+// möglichst früh nachholen · Planreihenfolge.
+// Spieltage werden nicht vorausgeplant; trainierst du am Spieltag selbst,
+// ist Oberkörper erlaubt (Hinweis 3 h Abstand).
+var _wsCache = {key:null, val:null};
+function weekSchedule(date, opts){
+  var now = date==null ? Date.now() : +new Date(date);
+  opts = opts || {};
+  var mustLegs = opts.mustLegs!=null ? !!opts.mustLegs : (typeof legsMustDo==='function' ? legsMustDo(now) : false);
+  var h = AppState.history||[];
+  var key = [dayKeyOf(now), h.length, h.length ? h[h.length-1].ts : 0, mustLegs,
+    (AppState.plan||[]).map(function(d){ return d ? d.id+':'+d.type+':'+(d.optional?1:0)+':'+d.name : '-'; }).join(',')].join('|');
+  if(_wsCache.key===key) return _wsCache.val;
+
+  var q = weekQueue(now), todayIdx = dayIdxOf(now);
+  var today = sessionsOnDay(now).filter(function(e){ return e.ts <= now; });
+  var trainedToday = today.length > 0;
+  var startIdx = trainedToday ? todayIdx+1 : todayIdx;
+  var prevUpper = trainedToday ? today.some(sessionIsUpper) : sessionsOnDay(now - DAY_MS_WQ).some(sessionIsUpper);
+  var open = q.open.slice();
+  var best = null, bestScore = null;
+  function score(assign){
+    var legs = assign.filter(function(a){ return a.it.isLeg; });
+    var legDay = legs.length ? legs[0].d : 99;
+    return [
+      mustLegs && !legs.length ? 1 : 0,
+      mustLegs ? legDay : 0,
+      -assign.length,
+      -assign.filter(function(a){ return a.it.idx===a.d; }).length,
+      open.some(function(x){ return x.isLeg; }) && !legs.length ? 1 : 0,
+      assign.filter(function(a){ return a.variant==='compact'; }).length,
+      assign.filter(function(a){ return a.consec; }).length,
+      assign.reduce(function(sum, a){ return sum + a.d; }, 0),
+      assign.reduce(function(sum, a, k){ return sum + a.it.idx * Math.pow(8, 6-k); }, 0)
+    ];
+  }
+  function better(a, b){
+    for(var i=0; i<a.length; i++){ if(a[i]!==b[i]) return a[i] < b[i]; }
+    return false;
+  }
+  function rec(d, prevUp, rest, assign){
+    if(d > 6 || !rest.length){
+      var sc = score(assign);
+      if(!best || better(sc, bestScore)){ best = assign.slice(); bestScore = sc; }
+      return;
+    }
+    rec(d+1, false, rest, assign);                    // Tag d ohne Pflichttraining
+    rest.forEach(function(it, k){
+      var variant;
+      if(it.isLeg){ variant = legVariantAt(d); if(!variant) return; }
+      else {
+        if(d > todayIdx && planTypeAt(d)==='match') return;   // Spieltag nicht vorausplanen
+        variant = 'upper';
+      }
+      assign.push({d:d, it:it, variant:variant, consec:!it.isLeg && prevUp});
+      rec(d+1, !it.isLeg, rest.slice(0, k).concat(rest.slice(k+1)), assign);
+      assign.pop();
+    });
+  }
+  if(startIdx <= 6) rec(startIdx, prevUpper, open, []);
+  best = best || [];
+  var scheduled = best.map(function(a){ return a.it; });
+  var val = {now:now, todayIdx:todayIdx, weekStart:q.weekStart, queue:q, trainedToday:trainedToday,
+    todaySessions:today, prevUpper:prevUpper, mustLegs:mustLegs, assign:best,
+    dropped:open.filter(function(x){ return scheduled.indexOf(x) < 0; })};
+  _wsCache = {key:key, val:val};
+  return val;
+}
+var DAY_MS_WQ = 86400000;
+// Anzeigename einer Belegung: "Lower kompakt"
+function scheduleLabel(a){ return a.it.name + (a.variant==='compact' ? ' kompakt' : ''); }
+// Empfehlung für heute (bzw. date): {kind:'train'|'optional'|'rest'|'done', …}
+function recommendedDay(date){
+  var sch = weekSchedule(date);
+  var now = sch.now, todayIdx = sch.todayIdx, todayType = planTypeAt(todayIdx);
+  var next = sch.assign.filter(function(a){ return a.d > todayIdx; })[0] || null;
+  var base = {date:now, todayIdx:todayIdx, schedule:sch, next:next};
+  if(sch.trainedToday){
+    return Object.assign(base, {kind:'done', label:'Heute erledigt: '+sch.todaySessions.map(function(e){ return e.dayName; }).join(', ')});
+  }
+  var a = sch.assign.filter(function(x){ return x.d===todayIdx; })[0];
+  if(a){
+    var hints = [];
+    if(a.it.idx!==todayIdx) hints.push('Verschoben von '+WEEKDAYS[a.it.idx]+'.');
+    if(isFootballType(todayType)) hints.push('Mit mindestens 3 h Abstand zum Fußball, idealerweise danach.');
+    if(a.variant==='compact') hints.push('Morgen Fußball-Training: Lower kompakt – nur Kniebeuge, Beinpresse und Waden, RIR 3.');
+    if(a.consec) hints.push('Gestern Oberkörper: heute RIR +1');
+    return Object.assign(base, {kind:'train', day:a.it.day, idx:a.it.idx, variant:a.variant,
+      moved:a.it.idx!==todayIdx, rirBonus:a.consec ? 1 : 0, label:scheduleLabel(a), hints:hints});
+  }
+  // Kein Pflichttraining passt: optionaler Tag an seinem Wochentag, sonst Ruhetag
+  var pd = (AppState.plan||[])[todayIdx];
+  if(pd && pd.type==='gym' && pd.optional && (pd.ex||[]).length && !(sch.prevUpper && !isLegPlanDay(pd))){
+    return Object.assign(base, {kind:'optional', day:pd, idx:todayIdx, variant:null, rirBonus:0, label:pd.name, hints:['Optional – nur wenn Zeit ist.']});
+  }
+  return Object.assign(base, {kind:'rest',
+    label: todayType==='soccer' ? 'Kein Gym – ⚽ Fußball Training' : todayType==='match' ? 'Kein Gym – 🏟️ Spieltag' : 'Ruhetag'});
+}
+// Dashboard-Karte "Heute"
+function renderTodayCard(){
+  var c = el('todayCard'); if(!c) return;
+  if(!mandatoryGymDays().length){ c.innerHTML = ''; return; }
+  var r = recommendedDay(), sch = r.schedule;
+  var icon = r.kind==='train' ? '🏋️' : r.kind==='optional' ? '➕' : r.kind==='done' ? '✅' : (/Fußball|Spieltag/.test(r.label) ? '⚽' : '😌');
+  var title = r.kind==='train' ? 'Heute: '+r.label : r.kind==='optional' ? 'Heute optional: '+r.label : r.label;
+  var q = sch.queue;
+  var queueTxt = q.items.map(function(x){ return (x.done ? '✓ ' : '') + x.name + (x.done && x.compact ? ' (kompakt)' : ''); }).join(' · ');
+  var nextTxt = r.next ? 'Nächstes: '+WEEKDAYS[r.next.d]+' '+scheduleLabel(r.next) : '';
+  c.innerHTML = '<div class="c" style="margin-bottom:10px">'
+    +'<div style="display:flex;align-items:center;gap:10px"><div style="font-size:24px">'+icon+'</div>'
+    +'<div style="flex:1"><div style="font-size:15px;font-weight:700">'+esc(title)+'</div>'
+    +'<div style="font-size:11px;color:var(--t3);margin-top:2px">Diese Woche: '+esc(queueTxt)+'</div></div></div>'
+    +((r.hints||[]).length ? '<div style="margin-top:8px;font-size:12px;color:var(--t2);line-height:1.5">'+r.hints.map(function(x){ return '• '+esc(x); }).join('<br>')+'</div>' : '')
+    +(nextTxt ? '<div style="margin-top:6px;font-size:11px;color:var(--t3)">'+esc(nextTxt)+'</div>' : '')
+    +((r.kind==='train' || r.kind==='optional') ? '<button type="button" class="btn bp" onclick="startRecommended()" style="margin-top:10px">Workout starten →</button>' : '')
+    +'</div>';
+}
+// Start aus der Empfehlung (Variante und RIR-Zuschlag inklusive)
+function startRecommended(){
+  var r = recommendedDay();
+  if(!(r.kind==='train' || r.kind==='optional') || !r.day) return;
+  startWorkout(r.day.id, {variant:r.variant, rirBonus:r.rirBonus, hints:r.hints});
 }
 
 // ── Datenerfassung (Spec 6) ──────────────────────────────────────────────
@@ -2199,7 +2349,7 @@ function analyzePreWorkoutVolume(day){
   return {overflows: overflows, suggestions: suggestions, sessionVol: sessionVol};
 }
 
-function showPreWorkoutDialog(dayId, day, analysis){
+function showPreWorkoutDialog(dayId, day, analysis, opts){
   // Build modal HTML
   var modalId = 'preWorkoutModal';
   var existing = el(modalId);
@@ -2243,16 +2393,17 @@ function showPreWorkoutDialog(dayId, day, analysis){
 
   el('pw-skip').addEventListener('click', function(){
     modal.remove();
-    proceedWithWorkout(dayId, day, false);
+    proceedWithWorkout(dayId, day, false, null, opts);
   });
   el('pw-apply').addEventListener('click', function(){
     modal.remove();
-    proceedWithWorkout(dayId, day, true, analysis.suggestions);
+    proceedWithWorkout(dayId, day, true, analysis.suggestions, opts);
   });
   el('pw-cancel').addEventListener('click', function(){ modal.remove(); });
 }
 
-function proceedWithWorkout(dayId, day, applyAdjustments, suggestions){
+function proceedWithWorkout(dayId, day, applyAdjustments, suggestions, opts){
+  opts = opts || {};
   // Optional: Adjust the session's exercises based on suggestions
   var exercises = day.ex.map(function(e){ return Object.assign({},e); });
   if(applyAdjustments && suggestions){
@@ -2267,6 +2418,11 @@ function proceedWithWorkout(dayId, day, applyAdjustments, suggestions){
   }
   // Build active session
   var deloadOn = deloadActive();
+  // RIR-Zuschläge schon beim Aufbau, damit die Coach-Vorschläge sie kennen
+  var fix = {};
+  exercises.forEach(function(e){ if(e.rir!=null) fix[e.n] = e.rir; });
+  _buildRirCtx = {bonus:opts.rirBonus||0, fix:fix};
+  try {
   AppState.activeSession = {
     dayId: dayId,
     dayName: day.name + (applyAdjustments?' (optimiert)':''),
@@ -2279,11 +2435,16 @@ function proceedWithWorkout(dayId, day, applyAdjustments, suggestions){
       var w = sug.weight!=null ? String(sug.weight) : '';
       var r = sug.reps!=null ? String(sug.reps) : '';
       var a = sug.add!=null ? String(sug.add) : '';
-      return {n:e.n, s:e.s, isTimed:isTimed, coach:sug,
+      var ex = {n:e.n, s:e.s, isTimed:isTimed, coach:sug,
         sets:Array.from({length:nSets},function(){return {w:w,add:a,r:r,secs:'',rpe:'',done:false};}), done:false};
+      if(e.rir!=null) ex.rir = e.rir;
+      return ex;
     }),
     currentIdx:0, startTs:Date.now(), restEndTs:0
   };
+  } finally { _buildRirCtx = null; }
+  if(opts.rirBonus) AppState.activeSession.rirBonus = opts.rirBonus;
+  if(opts.hints && opts.hints.length) AppState.activeSession.hints = opts.hints.slice();
   // Peak Week (Zykluswoche 5): letzter Satz der Oberkörper-Isolation = RIR 0
   var miStart = mesoInfo();
   if(miStart.week===5 && !miStart.deload) AppState.activeSession.peak = true;
@@ -2297,18 +2458,21 @@ function proceedWithWorkout(dayId, day, applyAdjustments, suggestions){
   if(applyAdjustments) toast('🧠 Plan für heute optimiert (Volumen-Check)');
 }
 
-function startWorkout(dayId){
+// opts (aus der Wochen-Warteschlange): {variant, rirBonus, hints}
+function startWorkout(dayId, opts){
   if(!dayId) return;
+  opts = opts || {};
   var day = AppState.plan.find(function(d){return d.id===dayId;});
   if(!day || !Array.isArray(day.ex) || !day.ex.length){
     toast('Keine Übungen für diesen Tag'); return;
   }
+  if(opts.variant==='compact' && typeof compactLegDay==='function') day = compactLegDay(day);
   // Volumen-Check vor dem Workout
   var analysis = analyzePreWorkoutVolume(day);
   if(analysis && analysis.overflows.length){
-    showPreWorkoutDialog(dayId, day, analysis);
+    showPreWorkoutDialog(dayId, day, analysis, opts);
   } else {
-    proceedWithWorkout(dayId, day, false);
+    proceedWithWorkout(dayId, day, false, null, opts);
   }
 }
 
@@ -2465,6 +2629,7 @@ function renderWorkout(){
           <div class="sl">Aktuelle Übung</div>
           <div style="font-size:20px;font-weight:700;margin-top:6px">${esc(cur.n)}</div>
           <div style="color:var(--t2);margin-top:4px;font-size:13px">Ziel: ${esc(cur.s)}${isTimed?' · <span style="color:var(--blue)">⏱ Zeitübung</span>':' · <span style="color:var(--violet)">'+targetRIRLabel(cur.n)+' · '+mesoLabel()+'</span>'}</div>
+          ${(s.hints||[]).length?`<div style="color:var(--violet);font-size:11px;margin-top:4px">${s.hints.map(esc).join(' · ')}</div>`:''}
           ${last?`<div style="color:var(--t3);font-size:11px;margin-top:6px">Letztes Mal: ${isBWex?(function(){var la=setAddKg(last);return la>0?'+'+la+' kg Zusatz':'Körpergewicht';})():last.w+' kg'} × ${last.r}${rirOf(last.rpe)!==null?' · '+rirLabel(last.rpe):''}</div>`:''}
           ${(function(){
             if(isTimed) return '';
@@ -2937,11 +3102,11 @@ function amrapExerciseFor(exList){
 // Tage lassen sich im Plan verschieben.
 function todayPlanIdx(){ return (new Date().getDay()+6)%7; }
 function upcomingGymDay(){
-  var plan = AppState.plan||[], d = todayPlanIdx();
-  for(var k=0; k<7; k++){
-    var day = plan[(d+k)%7];
-    if(day && day.type==='gym' && (day.ex||[]).length && !day.optional) return {day:day, today:k===0};
-  }
+  // Wochen-Warteschlange: heutige Empfehlung, sonst das nächste eingeplante Training
+  var r = recommendedDay();
+  var dayFor = function(d, variant){ return (variant==='compact' && typeof compactLegDay==='function') ? compactLegDay(d) : d; };
+  if(r.kind==='train') return {day:dayFor(r.day, r.variant), today:true};
+  if(r.next) return {day:dayFor(r.next.it.day, r.next.variant), today:false};
   return null;
 }
 // AMRAP fällig: RPE gewohnheitsmäßig und letzte Kalibrierung älter als 14 Tage
@@ -3596,8 +3761,9 @@ function mesoDeloadDue(){
   var idxs = [];
   (AppState.plan||[]).forEach(function(d, i){ if(d && d.type==='gym' && !d.optional && (d.ex||[]).length) idxs.push(i); });
   if(!idxs.length) return false;
-  var done = (AppState.history||[]).filter(function(e){ return e.ts >= mi.start && weekKeyOf(e.ts) === mi.weekStart; }).length;
-  return done >= idxs.length || todayPlanIdx() > Math.max.apply(null, idxs);
+  // alle Pflichttrainings der Woche erledigt oder keins mehr einplanbar
+  var sch = weekSchedule();
+  return sch.queue.open.length===0 || sch.assign.length===0;
 }
 
 // ── Ziel-RIR je Zykluswoche und Übungstyp (feat/rir-meso, Punkt 4) ────────
@@ -3621,13 +3787,32 @@ function isUpperIsolation(exName){
   return pm.length>0 && pm.every(function(m){ return UPPER_MUSCLES[m]; });
 }
 // lastSet: Ziel für den letzten Satz der Übung (Peak Week: Oberkörper-Isolation RIR 0)
-function targetRIR(exName, lastSet){
+function baseTargetRIR(exName, lastSet){
   if(deloadActive()) return 4;
   var w = mesoWeek();
   var rir = w <= 3 ? 2 : 1;
   if(w===5 && exName && lastSet && isUpperIsolation(exName)) return 0;
   // Untergrenze RIR 1 für Grundübungen und Bein-Isolation (auch Peak Week)
   if(exName && (isCompoundLift(exName) || isLegIsolation(exName))) rir = Math.max(1, rir);
+  return rir;
+}
+// Zuschläge der laufenden Session (Wochen-Warteschlange): feste RIR je Übung
+// (Lower kompakt: RIR 3) und RIR +1 nach Oberkörper am Vortag
+var _buildRirCtx = null;   // während proceedWithWorkout die Session aufbaut
+function sessionRirCtx(exName){
+  if(!exName) return null;
+  if(_buildRirCtx) return {bonus:_buildRirCtx.bonus||0, fix:_buildRirCtx.fix[exName]};
+  var s = AppState.activeSession;
+  var ex = s && (s.exercises||[]).find(function(e){ return e.n===exName; });
+  return ex ? {bonus:s.rirBonus||0, fix:ex.rir} : null;
+}
+function targetRIR(exName, lastSet){
+  var rir = baseTargetRIR(exName, lastSet);
+  var c = sessionRirCtx(exName);
+  if(c){
+    if(c.fix!=null) rir = Math.max(rir, +c.fix);
+    if(c.bonus) rir = Math.min(5, rir + c.bonus);
+  }
   return rir;
 }
 // Anzeige: "RIR 1 · letzter Satz RIR 0" (Peak Week) bzw. "RIR 2"
