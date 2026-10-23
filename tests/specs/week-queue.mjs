@@ -206,4 +206,39 @@ export default function ({ test, assert, loadApp }) {
     const ctx = app([sess(DATE.mi, 'Lower'), sess(DATE.fr, 'Upper A')], '2026-10-26T08:00:00Z');
     assert.deepEqual(plain(ctx.weekPlanOverlay()), { 0: ['Heute: Upper A'] });
   });
+
+  // ── 6 Dauerhaft tauschen ──
+  test('6 Upper A 3 Wochen in Folge am Donnerstag: Karte, Tausch erst nach Bestätigung (über moveDay)', () => {
+    const hist = [sess('2026-10-08', 'Upper A'), sess('2026-10-15', 'Upper A'), sess(DATE.do, 'Upper A')];
+    const ctx = app(hist, `${DATE.do}T19:00:00Z`);
+    const vorher = plain(ctx.AppState.plan.map((d) => d.name));
+    const mv = ctx.permanentMoveSuggestion();
+    assert.deepEqual(plain({ idx: mv.idx, to: mv.to, name: mv.name }), { idx: 0, to: 3, name: 'Upper A' });
+    ctx.renderSmartNotifs();
+    assert.match(text(ctx, 'smartNotifs'), /Upper A dauerhaft auf Donnerstag legen\?/);
+    ctx.offerPermanentMove();
+    assert.match(html(ctx, 'appDialog'), /Dauerhaft tauschen/);
+    assert.deepEqual(plain(ctx.AppState.plan.map((d) => d.name)), vorher, 'vor der Bestätigung unverändert');
+    ctx.confirmDialogOk();
+    const nachher = plain(ctx.AppState.plan.map((d) => d.name));
+    assert.equal(nachher[3], 'Upper A');
+    assert.equal(nachher[0], 'Arme + Schulter + Core');
+    assert.deepEqual([nachher[1], nachher[2], nachher[4], nachher[5], nachher[6]], [vorher[1], vorher[2], vorher[4], vorher[5], vorher[6]]);
+    assert.equal(ctx.permanentMoveSuggestion(), null);
+  });
+
+  test('6 Kein Tausch auf Fußballtage und nie einen Bein-Tag auf einen Tag vor Fußball; "Nein" merkt sich die Antwort', () => {
+    // Upper A 3× am Dienstag (Fußball) → keine Karte
+    const di = app([sess('2026-10-06', 'Upper A'), sess('2026-10-13', 'Upper A'), sess(DATE.di, 'Upper A')], `${DATE.di}T19:00:00Z`);
+    assert.equal(di.permanentMoveSuggestion(), null);
+    // Lower 3× am Donnerstag (vor Fr Fußball) → keine Karte
+    const lo = app([sess('2026-10-08', 'Lower'), sess('2026-10-15', 'Lower'), sess(DATE.do, 'Lower')], `${DATE.do}T19:00:00Z`);
+    assert.equal(lo.permanentMoveSuggestion(), null);
+    // nur 2 Wochen → keine Karte
+    assert.equal(app([sess('2026-10-15', 'Upper A'), sess(DATE.do, 'Upper A')], `${DATE.do}T19:00:00Z`).permanentMoveSuggestion(), null);
+    // "Nein, danke" → Karte verschwindet
+    const nein = app([sess('2026-10-08', 'Upper A'), sess('2026-10-15', 'Upper A'), sess(DATE.do, 'Upper A')], `${DATE.do}T19:00:00Z`);
+    nein.declinePermanentMove();
+    assert.equal(nein.permanentMoveSuggestion(), null);
+  });
 }

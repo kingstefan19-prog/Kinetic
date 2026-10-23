@@ -1353,6 +1353,14 @@ function renderSmartNotifs(){
       type:'warn', prio:1, buttons:btns});
   }
 
+  // Wochen-Warteschlange: 3 Wochen in Folge am selben anderen Tag → dauerhaft legen?
+  var pmv = permanentMoveSuggestion();
+  if(pmv){
+    notifs.push({icon:'🔁', title:pmv.name+' dauerhaft auf '+WEEKDAYS[pmv.to]+' legen?',
+      body:'Seit 3 Wochen am '+WEEKDAYS[pmv.to]+' statt am '+WEEKDAYS[pmv.idx]+'. Der Plan ändert sich erst nach Bestätigung.',
+      type:'sleep', prio:1, buttons:[{label:'Ansehen', fn:'offerPermanentMove()'}, {label:'Nein, danke', fn:'declinePermanentMove()'}]});
+  }
+
   // Montags-Wiegen (Spec 6.1): ohne Gewichtsverlauf keine Recomp-Auswertung
   var wDue = weighInDue();
   if(wDue){
@@ -1728,6 +1736,73 @@ function weekPlanOverlay(date){
   });
   sch.dropped.forEach(function(x){ add(x.idx, 'entfällt diese Woche'); });
   return out;
+}
+// ── Dauerhaft tauschen (feat/week-queue, Punkt 6) ────────────────────────
+// Wurde ein Pflichttraining 3 Wochen in Folge am selben anderen Wochentag
+// gemacht, fragt eine Karte, ob es dauerhaft dorthin soll. Erst nach
+// Bestätigung tauscht moveDay() die beiden Plan-Tage. Fußballtermine
+// bleiben fix (kein Tausch mit soccer/match), ein Bein-Tag landet nie auf
+// einem Tag vor Fußball.
+function permanentMoveSuggestion(date){
+  var now = date==null ? Date.now() : +new Date(date);
+  var plan = AppState.plan||[];
+  var wks = [0,1,2,3].map(function(k){ return weekKeyOf(weekKeyOf(now) - (k*7 - 3.5)*DAY_MS_WQ); });
+  wks[0] = weekKeyOf(now);
+  var declined = DB.get('swapDeclined', {}) || {};
+  var found = null;
+  mandatoryGymDays().some(function(m){
+    var base = baseDayName(m.day.name);
+    var pos = wks.map(function(w){
+      var e = weekSessions(w, now).filter(function(x){ return baseDayName(x.dayName)===base; })[0];
+      return e ? dayIdxOf(e.ts) : null;
+    });
+    [[0,1,2],[1,2,3]].some(function(run){
+      var p = pos[run[0]];
+      if(p==null || p===m.idx || !run.every(function(k){ return pos[k]===p; })) return false;
+      var target = plan[p];
+      if(!target || isFootballType(target.type)) return false;
+      if(isLegPlanDay(m.day)){
+        // Typ des Folgetags nach dem Tausch
+        var nxt = (p+1)%7;
+        var tNext = nxt===m.idx ? target.type : planTypeAt(nxt);
+        if(isFootballType(tNext)) return false;
+      }
+      var key = base+'|'+p;
+      if(declined[key] && now - declined[key] < 28*DAY_MS_WQ) return false;
+      found = {idx:m.idx, to:p, name:m.day.name, key:key};
+      return true;
+    });
+    return !!found;
+  });
+  return found;
+}
+// Zwei Plan-Tage tauschen – über moveDay (a → b, dann der verdrängte Tag nach a)
+function swapPlanDays(i, j){
+  if(i===j) return;
+  var a = Math.min(i, j), b = Math.max(i, j);
+  moveDay(a, b);
+  moveDay(b-1, a);
+}
+function offerPermanentMove(){
+  var mv = permanentMoveSuggestion(); if(!mv) return;
+  var other = (AppState.plan||[])[mv.to];
+  showConfirmDialog({
+    title:mv.name+' dauerhaft auf '+WEEKDAYS[mv.to]+' legen?',
+    bodyHtml:'Seit 3 Wochen trainierst du '+esc(mv.name)+' am '+WEEKDAYS[mv.to]+' statt am '+WEEKDAYS[mv.idx]+'. '
+      +'Dann tauschen '+esc(mv.name)+' und '+esc(other ? other.name : 'der '+WEEKDAYS[mv.to])+' im Plan die Plätze. Historie und PRs bleiben unverändert.',
+    okLabel:'Dauerhaft tauschen', onOk:function(){
+      swapPlanDays(mv.idx, mv.to);
+      toast('✅ '+mv.name+' liegt jetzt dauerhaft am '+WEEKDAYS[mv.to]);
+      safeCall(refreshDash);
+    }
+  });
+}
+function declinePermanentMove(){
+  var mv = permanentMoveSuggestion(); if(!mv) return;
+  var d = DB.get('swapDeclined', {}) || {};
+  d[mv.key] = Date.now();
+  DB.set('swapDeclined', d);
+  safeCall(refreshDash);
 }
 // Anzeigename einer Belegung: "Lower kompakt"
 function scheduleLabel(a){ return a.it.name + (a.variant==='compact' ? ' kompakt' : ''); }
