@@ -74,4 +74,31 @@ export default function ({ test, assert, loadApp }) {
     const ctx = loadApp({ meso: { start: MO('2026-08-31') }, history: hist }, { now: '2026-09-16T08:00:00Z' });
     assert.equal(ctx.mesoWeek(), 3);
   });
+
+  // ── 3 Varianten ──
+  test('3 Seitheben (Kabel) letzte Woche: Seitheben (KH) nach 18 Wochen startet normal, nicht mit −20 %', () => {
+    const hist = [session('2026-06-22', 'Seitheben (KH)', [[14, 12, 8], [14, 12, 8], [14, 11, 8]]),
+      session('2026-10-14', 'Seitheben (Kabel)', [[20, 14, 8], [20, 13, 8]])];
+    const ctx = loadApp({ history: hist }, { now: '2026-10-21T08:00:00Z' });
+    assert.ok(ctx.isRelatedExercise('Seitheben (KH)', 'Seitheben (Kabel)'));
+    assert.equal(ctx.layoffStatus('Seitheben (KH)'), null);
+    const r = ctx.coachSuggestion('Seitheben (KH)', '3×12-15');
+    assert.ok(r.weight >= 14, `Gewicht ${r.weight}`);
+    assert.doesNotMatch(r.hint, /Pause|−20/);
+    // ohne verwandte Übung: weiterhin −20 %
+    const allein = loadApp({ history: [hist[0], session('2026-10-14', 'Beinpresse', [[200, 10, 8]])] }, { now: '2026-10-21T08:00:00Z' });
+    assert.equal(allein.layoffStatus('Seitheben (KH)').mod, 0.8);
+  });
+
+  test('3 Gleicher Primärmuskel zählt ebenfalls; preLayoffRef ignoriert überbrückte Lücken', () => {
+    assert.equal(loadApp({}).isRelatedExercise('Kabelflys (untere Rolle)', 'Bankdrücken (LH)'), true, 'beide Brust (w = 1)');
+    assert.equal(loadApp({}).isRelatedExercise('Beinstrecker', 'Bankdrücken (LH)'), false);
+    const SB = 'Schrägbankdrücken (KH)';
+    const hist = [session('2026-09-01', SB, [[42, 9, 8], [42, 9, 8]]), session('2026-09-08', SB, [[42, 9, 8], [42, 9, 8]]),
+      session('2026-09-20', 'Bankdrücken (LH)', [[100, 8, 8]]), session('2026-10-01', 'Bankdrücken (LH)', [[100, 8, 8]]),
+      session('2026-10-07', SB, [[34, 10, 7], [34, 10, 7]])];
+    const ctx = loadApp({ history: hist }, { now: '2026-10-10T08:00:00Z' });
+    assert.equal(ctx.preLayoffRef(SB), null, 'Brust lief durchgehend weiter');
+    assert.doesNotMatch(ctx.coachSuggestion(SB, '3×8-12').hint, /Vor der Pause/);
+  });
 }

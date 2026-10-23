@@ -3768,6 +3768,9 @@ function preLayoffRef(exName){
     if(sess[i].ts - sess[i-1].ts > LAYOFF_FREE_DAYS*86400000){ gapIdx = i; break; }   // Pause wie layoffStatus
   }
   if(gapIdx < 0 || sess.length - gapIdx > 3) return null;
+  // Lücke durch eine verwandte Übung überbrückt → keine echte Pause
+  var dRel = daysSinceRelated(exName, sess[gapIdx].ts - 1);
+  if(dRel!=null && dRel <= LAYOFF_FREE_DAYS) return null;
   var ref = bestWorkSet(sess.slice(Math.max(0, gapIdx-2), gapIdx).map(function(x){ return x.sets; }));
   if(ref) ref.sessionsSince = sess.length - gapIdx;
   return ref;
@@ -3814,11 +3817,38 @@ function restSecondsFor(exName, isTimed){
 // 2013). Bis 21 Tage: keine Pause · 22–28: gleiches Gewicht ohne Steigerung
 // · 29–56: −10 % · darüber −20 %. Die Ziel-RIR (+1) liefert targetRIR().
 var LAYOFF_FREE_DAYS = 21;
+// Verwandte Übung (fix/integration, Punkt 3): gleiche Familie
+// (EXERCISE_FAMILIES über findFamilyFor) oder gleicher Primärmuskel (w = 1).
+// Beispiel: Seitheben (Kabel) und Seitheben (KH).
+function isRelatedExercise(a, b){
+  if(!a || !b || a===b) return false;
+  var fa = findFamilyFor(a), fb = findFamilyFor(b);
+  if(fa && fb && fa.id===fb.id) return true;
+  var pb = primaryMuscles(b);
+  return primaryMuscles(a).some(function(m){ return pb.indexOf(m) >= 0; });
+}
+// Tage seit dem letzten Training einer verwandten Übung (bis asOf), sonst null
+function daysSinceRelated(exName, asOf){
+  var t = asOf==null ? Date.now() : asOf, h = AppState.history||[], best = null;
+  h.forEach(function(e){
+    if(!e || !(e.ts <= t)) return;
+    if((e.sets||[]).some(function(x){ return isRelatedExercise(exName, x.ex); })){
+      var d = Math.floor((t - e.ts)/86400000);
+      if(best===null || d < best) best = d;
+    }
+  });
+  return best;
+}
 function layoffStatus(exName){
   var dEx = daysSinceExercise(exName);
   var dAll = daysSinceLastWorkout();
   var days = (dEx==null) ? dAll : dEx;
   if(days==null || days <= LAYOFF_FREE_DAYS) return null;
+  // Variante/gleicher Muskel in den letzten 21 Tagen trainiert → keine Pause
+  if(dEx!=null){
+    var dRel = daysSinceRelated(exName);
+    if(dRel!=null && dRel <= LAYOFF_FREE_DAYS) return null;
+  }
   if(days <= 28) return {days:days, mod:1.0,  note:'⏸️ '+days+' Tage Pause → gleiches Gewicht, heute keine Steigerung.'};
   if(days <= 56) return {days:days, mod:0.90, note:'⏸️ '+Math.round(days/7)+' Wochen Pause → −10 %, sauber wieder einsteigen.'};
   return              {days:days, mod:0.80, note:'⏸️ '+Math.round(days/7)+' Wochen Pause → −20 %, Technik vor Last. Muscle Memory bringt dich zügig zurück.'};
