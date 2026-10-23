@@ -91,4 +91,33 @@ export default function ({ test, assert, loadApp }) {
     assert.equal(r.hint, '2 Sessions in Folge mit RIR 3 oder mehr → +2 kg, die Reserve nutzen.');
     assert.doesNotMatch(r.hint, /Ø RIR|≥/);
   });
+
+  // ── 4 Zeitübungen ohne RIR ──
+  test('4 Zeitübungen (Copenhagen, Plank): keine Ziel-RIR, keine RIR-Spalte, keine Schnellwahl', () => {
+    const PLAN = plain(loadApp({}).plan3plus1());
+    for (const [dayId, name, hist] of [['wed', 'Copenhagen Adduction', []], ['thu', 'Plank', []],
+      ['wed', 'Copenhagen Adduction', [{ ts: Date.parse('2026-10-21T17:00:00Z'), dayName: 'Lower', durationMs: 3e6, volume: 0,
+        sets: [{ ex: 'Copenhagen Adduction', secs: 25 }, { ex: 'Copenhagen Adduction', secs: 25 }] }]]]) {
+      const c = loadApp({ plan: plain(PLAN), history: hist }, { now: '2026-10-28T08:00:00Z' });
+      c.startWorkout(dayId);
+      const s = c.AppState.activeSession;
+      s.currentIdx = s.exercises.findIndex((e) => e.n === name);
+      assert.equal(s.exercises[s.currentIdx].isTimed, true, name);
+      c.renderWorkout();
+      const html = c.document.getElementById('workoutContent').innerHTML;
+      assert.doesNotMatch(html, /RIR/, `${name}: RIR im Workout`);
+      assert.doesNotMatch(html, /data-rir-pick|data-rir-val/, name);
+      assert.match(html, /⏱ Zeitübung/);
+      assert.match(html, /data-set-field="secs"/);
+      assert.match(html, /<colgroup><col style="width:24px"><col><col><col style="width:52px"><col style="width:44px"><col style="width:24px"><\/colgroup>/);
+    }
+    // Gewichtsübung behält Ziel-RIR und Schnellwahl
+    const c = loadApp({ plan: plain(PLAN), history: [] }, { now: '2026-10-28T08:00:00Z' });
+    c.startWorkout('wed');
+    c.renderWorkout();
+    const html = c.document.getElementById('workoutContent').innerHTML;
+    assert.match(html, /data-rir-pick="0"/);
+    assert.equal((html.match(/data-rir-val=/g) || []).length, 5);
+    assert.match(html, /Ziel RIR/);
+  });
 }

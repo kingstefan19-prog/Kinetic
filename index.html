@@ -2726,7 +2726,8 @@ function renderWorkout(){
 
     // Sets HTML
     // Satztabelle (feste Spalten, siehe colgroup): KG/WDH zentriert und ohne
-    // Mindestbreite, damit am iPhone (375 px) "112.5" und "10" ganz sichtbar sind
+    // Mindestbreite, damit am iPhone (375 px) "112.5" und "10" ganz sichtbar sind.
+    // Zeitübungen: RIR-Spalte bleibt leer, keine Schnellwahl (fix/polish, Punkt 4)
     const numInp='width:100%;min-width:0;padding:8px 4px;text-align:center;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-size:14px';
     const setsHtml=cur.sets.map((st,i)=>`
       <tr>
@@ -2738,7 +2739,7 @@ function renderWorkout(){
               :`<input data-set-idx="${i}" data-set-field="w" type="number" inputmode="decimal" placeholder="kg" value="${st.w||''}" style="${numInp}">`}</td>
            <td><input data-set-idx="${i}" data-set-field="r" type="number" inputmode="numeric" min="1" max="50" step="1" placeholder="Wdh" value="${st.r||''}" style="${numInp}"></td>`
         }
-        <td><button type="button" data-rir-pick="${i}" aria-label="RIR Satz ${i+1}" style="width:100%;min-width:0;padding:8px 2px;background:var(--card2);border:1px solid ${i===rpeIdx?'var(--violet)':'var(--border)'};border-radius:6px;color:${st.rpe?'var(--t1)':'var(--t3)'};font-size:14px;font-family:var(--f);cursor:pointer">${rirOf(st.rpe)!==null?rpeFmt(rirOf(st.rpe)):'RIR'}</button></td>
+        <td>${isTimed?'':`<button type="button" data-rir-pick="${i}" aria-label="RIR Satz ${i+1}" style="width:100%;min-width:0;padding:8px 2px;background:var(--card2);border:1px solid ${i===rpeIdx?'var(--violet)':'var(--border)'};border-radius:6px;color:${st.rpe?'var(--t1)':'var(--t3)'};font-size:14px;font-family:var(--f);cursor:pointer">${rirOf(st.rpe)!==null?rpeFmt(rirOf(st.rpe)):'RIR'}</button>`}</td>
         <td><button type="button" class="btn ${st.done?'bp':'bg2'}" data-set-done="${i}" style="padding:8px 0;font-size:12px;margin:0;width:100%;min-width:0">${st.done?'✓':'○'}</button></td>
         <td>${cur.sets.length>1?`<button type="button" data-set-del="${i}" aria-label="Satz ${i+1} löschen" style="background:none;border:none;color:var(--t3);font-size:15px;cursor:pointer;padding:6px 0;line-height:1;width:100%">✕</button>`:''}</td>
       </tr>${ask&&ask.idx===i?`
@@ -2872,14 +2873,14 @@ function renderWorkout(){
             <thead><tr>
               <th></th>
               ${isTimed?'<th colspan="2" style="font-size:10px;color:var(--t3);font-weight:500;text-align:center">SEKUNDEN</th>':'<th style="font-size:10px;color:var(--t3);font-weight:500;text-align:center;line-height:1.15">'+(isBWex?'ZUSATZ (KG)':'KG')+'</th><th style="font-size:10px;color:var(--t3);font-weight:500;text-align:center">WDH</th>'}
-              <th style="font-size:10px;color:var(--t3);font-weight:500;text-align:center">RIR</th>
+              <th style="font-size:10px;color:var(--t3);font-weight:500;text-align:center">${isTimed?'':'RIR'}</th>
               <th></th>
               <th></th>
             </tr></thead>
             <tbody>${setsHtml}</tbody>
           </table>
           ${adj?`<div style="margin-top:6px;padding:8px 10px;background:rgba(10,132,255,.10);border-left:3px solid var(--blue);border-radius:6px;font-size:12px;color:var(--t1);display:flex;align-items:center;gap:8px"><span style="flex:1">🔧 ${esc(adj.msg)}</span><button type="button" id="adjUndo" class="btn bg2" style="width:auto;padding:6px 10px;font-size:12px;margin:0">Rückgängig</button></div>`:''}
-          ${rpeQuickHtml(cur, rpeIdx)}
+          ${isTimed?'':rpeQuickHtml(cur, rpeIdx)}
           <button type="button" id="addSetBtn" class="btn bo" style="margin-top:8px;font-size:12px;padding:8px">+ Satz hinzufügen</button>
         </div>
 
@@ -4416,6 +4417,9 @@ function coachSuggestionCore(exName, targetStr){
   var sleepNote = sleep ? sleep.note : '';
 
   if(!last.length){
+    // Zeitübung: keine Ziel-RIR (fix/polish, Punkt 4)
+    if(/\d+s/.test(String(targetStr||'')) || /plank/i.test(exName))
+      return {weight:null, reps:range?range.lo:null, hint:joinHint('Erstes Mal – Zielzeit sauber halten, Technik vor Dauer', sleepNote)};
     // Neue Übung: vorsichtige Schätzung aus einer verwandten Übung (Punkt 5)
     var est = estimateStartWeight(exName);
     if(est) return {weight:est.weight, reps:range?range.lo:null, hint:joinHint(est.hint, sleepNote), estimate:true};
