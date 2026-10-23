@@ -1859,7 +1859,31 @@ function renderTodayCard(){
 function startRecommended(){
   var r = recommendedDay();
   if(!(r.kind==='train' || r.kind==='optional') || !r.day) return;
-  startWorkout(r.day.id, {variant:r.variant, rirBonus:r.rirBonus, hints:r.hints});
+  startWorkout(r.day.id, {variant:r.variant, rirBonus:r.rirBonus, hints:r.hints, fromRec:true});
+}
+// ── Starten bleibt frei (feat/week-queue, Punkt 7) ───────────────────────
+// Manueller Start eines Plan-Tags: nie gesperrt, nur kurze Hinweise, wenn
+// er von der Empfehlung abweicht oder eine Regel verletzt.
+// Liefert {hints, rirBonus}.
+function manualStartCheck(day, variant, date){
+  var r = recommendedDay(date), i = r.todayIdx, hints = [], bonus = 0;
+  var todayT = planTypeAt(i), tomorrowT = planTypeAt(i+1);
+  if(r.kind==='train' && r.day && r.day.id !== day.id) hints.push('Empfohlen wäre heute: '+r.label+'.');
+  else if(r.kind==='done') hints.push('Heute schon trainiert.');
+  else if(r.kind==='rest' && day.type==='gym' && !day.optional) hints.push('Laut Wochenplan heute kein Pflichttraining.');
+  var q = weekQueue(date);
+  if(q.done.some(function(x){ return x.day.id===day.id; })) hints.push(day.name+' ist diese Woche schon erledigt.');
+  if(isLegPlanDay(day)){
+    var v = legVariantAt(i);
+    if(tomorrowT==='match') hints.push('Morgen Spiel: Bein-Training wird heute nicht empfohlen.');
+    else if(!v) hints.push('Fußball heute: Bein-Training wird heute nicht empfohlen.');
+    else if(v==='compact' && variant!=='compact') hints.push('Morgen Fußball-Training: Lower kompakt wäre empfohlen.');
+  } else {
+    if(isFootballType(todayT)) hints.push('Mit mindestens 3 h Abstand zum Fußball, idealerweise danach.');
+    var sch = r.schedule;
+    if(!day.optional && sch.prevUpper && !sch.trainedToday){ hints.push('Gestern Oberkörper: heute RIR +1'); bonus = 1; }
+  }
+  return {hints:hints, rirBonus:bonus};
 }
 
 // ── Datenerfassung (Spec 6) ──────────────────────────────────────────────
@@ -2609,6 +2633,7 @@ function proceedWithWorkout(dayId, day, applyAdjustments, suggestions, opts){
   AppState.saveSession();
   navigate('workout');
   if(applyAdjustments) toast('🧠 Plan für heute optimiert (Volumen-Check)');
+  else if(opts.toast) toast('ℹ️ '+opts.toast);
 }
 
 // opts (aus der Wochen-Warteschlange): {variant, rirBonus, hints}
@@ -2618,6 +2643,11 @@ function startWorkout(dayId, opts){
   var day = AppState.plan.find(function(d){return d.id===dayId;});
   if(!day || !Array.isArray(day.ex) || !day.ex.length){
     toast('Keine Übungen für diesen Tag'); return;
+  }
+  if(!opts.fromRec){
+    // manuell gestartet: Hinweise statt Sperre (Punkt 7)
+    var chk = manualStartCheck(day, opts.variant);
+    opts = Object.assign({}, opts, {hints:chk.hints, rirBonus:chk.rirBonus, toast:chk.hints[0]});
   }
   if(opts.variant==='compact' && typeof compactLegDay==='function') day = compactLegDay(day);
   // Volumen-Check vor dem Workout

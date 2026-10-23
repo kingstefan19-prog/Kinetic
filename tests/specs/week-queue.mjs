@@ -241,4 +241,36 @@ export default function ({ test, assert, loadApp }) {
     nein.declinePermanentMove();
     assert.equal(nein.permanentMoveSuggestion(), null);
   });
+
+  // ── 7 Starten bleibt frei ──
+  const planId = (ctx, name) => ctx.AppState.plan.find((d) => d.name === name).id;
+
+  test('7 Beine am Samstag (Spiel am Sonntag): Start möglich, nur Hinweis', () => {
+    const ctx = app([sess(DATE.mo, 'Upper A')], `${DATE.sa}T08:00:00Z`);
+    ctx.startWorkout(planId(ctx, 'Lower'));
+    const s = ctx.AppState.activeSession;
+    assert.ok(s, 'keine Sperre');
+    assert.equal(s.dayName, 'Lower');
+    assert.ok(s.hints.includes('Morgen Spiel: Bein-Training wird heute nicht empfohlen.'));
+    assert.ok(s.hints.includes('Empfohlen wäre heute: Upper B.'));
+    const t = ctx.document.getElementById('toast');
+    assert.equal(t.classList.contains('show'), true);
+    assert.match(t.textContent, /Empfohlen wäre heute: Upper B/);
+  });
+
+  test('7 Abweichung von der Empfehlung: Hinweis; Start der Empfehlung: kein Hinweis', () => {
+    const ctx = app([], `${DATE.mo}T08:00:00Z`);
+    ctx.startWorkout(planId(ctx, 'Upper B'));
+    assert.deepEqual(plain(ctx.AppState.activeSession.hints), ['Empfohlen wäre heute: Upper A.']);
+    const ok = app([], `${DATE.mo}T08:00:00Z`);
+    ok.startWorkout(planId(ok, 'Upper A'));
+    assert.equal((ok.AppState.activeSession.hints || []).length, 0);
+    // Oberkörper am Folgetag manuell: erlaubt, Hinweis und RIR +1
+    const fo = app([sess(DATE.mo, 'Upper A')], `${DATE.di}T08:00:00Z`);
+    fo.startWorkout(planId(fo, 'Upper B'));
+    const s = fo.AppState.activeSession;
+    assert.ok(s.hints.includes('Gestern Oberkörper: heute RIR +1'));
+    assert.ok(s.hints.includes('Mit mindestens 3 h Abstand zum Fußball, idealerweise danach.'));
+    assert.equal(s.rirBonus, 1);
+  });
 }
