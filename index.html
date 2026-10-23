@@ -3840,6 +3840,12 @@ function layoffStatus(exName){
   return              {days:days, mod:0.80, note:'⏸️ '+Math.round(days/7)+' Wochen Pause → −20 %, Technik vor Last. Muscle Memory bringt dich zügig zurück.'};
 }
 
+// Gewicht auf den nächsten Gewichtsschritt der Übung runden (mindestens ein Schritt)
+function roundToStep(exName, w){
+  var st = plateStep(exName, w);
+  return Math.max(st, Math.round(w/st)*st);
+}
+
 // Empfohlenes Gewicht für Ziel-Wdh bei Ziel-RIR, abgeleitet aus aktuellem E1RM
 function loadForReps(exName, reps, rir){
   var e = currentE1rm(exName);
@@ -4376,7 +4382,7 @@ function coachSuggestion(exName, targetStr){
 function estimateStartWeight(exName){
   var n = String(exName||'');
   if(!n || /nordic|copenhagen|plank/i.test(n) || equipmentType(n)==='bodyweight') return null;
-  var round = function(w){ var st = plateStep(n, w); return Math.max(st, Math.round(w/st)*st); };
+  var round = function(w){ return roundToStep(n, w); };
   var names = {};
   (AppState.history||[]).forEach(function(e){ (e.sets||[]).forEach(function(x){ if(x.ex && x.ex!==n && +x.w>0) names[x.ex] = e.ts; }); });
   var known = Object.keys(names);
@@ -4410,6 +4416,20 @@ function coachSuggestionCore(exName, targetStr){
     var est = estimateStartWeight(exName);
     if(est) return {weight:est.weight, reps:range?range.lo:null, hint:joinHint(est.hint, sleepNote), estimate:true};
     return {weight:null, reps:range?range.lo:null, hint:joinHint('Erstes Mal – starte mit RIR 3 (RPE 7)', sleepNote)};
+  }
+
+  // Zeitübungen (Plank, Copenhagen …) loggen Sekunden statt Gewicht × Wdh.
+  // Ohne eigenen Zweig zählen ihre Sätze als "unter Wdh-Ziel" → falscher −7 %-Deload.
+  var secsList = last.map(function(x){ return +(x.secs)||0; }).filter(function(v){ return v>0; });
+  if(secsList.length && !last.some(function(x){ return +(x.r)>0; })){
+    var tReps = range ? range.lo : null;
+    if(deloadActive()) return {weight:null, reps:tReps, hint:'😌 Deload aktiv: lockere Ausführung, kürzer halten.'};
+    var tLay = layoffStatus(exName);
+    if(tLay) return {weight:null, reps:tReps, hint:'⏸️ '+tLay.days+' Tage Pause → Zeit vom letzten Mal ('+Math.min.apply(null, secsList)+' s) halten, heute keine Steigerung.'};
+    var tHint = (range && Math.min.apply(null, secsList) >= range.hi)
+      ? 'Alle Sätze am Zeitziel – nächste Stufe: schwerere Variante oder Zusatzlast.'
+      : 'Gleiche Ausführung – +5 s pro Satz anpeilen.';
+    return {weight:null, reps:tReps, hint:joinHint(tHint, sleep && sleep.q!=='ok' ? sleepNote : '')};
   }
 
   // Körpergewichtsübungen rechnen mit der Zusatzlast, nicht mit w
@@ -4538,7 +4558,7 @@ function coachSuggestionCore(exName, targetStr){
 
   // PRIORITÄT 1 – Failed low (mehrere Sätze unter Grenze) → Deload −7%
   if(failedLow){
-    var w = Math.round(workW * 0.93 * 2)/2;
+    var w = roundToStep(exName, workW * 0.93);
     return {weight:w, reps:range?range.lo:workReps[0], hint:'Mehrere Sätze unter Wdh-Ziel → −7% Deload. Sauber wieder aufbauen.'};
   }
   // PRIORITÄT 2 – RPE > 9 (aber Wdh im Soll): halten
@@ -4611,7 +4631,7 @@ function coachSuggestionCore(exName, targetStr){
   if(sleep){
     if(sleep.q==='top') hint = joinHint(hint, sleepNote);
     else if(sleep.q==='bad'){
-      var redW = Math.round(workW * 0.95 * 2)/2;
+      var redW = roundToStep(exName, workW * 0.95);
       return {weight:redW, reps:targetReps, hint:joinHint('Recovery niedrig → −5% heute, Substanz erhalten', sleepNote)};
     }
   }

@@ -158,6 +158,71 @@ fixtures['post-layoff'] = backup(
     ],
   });
 
+// ── realistic-3plus1 (fix/integration, Punkt 7) ──────────────────────────
+// 10 Wochen plan3plus1 (Mo Upper A, Mi Lower, Sa Upper B; Fußball Di/Fr/So),
+// realistische Gewichte. Woche 7: Upper A fällt aus. Woche 9: ein schlechter
+// Kniebeugen-Tag (2 Sätze unter Wdh-Ziel). Rumänisches Kreuzheben und Nordic
+// werden nie geloggt, der optionale Do nie gemacht – Seitheben (KH) zuletzt
+// vor 18 Wochen. Ein einzelner sleepLog-Eintrag (6 h) ist 20 Wochen alt.
+{
+  const { loadApp } = await import('./harness.mjs');
+  const PLAN = JSON.parse(JSON.stringify(loadApp({}).plan3plus1()));
+  const MON = Date.parse('2026-08-17T00:00:00Z');                 // Woche 1
+  const day = (k, dow) => new Date(MON + (k * 7 + dow) * 24 * HOUR).toISOString().slice(0, 10);
+  // Gewicht je Woche (Index = Block): Wochen 1–3, 4–6, 7–10
+  const blk = (k) => (k < 3 ? 0 : k < 6 ? 1 : 2);
+  const W = {
+    'Bankdrücken (LH)': [105, 107.5, 110], 'Schrägbankdrücken (KH)': [34, 34, 36], 'Rudern (LH Untergriff)': [77.5, 80, 80],
+    'Seitheben (Kabel)': [20, 20, 20], 'Trizeps Pushdown (Seil)': [57.5, 57.5, 60], 'Bizeps Curl (LH)': [35, 35, 37.5],
+    'Kniebeuge (LH)': [140, 145, 150], 'Beinpresse': [190, 195, 200], 'Beinstrecker': [42.5, 42.5, 45],
+    'Beinbeuger (Maschine liegend)': [37.5, 40, 40], 'Abduktionsmaschine (sitzend)': [85, 90, 90], 'Wadenheben stehend': [95, 97.5, 100],
+    'Schrägbank Bankdrücken (LH)': [85, 87.5, 90], 'Latzug (Untergriff eng)': [85, 87.5, 90], 'Schulterdrücken (KH sitzend)': [30, 32, 32],
+    'Einarmiges KH-Rudern': [38, 40, 40], 'Pec Deck / Maschinen-Flys': [75, 77.5, 80], 'Overhead Extension (KH)': [16, 16, 18],
+    'Face Pulls (Kabel)': [40, 40, 42.5], 'Hammer Curl (KH)': [16, 18, 18],
+  };
+  const KLIMM_ADD = [0, 0, 2.5];
+  const NIE = /Rumänisches Kreuzheben|Nordic/;
+  // Wdh steigen innerhalb des Blocks um 1 pro Woche (nie über die Obergrenze), letzte 2 Sätze −1
+  function rowsFor(e, k) {
+    const m = String(e.s).match(/^(\d+)×(\d+)(?:-(\d+))?/);
+    const n = +m[1], lo = +m[2], hi = +(m[3] || m[2]);
+    const r = Math.min(hi, lo + 1 + (k - [0, 3, 6][blk(k)]));
+    return Array.from({ length: n }, (_, i) => Math.max(lo, i >= n - 2 ? r - 1 : r));
+  }
+  function daySets(name, k) {
+    const d = PLAN.find((x) => x.name === name);
+    return d.ex.filter((e) => !NIE.test(e.n)).map((e) => {
+      if (e.timed) return Array.from({ length: parseInt(e.s, 10) }, () => ({ ex: e.n, secs: 25 }));
+      if (e.n === 'Klimmzüge') {
+        const add = KLIMM_ADD[blk(k)];
+        return rowsFor(e, k).map((r) => ({ ex: e.n, w: 100 + add, add, r, rpe: 8 }));
+      }
+      // Woche 9: schlechter Kniebeugen-Tag (6, 4, 4 – zwei Sätze unter dem Ziel)
+      if (e.n === 'Kniebeuge (LH)' && k === 8) return setList(e.n, [[150, 6, 9], [150, 4, 10], [150, 4, 10]]);
+      return rowsFor(e, k).map((r, i) => ({ ex: e.n, w: W[e.n][blk(k)], r, rpe: i < 1 ? 7.5 : 8 }));
+    });
+  }
+  const history = [
+    session('2026-06-22', 'Arme + Schulter + Core', [setList('Seitheben (KH)', [[14, 12, 8], [14, 12, 8], [14, 11, 8]])]),
+  ];
+  for (let k = 0; k < 10; k++) {
+    if (k !== 6) history.push(session(day(k, 0), 'Upper A', daySets('Upper A', k), 68 * MIN));   // Woche 7: Upper A fällt aus
+    history.push(session(day(k, 2), 'Lower', daySets('Lower', k), 62 * MIN));
+    history.push(session(day(k, 5), 'Upper B', daySets('Upper B', k), 66 * MIN));
+  }
+  fixtures['realistic-3plus1'] = backup(
+    'realistic-3plus1',
+    '10 Wochen plan3plus1 mit realistischen Gewichten; Woche 7 ohne Upper A, Woche 9 schlechter Kniebeugen-Tag, '
+      + 'RDL/Nordic nie geloggt, Seitheben (KH) zuletzt vor 18 Wochen, ein sleepLog-Eintrag 20 Wochen alt',
+    '2026-10-26T06:00:00Z', 'fix/integration 7',
+    {
+      plan: PLAN,
+      history,
+      sleepLog: [{ h: 6, d: '2026-06-08' }],
+      weightLog: [{ w: 100, d: '2026-10-19' }],
+    });
+}
+
 fs.mkdirSync(OUT, { recursive: true });
 for (const [name, data] of Object.entries(fixtures)) {
   const file = path.join(OUT, `${name}.json`);

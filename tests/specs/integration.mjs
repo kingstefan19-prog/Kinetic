@@ -1,5 +1,5 @@
 // fix/integration – Fehler, die erst im Zusammenspiel mit echter Historie auffallen
-export const title = 'Integration · Schlaf, Pausen, Varianten, Startgewicht, Spieltag';
+export const title = 'Integration · Schlaf, Pausen, Varianten, Startgewicht, Spieltag, realistische Historie';
 
 const DAY = 864e5;
 const plain = (x) => JSON.parse(JSON.stringify(x));
@@ -8,7 +8,7 @@ function session(date, ex, rows, dayName = 'Test') {
     sets: rows.map(([w, r, rpe]) => ({ ex, w, r, rpe })) };
 }
 
-export default function ({ test, assert, loadApp }) {
+export default function ({ test, assert, loadApp, loadFixture }) {
   // ── 1 Altersgrenze für Schlaf, HRV und Ruhepuls ──
   test('1 Ein alter sleepLog-Eintrag (5 Monate, 6 h) erzeugt kein "Wenig Schlaf"', () => {
     const ctx = loadApp({ sleepLog: [{ h: 6, d: '2026-05-20' }] }, { now: '2026-10-21T08:00:00Z' });
@@ -169,5 +169,133 @@ export default function ({ test, assert, loadApp }) {
     assert.ok(s, 'keine Sperre');
     assert.equal(s.hints[0], 'Spieltag: Glykogen zuerst auffüllen');
     assert.match(ctx.document.getElementById('toast').textContent, /Spieltag: Glykogen zuerst auffüllen/);
+  });
+
+  // ── 7 Realistischer Integrationstest (Fixture realistic-3plus1) ──
+  const FX = 'realistic-3plus1';
+  const fxAt = (date, extra = []) => {
+    const f = plain(loadFixture(FX));
+    const nowMs = Date.parse(`${date}T06:00:00Z`);
+    f.state.history = f.state.history.filter((x) => x.ts < nowMs).concat(extra);
+    return loadApp(f, { now: nowMs });
+  };
+  // Vorschläge für alle Planübungen an jedem Trainingstag (vor dem Training) und am Ende
+  const SWEEP = (() => {
+    const fx = loadFixture(FX);
+    const dates = [...new Set(fx.state.history.map((x) => new Date(x.ts).toISOString().slice(0, 10)))];
+    const out = [];
+    for (const date of [...dates.slice(1), '2026-10-26']) {
+      const c = fxAt(date);
+      const logged = new Set(c.AppState.history.flatMap((x) => x.sets.map((y) => y.ex)));
+      for (const day of c.AppState.plan) for (const e of day.ex || []) {
+        const sug = plain(c.coachSuggestion(e.n, e.s));
+        const bw = c.equipmentType(e.n) === 'bodyweight';
+        // Körpergewichtsübungen: Raster gilt für die Zusatzlast, nicht für Körpergewicht + Zusatz
+        const load = bw ? sug.add : sug.weight;
+        out.push({ date, day: day.name, e, sug, logged: logged.has(e.n), bw, load,
+          step: typeof load === 'number' ? c.plateStep(e.n, load) : null });
+      }
+    }
+    return out;
+  })();
+  const where = (x) => `${x.date} ${x.e.n}: ${JSON.stringify(x.sug)}`;
+
+  test('7 Fixture: synthetisch, plan3plus1, 10 Wochen, Woche 7 ohne Upper A', () => {
+    const fx = loadFixture(FX);
+    assert.equal(fx._fixture.synthetic, true);
+    assert.deepEqual(plain(fx.state.plan), plain(loadApp({}).plan3plus1()));
+    const days = fx.state.history.map((x) => new Date(x.ts).toISOString().slice(0, 10) + ' ' + x.dayName);
+    assert.equal(fx.state.history.length, 30, '10 × 3 − 1 ausgefallene + 1 alte Seitheben-Session');
+    assert.ok(!days.includes('2026-09-28 Upper A'), 'Woche 7: Upper A fällt aus');
+    assert.ok(days.includes('2026-10-24 Upper B'));
+    assert.equal(fx.state.sleepLog.length, 1);
+    assert.ok(SWEEP.length > 600, `Sweep zu klein: ${SWEEP.length}`);
+  });
+
+  test('7 Kein Vorschlag enthält "Wenig Schlaf" (einziger sleepLog-Eintrag 20 Wochen alt)', () => {
+    const c = loadApp(loadFixture(FX));
+    assert.equal(c.recentSleepQuality(), null);
+    assert.equal(c.recoveryStatus(), null);
+    for (const x of SWEEP) assert.doesNotMatch(x.sug.hint || '', /Wenig Schlaf|😴/, where(x));
+  });
+
+  test('7 Bankdrücken nach verpasstem Montag (14 Tage): normale Progression, kein Pausenhinweis', () => {
+    const c = fxAt('2026-10-05');
+    const B = 'Bankdrücken (LH)';
+    const lastB = c.AppState.history.filter((x) => x.sets.some((y) => y.ex === B)).pop();
+    assert.equal(new Date(lastB.ts).toISOString().slice(0, 10), '2026-09-21', 'letztes Bankdrücken 14 Tage vorher');
+    assert.equal(c.layoffStatus(B), null);
+    const r = c.coachSuggestion(B, '4×5-8');
+    assert.ok(r.weight >= 107.5, `${r.weight} kg unter dem letzten Arbeitsgewicht`);
+    assert.doesNotMatch(r.hint, /Pause|⏸️|Wiedereinstieg|−\d+ ?%/);
+    assert.equal(c.targetRIR(B), fxAt('2026-09-21').targetRIR(B), 'Ziel-RIR ohne Pausen-Aufschlag');
+  });
+
+  test('7 Seitheben (KH) nach 18 Wochen: kein −20 %, weil Seitheben (Kabel) läuft', () => {
+    const c = loadApp(loadFixture(FX));
+    const S = 'Seitheben (KH)';
+    assert.ok(c.daysSinceExercise(S) > 120);
+    assert.equal(c.layoffStatus(S), null);
+    const r = c.coachSuggestion(S, '3×12-15');
+    assert.equal(r.weight, 14, 'Arbeitsgewicht von vor 18 Wochen, nicht 14 × 0,8');
+    assert.doesNotMatch(r.hint, /⏸️|−20|Pause/);
+  });
+
+  test('7 Kein Vorschlag enthält "Autoreg"', () => {
+    for (const x of SWEEP) assert.doesNotMatch(x.sug.hint || '', /Autoreg/, where(x));
+  });
+
+  test('7 Rumänisches Kreuzheben ohne Historie: ca. 45 % des Kniebeugen-E1RM', () => {
+    const c = loadApp(loadFixture(FX));
+    const RDL = 'Rumänisches Kreuzheben (LH)';
+    const e1 = c.currentE1rm('Kniebeuge (LH)');
+    assert.ok(e1 > 180, `Kniebeugen-E1RM ${e1}`);
+    const r = c.coachSuggestion(RDL, '3×8-10');
+    assert.equal(r.estimate, true);
+    assert.ok(Math.abs(r.weight - e1 * 0.45) <= c.plateStep(RDL, r.weight) / 2 + 1e-9, `${r.weight} vs 45 % von ${e1}`);
+    // ab der ersten Kniebeugen-Session (Mi, Woche 1) immer eine Schätzung
+    for (const x of SWEEP.filter((y) => y.e.n === RDL && y.date > '2026-08-19')) assert.equal(x.sug.estimate, true, where(x));
+  });
+
+  test('7 Invarianten: kein NaN, Gewicht bei Übungen mit Historie, Vielfaches von plateStep', () => {
+    for (const x of SWEEP) {
+      const json = JSON.stringify(x.sug);
+      assert.doesNotMatch(json, /NaN|undefined|Infinity/, where(x));
+      assert.equal(typeof x.sug.hint, 'string', where(x));
+      if (x.logged && !x.e.timed && !x.bw) assert.ok(typeof x.sug.weight === 'number' && x.sug.weight > 0, `Gewicht fehlt – ${where(x)}`);
+      if (typeof x.load === 'number' && x.load > 0) {
+        const k = x.load / x.step;
+        assert.ok(Math.abs(k - Math.round(k)) < 1e-9, `kein Vielfaches von ${x.step} – ${where(x)}`);
+      }
+    }
+    // Schlechter Kniebeugen-Tag (Woche 9): −7 % auf den Gewichtsschritt gerundet (150 → 140, nicht 139,5)
+    const sq = SWEEP.find((x) => x.date === '2026-10-21' && x.e.n === 'Kniebeuge (LH)');
+    assert.equal(sq.sug.weight, 140, where(sq));
+    assert.match(sq.sug.hint, /−7% Deload/);
+    // Zeitübung mit Historie: kein Gewicht und kein falscher Deload (25 s liegen im Ziel 20–30 s)
+    for (const x of SWEEP.filter((y) => y.e.timed && y.logged)) {
+      assert.equal(x.sug.weight, null, where(x));
+      assert.doesNotMatch(x.sug.hint, /Deload|unter Wdh-Ziel/, where(x));
+    }
+  });
+
+  test('7 Woche fällt bis Freitag aus: Sa Upper B, So kein Gym, Restwochen-Hinweis nennt Upper A und Lower', () => {
+    const sa = fxAt('2026-10-31');
+    assert.equal(sa.AppState.history.filter((x) => x.ts >= Date.parse('2026-10-26T00:00:00Z')).length, 0);
+    const r = sa.recommendedDay();
+    assert.equal(r.kind, 'train');
+    assert.equal(r.label, 'Upper B');
+    assert.equal(sa.restWeekNotice(), 'Diese Woche nur noch 1 von 3: Upper B, Upper A und Lower entfallen.');
+    // Sonntag (Spiel), egal ob Upper B am Samstag gemacht wurde
+    const PLAN = loadFixture(FX).state.plan;
+    const upperB = { ts: Date.parse('2026-10-31T10:00:00Z'), dayName: 'Upper B', durationMs: 3e6, volume: 0,
+      sets: PLAN.find((d) => d.name === 'Upper B').ex.map((e) => ({ ex: e.n, w: 50, r: 8, rpe: 8 })) };
+    for (const so of [fxAt('2026-11-01'), fxAt('2026-11-01', [upperB])]) {
+      const s = so.recommendedDay();
+      assert.equal(s.kind, 'rest');
+      assert.equal(s.label, 'Kein Gym – Spieltag');
+      assert.equal(s.schedule.assign.length, 0);
+      assert.match(so.restWeekNotice(), /Upper A und Lower entfallen|Upper A, Lower und Upper B entfallen/);
+    }
   });
 }
