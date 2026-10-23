@@ -2310,6 +2310,7 @@ function renderWorkout(){
     const rpeIdx=rpeTargetIdx(s, cur);                       // Satz, den die RPE-Schnellwahl füllt
     const isAmrapEx=!isTimed && !!s.amrapEx && s.amrapEx===cur.n;
     const ask=(_plausAsk && _plausAsk.ts===s.startTs && _plausAsk.ex===s.currentIdx) ? _plausAsk : null;
+    const adj=(s.lastAdjust && s.lastAdjust.ex===s.currentIdx) ? s.lastAdjust : null;   // Anpassung in der Session
 
     // Sets HTML
     // Satztabelle (feste Spalten, siehe colgroup): KG/WDH zentriert und ohne
@@ -2463,6 +2464,7 @@ function renderWorkout(){
             </tr></thead>
             <tbody>${setsHtml}</tbody>
           </table>
+          ${adj?`<div style="margin-top:6px;padding:8px 10px;background:rgba(10,132,255,.10);border-left:3px solid var(--blue);border-radius:6px;font-size:12px;color:var(--t1);display:flex;align-items:center;gap:8px"><span style="flex:1">🔧 ${esc(adj.msg)}</span><button type="button" id="adjUndo" class="btn bg2" style="width:auto;padding:6px 10px;font-size:12px;margin:0">Rückgängig</button></div>`:''}
           ${rpeQuickHtml(cur, rpeIdx)}
           <button type="button" id="addSetBtn" class="btn bo" style="margin-top:8px;font-size:12px;padding:8px">+ Satz hinzufügen</button>
         </div>
@@ -2523,7 +2525,10 @@ function renderWorkout(){
         // lange drücken = halber Punkt (RIR 1 → 1,5); "4+" hat keinen halben Punkt
         if(val<4) Timers.set(()=>{
           _rpeLongFired=true;
-          if(setRirForSet(cur, rpeIdx, val+0.5)){ AppState.saveSession(); renderWorkout(); }
+          if(setRirForSet(cur, rpeIdx, val+0.5)){
+            if(cur.sets[rpeIdx].done) autoAdjustAfterSet(cur, rpeIdx);
+            AppState.saveSession(); renderWorkout();
+          }
         }, 450, 'rpeLong');
       });
       btn.addEventListener('pointerup',stopLong);
@@ -2536,6 +2541,7 @@ function renderWorkout(){
         // gleicher Wert noch einmal = löschen
         if(rirOf(st.rpe)===val){ st.rpe=''; }
         else if(!setRirForSet(cur, rpeIdx, val)) return;
+        if(st.done) autoAdjustAfterSet(cur, rpeIdx);   // RIR nach dem Abhaken nachgetragen
         AppState.saveSession(); renderWorkout();
       });
     });
@@ -2555,7 +2561,12 @@ function renderWorkout(){
     setInputs.forEach((inp,pos)=>{
       inp.addEventListener('input',()=>{
         const i=parseInt(inp.dataset.setIdx,10), f=inp.dataset.setField;
-        if(cur.sets[i]){ cur.sets[i][f]=inp.value; AppState.saveSession(); }
+        if(cur.sets[i]){
+          cur.sets[i][f]=inp.value;
+          // selbst geändert → die Anpassung in der Session lässt den Satz in Ruhe
+          if(f==='w'||f==='add'||f==='r') cur.sets[i].manual=true;
+          AppState.saveSession();
+        }
       });
       // Enter/"Fertig" springt ins nächste Feld – flüssiges Eintragen
       inp.addEventListener('keydown',ev=>{
@@ -2568,6 +2579,7 @@ function renderWorkout(){
     $$('#workoutContent [data-set-done]').forEach(btn=>{
       btn.addEventListener('click',()=>{ toggleSetDone(parseInt(btn.dataset.setDone,10)); renderWorkout(); });
     });
+    const adjUndo=el('adjUndo'); if(adjUndo) adjUndo.addEventListener('click',()=>{ undoAutoAdjust(); renderWorkout(); toast('Anpassung zurückgenommen'); });
     const plausOk=el('plausOk'); if(plausOk) plausOk.addEventListener('click',()=>{ confirmPlausible(); renderWorkout(); });
     const plausFix=el('plausFix'); if(plausFix) plausFix.addEventListener('click',()=>{ fixPlausible(); renderWorkout(); });
     $$('#workoutContent [data-rest]').forEach(btn=>{
@@ -2642,9 +2654,103 @@ function toggleSetDone(i){
       var f = isTimed ? 'secs' : ((isBWex || String(nxt.w||'').trim()) ? 'r' : 'w');
       _focusAfterRender = {idx:i+1, field:f};
     }
+    autoAdjustAfterSet(cur, i);                     // RIR vs. Ziel → offene Sätze anpassen
   }
   AppState.saveSession();
   return st.done ? 'done' : 'undone';
+}
+
+// ── Anpassung innerhalb der Session (feat/rir-meso, Punkt 2) ─────────────
+// Nach einem abgehakten Arbeitssatz mit RIR-Eingabe: RIR mindestens 1 unter
+// dem Ziel (zu schwer) → offene Sätze einen plateStep leichter; mindestens
+// 2 darüber (zu leicht) → einen Schritt schwerer. Ist der Schritt größer als
+// 5 % der Last (z. B. Kurzhanteln), ändern sich stattdessen die Ziel-Wdh um
+// 1–2. Körpergewicht: Zusatzlast bzw. Wdh; Zeitübungen: nichts. Offene
+// Sätze mit st.manual (selbst geändert) bleiben unangetastet.
+function adjustRef(cur, isBW){
+  if(cur.planW != null) return +cur.planW;              // nach früheren Anpassungen nachgeführt
+  var c = cur.coach || {};
+  if(isBW && c.add != null) return +c.add;
+  if(!isBW && +c.weight > 0) return +c.weight;
+  // ohne Vorschlag: schwerster bisher abgehakter Satz
+  var done = (cur.sets||[]).filter(function(x){ return x.done; })
+    .map(function(x){ return isBW ? (parseFloat(x.add)||0) : (parseFloat(x.w)||0); });
+  return done.length ? Math.max.apply(null, done) : 0;
+}
+function autoAdjustAfterSet(cur, i){
+  var s = AppState.activeSession;
+  if(!s || !cur || cur.isTimed) return null;
+  var st = (cur.sets||[])[i];
+  if(!st || !st.done) return null;
+  // Erneute RIR-Eingabe am selben Satz: vorige Anpassung erst zurücknehmen
+  if(s.lastAdjust && s.lastAdjust.ex===s.currentIdx && s.lastAdjust.setIdx===i) undoAutoAdjust();
+  var rir = rirOf(st.rpe);
+  if(rir===null) return null;                           // ohne RIR-Eingabe passiert nichts
+  var tgt = targetRIR(cur.n, i === cur.sets.length-1);
+  var diff = rir - tgt;
+  var dir = diff <= -1 ? -1 : (diff >= 2 ? 1 : 0);
+  if(!dir) return null;
+  var isBW = isLoadableBodyweight(cur.n);
+  var val = isBW ? (parseFloat(st.add)||0) : (parseFloat(st.w)||0);
+  if(!isBW && !(val > 0)) return null;
+  var ref = adjustRef(cur, isBW);
+  if(val < ref - 0.01) return null;                      // Aufwärm-/Rampensatz zählt nicht
+  var open = [];
+  cur.sets.forEach(function(x, j){ if(j!==i && !x.done && !x.manual) open.push(j); });
+  if(!open.length) return null;
+
+  var field, stepTo, unit;
+  var repDelta = dir < 0 ? -(diff <= -2 ? 2 : 1) : (diff >= 3 ? 2 : 1);
+  if(isBW){
+    if(dir < 0 && val <= 0){ field = 'r'; }
+    else { field = 'add'; stepTo = function(b){ return Math.max(0, b + dir*2.5); }; }
+  } else {
+    var step = plateStep(cur.n, val);
+    if(step/val > 0.05) field = 'r';
+    else { field = 'w'; stepTo = function(b){ return Math.max(step, Math.round((b + dir*step)*4)/4); }; }
+  }
+  var changes = [];
+  open.forEach(function(j){
+    var x = cur.sets[j], from = x[field];
+    var to;
+    if(field==='r'){
+      var b = parseInt(x.r, 10) || parseInt(st.r, 10) || +(cur.coach||{}).reps || 0;
+      if(!b) return;
+      to = Math.max(1, Math.min(50, b + repDelta));
+    } else {
+      var bw = parseFloat(x[field]);
+      if(!(bw >= 0) || x[field]==='' || x[field]==null) bw = val;
+      to = stepTo(bw);
+    }
+    if(String(to) === String(from)) return;
+    changes.push({idx:j, field:field, from:(from==null ? '' : from), to:String(to)});
+    x[field] = String(to);
+  });
+  if(!changes.length) return null;
+  var refBefore = cur.planW;
+  if(field !== 'r') cur.planW = +changes[0].to;          // neue Referenz für Arbeitssätze
+  var c0 = changes[0], fromTxt = c0.from==='' ? (field==='r' ? '–' : fmtDe(val)) : fmtDe(c0.from);
+  var what = field==='r' ? fromTxt+' → '+c0.to+' Wdh'
+           : (field==='add' ? 'Zusatz '+fromTxt+' → '+fmtDe(c0.to)+' kg' : fromTxt+' → '+fmtDe(c0.to)+' kg');
+  s.lastAdjust = {ex:s.currentIdx, setIdx:i, changes:changes, refBefore:(refBefore==null ? null : refBefore),
+    msg:'Satz '+(c0.idx+1)+(changes.length>1 ? '+' : '')+' angepasst: '+what+' (RIR '+fmtDe(rir)+' statt '+tgt+')'};
+  return s.lastAdjust;
+}
+// "Rückgängig": letzte Anpassung zurücknehmen (nur Werte, die seitdem nicht geändert wurden)
+function undoAutoAdjust(){
+  var s = AppState.activeSession, a = s && s.lastAdjust;
+  if(!a) return false;
+  var cur = s.exercises[a.ex];
+  if(cur){
+    a.changes.forEach(function(c){
+      var x = cur.sets[c.idx];
+      if(x && String(x[c.field]) === String(c.to)) x[c.field] = c.from;
+    });
+    if(a.refBefore == null) delete cur.planW; else cur.planW = a.refBefore;
+  }
+  s.lastAdjust = null;
+  AppState.saveSession();
+  return true;
 }
 // "Bestätigen": Gewicht gilt als gewollt, Satz wird abgehakt
 function confirmPlausible(){

@@ -184,4 +184,100 @@ export default function ({ test, assert, loadApp }) {
     ctx.renderWorkout();
     assert.match(html(ctx), /RIR 1 · letzter Satz RIR 0 · Wo 5 · Peak Week/);
   });
+
+  // ── 2 Anpassung innerhalb der Session ──
+  const sess = (ctx, ex, coach, sets) => { workout(ctx, [{ n: ex, s: '4×5-8', coach, sets }]); return ctx.AppState.activeSession.exercises[0]; };
+  const set = (w, r, rpe = '', extra = {}) => ({ w: String(w), r: String(r), rpe: rpe === '' ? '' : String(rpe), done: false, ...extra });
+
+  test('2 RIR 1 bei Ziel-RIR 2 auf einem Arbeitssatz senkt die offenen Sätze um einen Schritt', () => {
+    const ctx = loadApp({}, { now: '2026-10-21T17:00:00Z' });
+    assert.equal(ctx.targetRIR(BS), 2);
+    const cur = sess(ctx, BS, { weight: 80, reps: 8 }, [set(80, 8, 9), set(80, 8), set(80, 8), set(80, 8)]);
+    assert.equal(ctx.toggleSetDone(0), 'done');
+    assert.deepEqual(cur.sets.map((x) => x.w), ['80', '77.5', '77.5', '77.5']);
+    ctx.renderWorkout();
+    assert.match(html(ctx), /Satz 2\+ angepasst: 80 → 77,5 kg \(RIR 1 statt 2\)/);
+    assert.match(html(ctx), /id="adjUndo"[^>]*>Rückgängig/);
+    // nächster Satz bei 77,5 kg zählt weiter als Arbeitssatz (Referenz wird nachgeführt)
+    cur.sets[1].rpe = '9';
+    ctx.toggleSetDone(1);
+    assert.deepEqual(cur.sets.map((x) => x.w), ['80', '77.5', '75', '75']);
+    // Rückgängig nimmt die letzte Anpassung zurück
+    ctx.undoAutoAdjust();
+    assert.deepEqual(cur.sets.map((x) => x.w), ['80', '77.5', '77.5', '77.5']);
+    ctx.renderWorkout();
+    assert.doesNotMatch(html(ctx), /angepasst:/);
+  });
+
+  test('2 Zu leicht (RIR ≥ Ziel + 2) erhöht um einen Schritt; Ziel + 1 und Ziel ändern nichts; ohne RIR nichts', () => {
+    const ctx = loadApp({}, { now: '2026-10-21T17:00:00Z' });
+    let cur = sess(ctx, BS, { weight: 80, reps: 8 }, [set(80, 8, 6), set(80, 8), set(80, 8)]);
+    ctx.toggleSetDone(0);
+    assert.deepEqual(cur.sets.map((x) => x.w), ['80', '82.5', '82.5']);
+    for (const rpe of ['7', '8', '']) {
+      cur = sess(ctx, BS, { weight: 80, reps: 8 }, [set(80, 8, rpe), set(80, 8)]);
+      ctx.toggleSetDone(0);
+      assert.equal(cur.sets[1].w, '80', `RPE "${rpe}"`);
+      assert.equal(ctx.AppState.activeSession.lastAdjust || null, null);
+    }
+  });
+
+  test('2 Leichter Rampensatz (100 kg bei Arbeitsgewicht 110 kg) mit RIR 4 löst keine Anpassung aus', () => {
+    const ctx = loadApp({}, { now: '2026-10-21T17:00:00Z' });
+    const cur = sess(ctx, BS, { weight: 110, reps: 6 }, [set(100, 6, 6), set(110, 6), set(110, 6)]);
+    ctx.toggleSetDone(0);
+    assert.deepEqual(cur.sets.map((x) => x.w), ['100', '110', '110']);
+    assert.equal(ctx.AppState.activeSession.lastAdjust || null, null);
+  });
+
+  test('2 Kurzhantel 14 kg: Anpassung ändert die Wdh, nicht das Gewicht', () => {
+    const ctx = loadApp({}, { now: '2026-10-21T17:00:00Z' });
+    const ex = 'Seitheben (KH)';
+    assert.ok(ctx.plateStep(ex, 14) / 14 > 0.05);
+    const cur = sess(ctx, ex, { weight: 14, reps: 12 }, [set(14, 12, 6), set(14, 12), set(14, 12)]);
+    ctx.toggleSetDone(0);
+    assert.deepEqual(cur.sets.map((x) => [x.w, x.r]), [['14', '12'], ['14', '13'], ['14', '13']]);
+    ctx.renderWorkout();
+    assert.match(html(ctx), /Satz 2\+ angepasst: 12 → 13 Wdh \(RIR 4 statt 2\)/);
+    // deutlich zu schwer (RIR 0 bei Ziel 2) → −2 Wdh
+    const c2 = sess(ctx, ex, { weight: 14, reps: 12 }, [set(14, 12, 10), set(14, 12)]);
+    ctx.toggleSetDone(0);
+    assert.equal(c2.sets[1].r, '10');
+  });
+
+  test('2 Ein Satz mit st.manual bleibt unverändert (Markierung beim eigenen Ändern)', () => {
+    const ctx = loadApp({}, { now: '2026-10-21T17:00:00Z' });
+    const cur = sess(ctx, BS, { weight: 80, reps: 8 }, [set(80, 8, 9), set(80, 8), set(85, 5, '', { manual: true }), set(80, 8)]);
+    ctx.toggleSetDone(0);
+    assert.deepEqual(cur.sets.map((x) => x.w), ['80', '77.5', '85', '77.5']);
+    assert.equal(cur.sets[2].r, '5');
+    // eigenes Ändern im Feld setzt manual (Quelltext-Prüfung des Eingabe-Handlers)
+    assert.match(ctx.renderWorkout.toString(), /if\(f==='w'\|\|f==='add'\|\|f==='r'\) cur\.sets\[i\]\.manual=true/);
+  });
+
+  test('2 Körpergewicht passt Zusatzlast bzw. Wdh an, Zeitübungen nie', () => {
+    const ctx = loadApp({ user: { name: 'Testathlet', weight: 100 } }, { now: '2026-10-21T17:00:00Z' });
+    workout(ctx, [{ n: 'Klimmzüge', s: '4×6-10', coach: { weight: 105, add: 5, reps: 8 },
+      sets: [{ w: '', add: '5', r: '8', rpe: '10', done: false }, { w: '', add: '5', r: '8', rpe: '', done: false }] }]);
+    ctx.toggleSetDone(0);
+    assert.equal(ctx.AppState.activeSession.exercises[0].sets[1].add, '2.5');
+    workout(ctx, [{ n: 'Klimmzüge', s: '4×6-10', coach: { weight: 100, add: 0, reps: 8 },
+      sets: [{ w: '', add: '', r: '8', rpe: '9', done: false }, { w: '', add: '', r: '8', rpe: '', done: false }] }]);
+    ctx.toggleSetDone(0);
+    assert.equal(ctx.AppState.activeSession.exercises[0].sets[1].r, '7', 'ohne Zusatzlast: Wdh −1');
+    workout(ctx, [{ n: 'Plank', s: '3×60s', isTimed: true, sets: [{ secs: '60', rpe: '10', done: false }, { secs: '60', rpe: '', done: false }] }]);
+    ctx.toggleSetDone(0);
+    assert.equal(ctx.AppState.activeSession.lastAdjust || null, null);
+  });
+
+  test('2 RIR nachträglich am abgehakten Satz: wird ausgewertet, Korrektur ersetzt die vorige Anpassung', () => {
+    const ctx = loadApp({}, { now: '2026-10-21T17:00:00Z' });
+    const cur = sess(ctx, BS, { weight: 80, reps: 8 }, [set(80, 8), set(80, 8), set(80, 8)]);
+    ctx.toggleSetDone(0);
+    assert.equal(cur.sets[1].w, '80');
+    ctx.setRirForSet(cur, 0, 1); ctx.autoAdjustAfterSet(cur, 0);
+    assert.equal(cur.sets[1].w, '77.5');
+    ctx.setRirForSet(cur, 0, 2); ctx.autoAdjustAfterSet(cur, 0);
+    assert.equal(cur.sets[1].w, '80', 'RIR korrigiert auf Ziel → Anpassung zurückgenommen');
+  });
 }
