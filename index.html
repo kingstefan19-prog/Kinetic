@@ -823,6 +823,7 @@ const AppState = {
   equipSteps: {},      // {Übungsname: kg} – Gewichtsschritt am eigenen Gerät (optional)
   rpeOffset: null,     // Wdh-Differenz AMRAP vs. RPE-Erwartung, + = Reserve unterschätzt (optional)
   rpeCalib: null,      // {ts, ex, w, expected, actual, refRpe, offset} – letzte Kalibrierung (optional)
+  meso: null,          // {start, deloadWeek} – aktueller Mesozyklus (optional, siehe mesoInfo)
   editMode: false,
 
   load(){
@@ -843,6 +844,11 @@ const AppState = {
       var ro = DB.get('rpeOffset', null), rc = DB.get('rpeCalib', null);
       this.rpeOffset     = (typeof ro==='number' && isFinite(ro)) ? ro : null;
       this.rpeCalib      = (rc && typeof rc==='object' && !Array.isArray(rc)) ? rc : null;
+      // Mesozyklus: ohne gespeicherten Zyklus (Update, neues Gerät) startet
+      // Woche 1 in der laufenden Woche – keine sofortige Deload-Karte
+      var me = DB.get('meso', null);
+      if(me && typeof me==='object' && +me.start>0) this.meso = {start:+me.start, deloadWeek:me.deloadWeek||null};
+      else { this.meso = {start:weekKeyOf(Date.now()), deloadWeek:null}; DB.set('meso', this.meso); }
       this.activeSession = DB.get('activeSession', null);
 
       // Plan-Versionierung: alten Plan ersetzen wenn neue Version
@@ -902,6 +908,7 @@ const AppState = {
       DB.set('equipSteps', this.equipSteps||{});
       DB.set('rpeOffset', this.rpeOffset);
       DB.set('rpeCalib', this.rpeCalib);
+      if(this.meso) DB.set('meso', this.meso);
       if(typeof maybeAutoSnapshot==='function') maybeAutoSnapshot(); // tägliche Schattenkopie
     } catch(e){ log.error('AppState.save',e); }
   },
@@ -1059,6 +1066,7 @@ function applyDefaultPlanReset(){
   AppState.plan=defaultPlan();
   DB.set('planSource','default');
   DB.set('planVersion',PLAN_VERSION);
+  mesoRestart();                                    // neuer Plan → Zyklus Woche 1
   AppState.save();
   renderPlan();
   toast('✅ Wissenschaftlich optimierter Plan geladen');
@@ -1146,6 +1154,7 @@ function applyPlan3plus1(){
   AppState.editMode = false;
   DB.set('planSource', 'custom');
   DB.set('planVersion', PLAN_VERSION);
+  mesoRestart();                                    // neuer Plan → Zyklus Woche 1
   AppState.save();
   safeCall(renderPlan); safeCall(refreshDash);
   toast('✅ Plan "3+1 Fußball" übernommen – Historie und PRs bleiben');
@@ -1180,7 +1189,10 @@ function planInfoHtml(){
     musclesFor(e.n||'').forEach(function(x){ if(x.w===1) direct[x.m] = (direct[x.m]||0) + n; });
   }); });
   var b = function(v){ return '<strong style="color:var(--t1)">'+(v||0)+'</strong>'; };
-  return '📊 <strong style="color:var(--blue)">Dein Plan</strong> · '+gym.length+'× Gym'+(opt?' + '+opt+' optional':'')
+  var mi = mesoInfo();
+  var cyc = mi.manual ? 'Deload (vorzeitig)' : 'Woche '+mi.week+'/'+MESO_LEN+' · '+mi.phase;
+  return '🔁 Mesozyklus: <strong style="color:var(--t1)">'+cyc+'</strong> · Ziel RIR '+targetRIR()+(mi.deload?' · optionale Tage ausgeblendet':'')+'<br>'
+    +'📊 <strong style="color:var(--blue)">Dein Plan</strong> · '+gym.length+'× Gym'+(opt?' + '+opt+' optional':'')
     +(soc?' · '+soc+'× Fußball':'')+(match?' + Spiel':'')+'<br>'
     +'Direkte Sätze/Wo: Brust '+b(direct.brust)+' · Rücken '+b(direct.ruecken)+' · Schulter '+b(direct.schulter)
     +' · Trizeps/Bizeps '+b(direct.trizeps)+'/'+b(direct.bizeps)+' · Quad/Ham '+b(direct.quads)+'/'+b(direct.hams);
@@ -1314,9 +1326,12 @@ function renderSmartNotifs(){
   }
 
   // Deload: aktiv-Status oder Empfehlung (antippbar → wirklich anwenden)
-  if(deloadActive()){
-    var until = new Date(DB.get('deloadUntil',0)).toLocaleDateString('de',{day:'2-digit',month:'2-digit'});
-    notifs.push({icon:'😌', title:'Deload aktiv bis '+until, body:'Gewichte −10%, RIR 4–5, keine Satz-Steigerungen. Tippen zum vorzeitigen Beenden.', type:'sleep', action:'endDeload', prio:0});
+  var mi = mesoInfo();
+  if(mi.deload){
+    var until = new Date(mi.deloadUntil).toLocaleDateString('de',{weekday:'short',day:'2-digit',month:'2-digit'});
+    notifs.push({icon:'😌', title:'Deload aktiv bis '+until, body:'RIR 4, 1 Satz weniger pro Übung, −10 % Gewicht, optionale Tage ausgeblendet. Danach startet Woche 1. Tippen zum vorzeitigen Beenden.', type:'sleep', action:'endDeload', prio:0});
+  } else if(mesoDeloadDue()){
+    notifs.push({icon:'😌', title:'Deload startet', body:'Peak Week geschafft – nächste Woche ist Deload: RIR 4, 1 Satz weniger pro Übung, −10 % Gewicht, optionale Tage aus. Tippen startet ihn sofort.', type:'warn', action:'startDeload', prio:0});
   } else {
     var deload = needsDeload();
     if(deload){
@@ -1621,7 +1636,9 @@ function renderPlan(){
     const typeIcon={gym:'💪',soccer:'⚽',match:'🏟️',flex:'😌'};
     const typeBadge={gym:'<span class="bd r">GYM</span>',soccer:'<span class="bd g">⚽ Fußball</span>',match:'<span class="bd b">🏟️ Spiel</span>',flex:'<span class="bd gr">Flex</span>'};
 
+    const deloadOn=deloadActive();
     list.innerHTML=AppState.plan.map(function(day,idx){
+      if(deloadOn && day.optional) return '';       // Deload: optionale Tage aus
       const badge=(day.optional?'<span class="bd gr" style="margin-right:4px">OPTIONAL</span>':'')+(typeBadge[day.type]||typeBadge.flex);
       // Exercise rows with notes
       const exHtml=(day.ex&&day.ex.length)
@@ -2186,6 +2203,7 @@ function proceedWithWorkout(dayId, day, applyAdjustments, suggestions){
     });
   }
   // Build active session
+  var deloadOn = deloadActive();
   AppState.activeSession = {
     dayId: dayId,
     dayName: day.name + (applyAdjustments?' (optimiert)':''),
@@ -2193,6 +2211,7 @@ function proceedWithWorkout(dayId, day, applyAdjustments, suggestions){
       var sug = coachSuggestion(e.n, e.s);
       var rng = parseRepRange(e.s);
       var nSets = rng ? rng.sets : 3;
+      if(deloadOn) nSets = Math.max(1, nSets - 1);   // Deload: 1 Satz weniger pro Übung
       var isTimed = !!(e.timed || /\d+s/.test(e.s||'') || /plank/i.test(e.n));
       var w = sug.weight!=null ? String(sug.weight) : '';
       var r = sug.reps!=null ? String(sug.reps) : '';
@@ -2376,7 +2395,7 @@ function renderWorkout(){
         <div class="c">
           <div class="sl">Aktuelle Übung</div>
           <div style="font-size:20px;font-weight:700;margin-top:6px">${esc(cur.n)}</div>
-          <div style="color:var(--t2);margin-top:4px;font-size:13px">Ziel: ${esc(cur.s)}${isTimed?' · <span style="color:var(--blue)">⏱ Zeitübung</span>':' · <span style="color:var(--violet)">RIR '+targetRIR()+' · Wo '+mesoWeek()+'</span>'}</div>
+          <div style="color:var(--t2);margin-top:4px;font-size:13px">Ziel: ${esc(cur.s)}${isTimed?' · <span style="color:var(--blue)">⏱ Zeitübung</span>':' · <span style="color:var(--violet)">RIR '+targetRIR(cur.n)+' · '+mesoLabel()+'</span>'}</div>
           ${last?`<div style="color:var(--t3);font-size:11px;margin-top:6px">Letztes Mal: ${isBWex?(function(){var la=setAddKg(last);return la>0?'+'+la+' kg Zusatz':'Körpergewicht';})():last.w+' kg'} × ${last.r}${rirOf(last.rpe)!==null?' · '+rirLabel(last.rpe):''}</div>`:''}
           ${(function(){
             if(isTimed) return '';
@@ -3285,29 +3304,112 @@ function recentRpeTrend(){
   return {last:Math.round(lastA*10)/10, prev:Math.round(prevA*10)/10, delta:Math.round((lastA-prevA)*10)/10};
 }
 
-// ── Deload-System: nicht nur empfehlen, sondern AKTIVIEREN ────────────────
-function deloadActive(){ return DB.get('deloadUntil', 0) > Date.now(); }
+// ── Mesozyklus (feat/rir-meso, Punkt 3) ──────────────────────────────────
+// Woche 1–3 Aufbau (RIR 2), Woche 4 RIR 1, Woche 5 Peak Week, Woche 6 Deload
+// (RIR 4, −1 Satz pro Übung, −10 % Gewicht, optionale Tage aus).
+// Gezählt werden Trainingswochen (Mo–So mit mindestens einer Session) ab
+// AppState.meso.start – Planübernahme, letzter Deload oder Neustart nach
+// mehr als 14 Tagen Pause. Wochen ohne Training zählen nicht.
+var MESO_LEN = 6;
+// Montag 00:00 (lokal) der Woche von ts
+function weekKeyOf(ts){
+  var d = new Date(ts); d.setHours(0,0,0,0);
+  d.setDate(d.getDate() - ((d.getDay()+6)%7));
+  return d.getTime();
+}
+function nextWeekKey(wk){ return weekKeyOf(wk + 7.5*86400000); }   // DST-fest
+// Neuer Zyklus ab ts (Standard: jetzt) → Woche 1
+function mesoRestart(ts){
+  AppState.meso = {start:(ts==null ? Date.now() : +ts), deloadWeek:null};
+  DB.set('meso', AppState.meso);
+}
+function mesoPhaseName(w){ return w<=3 ? 'Aufbau' : w===4 ? 'Intensivierung' : w===5 ? 'Peak Week' : 'Deload'; }
+// Aktuelle Zykluswoche. Normalisiert dabei den gespeicherten Start: nach
+// Woche 6 (trainiert oder als Ruhewoche) beginnt automatisch ein neuer Zyklus.
+function mesoInfo(){
+  var DAYMS = 86400000, now = Date.now();
+  var m = AppState.meso || {};
+  var start = +m.start || weekKeyOf(now);
+  var deloadWeek = m.deloadWeek || null;
+  var ts = (AppState.history||[]).map(function(e){ return +e.ts||0; }).filter(Boolean).sort(function(a,b){ return a-b; });
+  // Pause > 14 Tage (vgl. layoffStatus) → Zyklus startet neu bei Woche 1
+  if(ts.length && now - ts[ts.length-1] > 14*DAYMS) start = Math.max(start, weekKeyOf(now));
+  for(var i=1; i<ts.length; i++){
+    if(ts[i] - ts[i-1] > 14*DAYMS && ts[i] > start) start = ts[i];
+  }
+  var curWk = weekKeyOf(now);
+  var countWeeks = function(st){
+    var seen = {}, out = [];
+    ts.forEach(function(t){
+      if(t < st) return;
+      var k = weekKeyOf(t);
+      if(k < curWk && !seen[k]){ seen[k] = 1; out.push(k); }
+    });
+    return out.sort(function(a,b){ return a-b; });
+  };
+  var weeks = countWeeks(start);
+  // Nach Woche 6 automatisch neuer Zyklus (ab dem Montag nach der 6. Woche)
+  while(weeks.length + 1 > MESO_LEN){
+    start = nextWeekKey(weeks[MESO_LEN-1]);
+    weeks = countWeeks(start);
+  }
+  var n = weeks.length + 1;
+  // Deload-Woche als Ruhewoche ohne Training: in der Woche danach Neustart
+  if(n===MESO_LEN && deloadWeek && deloadWeek >= weekKeyOf(start) && curWk > deloadWeek){
+    start = nextWeekKey(deloadWeek); deloadWeek = null;
+    weeks = countWeeks(start); n = weeks.length + 1;
+  }
+  if(n===MESO_LEN && (!deloadWeek || deloadWeek < weekKeyOf(start))) deloadWeek = curWk;
+  if(n!==MESO_LEN && deloadWeek && deloadWeek < weekKeyOf(start)) deloadWeek = null;
+  if(start !== +m.start || deloadWeek !== (m.deloadWeek||null)){
+    AppState.meso = {start:start, deloadWeek:deloadWeek};
+    DB.set('meso', AppState.meso);
+  }
+  var manual = DB.get('deloadUntil', 0) > now;
+  return {week:n, phase:mesoPhaseName(n), start:start, weekStart:curWk,
+          deload:manual || n===MESO_LEN, manual:manual,
+          deloadUntil:manual ? DB.get('deloadUntil', 0) : (n===MESO_LEN ? nextWeekKey(curWk) - 1 : 0)};
+}
+function mesoWeek(){ return mesoInfo().week; }
+// "Wo 3 · Aufbau" bzw. "Deload" (auch beim vorzeitigen Deload)
+function mesoLabel(){
+  var mi = mesoInfo();
+  return mi.manual ? 'Deload' : 'Wo '+mi.week+' · '+mi.phase;
+}
+
+// ── Deload: geplant in Woche 6 oder vorzeitig per Karte (needsDeload) ────
+function deloadActive(){ return mesoInfo().deload; }
+// Ein-Tipp-Start: 7 Tage Deload ab jetzt, danach beginnt Woche 1
 function startDeload(){
-  DB.set('deloadUntil', Date.now() + 7*24*3600*1000);
-  DB.set('lastDeloadWeek', currentTrainingWeek());
-  toast('😌 Deload-Woche aktiv: −10% Gewicht, reduziertes Volumen');
+  var until = Date.now() + 7*24*3600*1000;
+  DB.set('deloadUntil', until);
+  mesoRestart(until);
+  toast('😌 Deload aktiv: RIR 4, 1 Satz weniger pro Übung, −10 % Gewicht');
   refreshDash();
 }
 function endDeload(){
   DB.set('deloadUntil', 0);
-  toast('💪 Deload beendet – neuer Block startet');
+  mesoRestart(Date.now());
+  toast('💪 Deload beendet – neuer Zyklus startet mit Woche 1');
   refreshDash();
 }
-
-// ── Meso-Woche & Ziel-RIR-Periodisierung (RP-Modell: RIR 3→3→2→2→1→Deload) ─
-function mesoWeek(){
-  var lastDeload = DB.get('lastDeloadWeek', 0);
-  return Math.max(1, currentTrainingWeek() - lastDeload);
+// Karte "Deload startet": Woche 5, alle Pflicht-Gymtage der Woche erledigt
+// oder der letzte davon ist vorbei
+function mesoDeloadDue(){
+  var mi = mesoInfo();
+  if(mi.week !== 5 || mi.deload) return false;
+  var idxs = [];
+  (AppState.plan||[]).forEach(function(d, i){ if(d && d.type==='gym' && !d.optional && (d.ex||[]).length) idxs.push(i); });
+  if(!idxs.length) return false;
+  var done = (AppState.history||[]).filter(function(e){ return e.ts >= mi.start && weekKeyOf(e.ts) === mi.weekStart; }).length;
+  return done >= idxs.length || todayPlanIdx() > Math.max.apply(null, idxs);
 }
-function targetRIR(){
+
+// ── Ziel-RIR der Zykluswoche ─────────────────────────────────────────────
+// Woche 1–3: RIR 2 · Woche 4 und Peak Week: RIR 1 · Deload: RIR 4
+function targetRIR(exName){
   if(deloadActive()) return 4;
-  var w = ((mesoWeek()-1) % 6) + 1;
-  return w<=2 ? 3 : w<=4 ? 2 : 1;
+  return mesoWeek() <= 3 ? 2 : 1;
 }
 
 // ── Volumen-Progression: Satz-Empfehlung übers Mesozyklus (MEV→MAV→MRV) ───
@@ -3519,21 +3621,15 @@ function toggleLunaSetup(){
 }
 
 // ── Helper: aktuelle Trainingswoche seit erstem Workout ──────────────────
-function currentTrainingWeek(){
-  var h = AppState.history || [];
-  if(!h.length) return 1;
-  var first = h[0].ts || Date.now();
-  return Math.floor((Date.now() - first) / (7*24*3600*1000)) + 1;
-}
 
 // ── Helper: Deload nötig? (alle 6 Wochen oder bei Stagnation) ─────────────
 function needsDeload(){
   if(deloadActive()) return null;             // läuft bereits
   var sinceDeload = mesoWeek();
-  if(sinceDeload < 2) return null;            // frisch nach Deload: Signale noch verzerrt
-  // 1. Zeit-basiert: 6 Trainingswochen seit letztem Deload
-  if(sinceDeload >= 6) return {reason:'6-Wochen-Zyklus erreicht'};
-  // 2. Kraft-Stagnation: mehrere Hauptlifts ohne E1RM-Fortschritt
+  if(sinceDeload < 2) return null;            // frisch nach Deload/Planstart: Signale noch verzerrt
+  // Woche 6 ist der geplante Deload, Ende Woche 5 kommt die Karte "Deload startet"
+  if(sinceDeload >= 5) return null;
+  // Vorzeitig: Kraft-Stagnation: mehrere Hauptlifts ohne E1RM-Fortschritt
   var stalled = stalledLifts();
   if(stalled.length >= 2) return {reason:stalled.length+' Übungen stagnieren ('+stalled.slice(0,2).join(', ')+')'};
   // 3. Ermüdung: RPE-Trend stark steigend bei hohem Wochenvolumen
@@ -4364,7 +4460,7 @@ function buildBackupObject(){
     plan:AppState.plan, history:AppState.history, prs:AppState.prs,
     weightLog:AppState.weightLog, sleepLog:AppState.sleepLog,
     wearableLog:AppState.wearableLog, meals:AppState.meals, equipSteps:AppState.equipSteps,
-    rpeOffset:AppState.rpeOffset, rpeCalib:AppState.rpeCalib
+    rpeOffset:AppState.rpeOffset, rpeCalib:AppState.rpeCalib, meso:AppState.meso
   }};
 }
 function applyBackupState(s){
@@ -4381,6 +4477,7 @@ function applyBackupState(s){
   if(s.equipSteps && typeof s.equipSteps==='object' && !Array.isArray(s.equipSteps)) AppState.equipSteps=s.equipSteps;
   if(typeof s.rpeOffset==='number' && isFinite(s.rpeOffset)) AppState.rpeOffset=s.rpeOffset;
   if(s.rpeCalib && typeof s.rpeCalib==='object' && !Array.isArray(s.rpeCalib)) AppState.rpeCalib=s.rpeCalib;
+  if(s.meso && typeof s.meso==='object' && +s.meso.start>0) AppState.meso={start:+s.meso.start, deloadWeek:s.meso.deloadWeek||null};
   if(Array.isArray(s.meals)) AppState.meals=s.meals;
   return true;
 }
@@ -4893,7 +4990,7 @@ function generatePlan(){
     AppState.user.kcalTarget=Math.round(bmr*1.55-500);
   }
   var plan=buildOnboardingPlan(obState);
-  AppState.plan=plan; DB.set('plan',plan); DB.set('planVersion',PLAN_VERSION); DB.set('planSource','custom'); AppState.save();
+  AppState.plan=plan; DB.set('plan',plan); DB.set('planVersion',PLAN_VERSION); DB.set('planSource','custom'); mesoRestart(); AppState.save();
   // Render result
   var gn={recomp:'Recomp',bulk:'Muskelaufbau',cut:'Definition',strength:'Kraft',athlete:'Athletisch'};
   var sn={auto:'Smart-optimiert',ppl:'Push/Pull/Legs',upperlower:'Upper/Lower',fullbody:'Ganzkörper',brosplit:'Bro-Split'};
