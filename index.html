@@ -1701,6 +1701,34 @@ function restWeekNotice(date){
   if(!x) return 'Diese Woche ist kein Pflichttraining mehr möglich: '+dropTxt+'.';
   return 'Diese Woche nur noch '+x+' von '+y+': '+sch.assign.map(scheduleLabel).join(', ')+', '+dropTxt+'.';
 }
+// ── Plan-Overlay der laufenden Woche (feat/week-queue, Punkt 5) ──────────
+// Tatsächliche bzw. empfohlene Belegung je Wochentag – nur Anzeige, der
+// gespeicherte Plan bleibt unverändert; ab Montag gilt wieder der Grundplan.
+function weekPlanOverlay(date){
+  var sch = weekSchedule(date), q = sch.queue, out = {};
+  var add = function(i, txt){ (out[i] = out[i] || []).push(txt); };
+  var short = function(i){ return WEEKDAYS[i].slice(0, 2); };
+  weekSessions(q.weekStart, sch.now).forEach(function(e){
+    var di = dayIdxOf(e.ts);
+    var it = q.items.filter(function(x){ return x.done && x.doneTs===e.ts; })[0];
+    var comp = /\(kompakt\)/i.test(e.dayName||'') ? ' kompakt' : '';
+    if(it && it.idx===di){ add(di, '✓ erledigt'+comp); return; }
+    if(it){
+      add(di, '✓ '+it.name+comp+' (verschoben von '+short(it.idx)+')');
+      add(it.idx, 'erledigt am '+WEEKDAYS[di]);
+      return;
+    }
+    add(di, '✓ '+baseDayName(e.dayName)+comp);
+  });
+  sch.assign.forEach(function(a){
+    var moved = a.it.idx!==a.d, today = a.d===sch.todayIdx;
+    if(!moved && !today && a.variant!=='compact' && !a.consec) return;   // wie geplant
+    add(a.d, (today ? 'Heute: ' : '→ ')+scheduleLabel(a)+(moved ? ' (verschoben von '+short(a.it.idx)+')' : '')+(a.consec ? ' · RIR +1' : ''));
+    if(moved) add(a.it.idx, 'verschoben auf '+WEEKDAYS[a.d]);
+  });
+  sch.dropped.forEach(function(x){ add(x.idx, 'entfällt diese Woche'); });
+  return out;
+}
 // Anzeigename einer Belegung: "Lower kompakt"
 function scheduleLabel(a){ return a.it.name + (a.variant==='compact' ? ' kompakt' : ''); }
 // Empfehlung für heute (bzw. date): {kind:'train'|'optional'|'rest'|'done', …}
@@ -1894,6 +1922,7 @@ function renderPlan(){
     const typeBadge={gym:'<span class="bd r">GYM</span>',soccer:'<span class="bd g">⚽ Fußball</span>',match:'<span class="bd b">🏟️ Spiel</span>',flex:'<span class="bd gr">Flex</span>'};
 
     const deloadOn=deloadActive();
+    const overlay=weekPlanOverlay();                  // Belegung dieser Woche (nur Anzeige)
     list.innerHTML=AppState.plan.map(function(day,idx){
       if(deloadOn && day.optional) return '';       // Deload: optionale Tage aus
       const badge=(day.optional?'<span class="bd gr" style="margin-right:4px">OPTIONAL</span>':'')+(typeBadge[day.type]||typeBadge.flex);
@@ -1932,6 +1961,7 @@ function renderPlan(){
         +'<div class="wk-d">'
         +'<div class="wk-n">'+esc(dayLabel(idx,day))+'</div>'
         +'<div class="wk-s">'+esc(planDaySub(day))+'</div>'
+        +(overlay[idx]?'<div class="wk-ov" style="font-size:11px;color:var(--violet);font-weight:600;margin-top:3px">Diese Woche: '+esc(overlay[idx].join(' · '))+'</div>':'')
         +'</div>'
         +editCtrl+badge+(em?'':'<div class="wk-c">▼</div>')
         +'</div>'

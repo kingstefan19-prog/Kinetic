@@ -177,4 +177,33 @@ export default function ({ test, assert, loadApp }) {
     assert.equal(ctx.weekQueue().open.length, 3);
     assert.equal(ctx.restWeekNotice(), null);
   });
+
+  // ── 5 Plan-Ansicht ──
+  test('5 Plan zeigt die Belegung der laufenden Woche als Overlay, AppState.plan bleibt unverändert', () => {
+    const ctx = app([sess(DATE.mo, 'Upper A')], `${DATE.do}T08:00:00Z`);
+    const vorher = JSON.stringify(ctx.AppState.plan);
+    const ov = plain(ctx.weekPlanOverlay());
+    assert.deepEqual(ov[0], ['✓ erledigt']);
+    assert.deepEqual(ov[2], ['verschoben auf Donnerstag']);
+    assert.deepEqual(ov[3], ['Heute: Lower kompakt (verschoben von Mi)']);
+    assert.equal(ov[5], undefined, 'Upper B Samstag wie geplant');
+    ctx.renderPlan();
+    const t = text(ctx, 'planList');
+    assert.match(t, /Diese Woche: Heute: Lower kompakt \(verschoben von Mi\)/);
+    assert.match(t, /Diese Woche: verschoben auf Donnerstag/);
+    ctx.recommendedDay(); ctx.weekSchedule(); ctx.restWeekNotice();
+    assert.equal(JSON.stringify(ctx.AppState.plan), vorher, 'Warteschlange ändert den Plan nicht');
+    assert.equal(ctx.localStorage.getItem('kinetic.plan'), JSON.stringify(JSON.parse(vorher)));
+    // nachgeholt: am Freitag erledigt
+    const fr = app([sess(DATE.mi, 'Lower'), sess(DATE.fr, 'Upper A')], `${DATE.fr}T19:00:00Z`);
+    const o2 = plain(fr.weekPlanOverlay());
+    assert.deepEqual(o2[4], ['✓ Upper A (verschoben von Mo)']);
+    assert.deepEqual(o2[0], ['erledigt am Freitag']);
+    assert.deepEqual(o2[5], ['→ Upper B · RIR +1']);
+  });
+
+  test('5 Ab Montag gilt wieder der Grundplan (keine Verschiebungen im Overlay)', () => {
+    const ctx = app([sess(DATE.mi, 'Lower'), sess(DATE.fr, 'Upper A')], '2026-10-26T08:00:00Z');
+    assert.deepEqual(plain(ctx.weekPlanOverlay()), { 0: ['Heute: Upper A'] });
+  });
 }
