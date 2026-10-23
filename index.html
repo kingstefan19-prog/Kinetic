@@ -3753,7 +3753,7 @@ function bestWorkSet(sessionSetLists){
   }); });
   return bw > 0 ? {w:bw, r:br} : null;
 }
-// Liegt die letzte Pause (> 10 Tage zwischen zwei Sessions der Übung) höchstens
+// Liegt die letzte Pause (> 21 Tage zwischen zwei Sessions der Übung) höchstens
 // 3 abgeschlossene Sessions zurück, gilt das Maximum der letzten 2 Sessions
 // davor als Referenz – damit deckt der Hinweis die Sessions 2–4 nach der Pause
 // ab (Session 1 übernimmt der Pausen-Zweig in coachSuggestion).
@@ -3765,7 +3765,7 @@ function preLayoffRef(exName){
   });
   var gapIdx = -1;
   for(var i=sess.length-1; i>=1; i--){
-    if(sess[i].ts - sess[i-1].ts > 10*86400000){ gapIdx = i; break; }
+    if(sess[i].ts - sess[i-1].ts > LAYOFF_FREE_DAYS*86400000){ gapIdx = i; break; }   // Pause wie layoffStatus
   }
   if(gapIdx < 0 || sess.length - gapIdx > 3) return null;
   var ref = bestWorkSet(sess.slice(Math.max(0, gapIdx-2), gapIdx).map(function(x){ return x.sets; }));
@@ -3808,12 +3808,18 @@ function restSecondsFor(exName, isTimed){
   return isCompoundLift(exName) ? 150 : 90;
 }
 
+// Stufen (fix/integration, Punkt 2): Im 3+1-Plan kommt jede Hauptübung etwa
+// einmal pro Woche dran – ein verpasstes Training ergibt schon 13–14 Tage.
+// Maximalkraft bleibt bei Trainierten bis etwa 28 Tage erhalten (Bosquet
+// 2013). Bis 21 Tage: keine Pause · 22–28: gleiches Gewicht ohne Steigerung
+// · 29–56: −10 % · darüber −20 %. Die Ziel-RIR (+1) liefert targetRIR().
+var LAYOFF_FREE_DAYS = 21;
 function layoffStatus(exName){
   var dEx = daysSinceExercise(exName);
   var dAll = daysSinceLastWorkout();
   var days = (dEx==null) ? dAll : dEx;
-  if(days==null || days <= 10) return null;  // ≤10 Tage: normale Schwankung
-  if(days <= 28) return {days:days, mod:1.0,  note:'⏸️ '+days+' Tage Pause → gleiches Gewicht, aber bei RIR 3 bleiben – kein Steigerungsdruck heute.'};
+  if(days==null || days <= LAYOFF_FREE_DAYS) return null;
+  if(days <= 28) return {days:days, mod:1.0,  note:'⏸️ '+days+' Tage Pause → gleiches Gewicht, heute keine Steigerung.'};
   if(days <= 56) return {days:days, mod:0.90, note:'⏸️ '+Math.round(days/7)+' Wochen Pause → −10 %, sauber wieder einsteigen.'};
   return              {days:days, mod:0.80, note:'⏸️ '+Math.round(days/7)+' Wochen Pause → −20 %, Technik vor Last. Muscle Memory bringt dich zügig zurück.'};
 }
@@ -3991,6 +3997,8 @@ function sessionRirCtx(exName){
 }
 function targetRIR(exName, lastSet){
   var rir = baseTargetRIR(exName, lastSet);
+  // Nach einer Pause (layoffStatus): eine Wdh mehr Reserve – Text und Anzeige gleich
+  if(exName && layoffStatus(exName)) rir = Math.min(5, rir + 1);
   var c = sessionRirCtx(exName);
   if(c){
     if(c.fix!=null) rir = Math.max(rir, +c.fix);

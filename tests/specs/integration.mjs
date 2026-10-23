@@ -37,4 +37,41 @@ export default function ({ test, assert, loadApp }) {
     assert.equal(neu.rhrStatus().status, 'elevated');
     assert.equal(neu.recoveryStatus().q, 'bad');
   });
+
+  // ── 2 Pausen-Schwelle ──
+  const BS = 'Bankdrücken (LH)';
+  const bank = (date) => session(date, BS, [[110, 8, 8], [110, 8, 8], [110, 8, 8]]);
+
+  test('2 layoffStatus: bis 21 Tage keine Pause, 22–28 gleiches Gewicht, 29–56 −10 %, darüber −20 %', () => {
+    const at = (days) => {
+      const ctx = loadApp({ history: [bank('2026-09-01')] }, { now: new Date(Date.parse('2026-09-01T17:00:00Z') + days * DAY).toISOString() });
+      return { st: ctx.layoffStatus(BS), sug: ctx.coachSuggestion(BS, '4×5-8'), ctx };
+    };
+    for (const d of [10, 14, 21]) assert.equal(at(d).st, null, `${d} Tage`);
+    assert.equal(at(14).sug.weight, 112.5, '14 Tage (ein verpasster Montag): normale Progression');
+    assert.doesNotMatch(at(14).sug.hint, /Pause/);
+    const d25 = at(25);
+    assert.equal(d25.st.mod, 1);
+    assert.equal(d25.sug.weight, 110, 'gleiches Gewicht, keine Steigerung');
+    assert.doesNotMatch(d25.st.note, /RIR/, 'Pausen-Text nennt keine eigene RIR');
+    assert.equal(at(40).st.mod, 0.9);
+    assert.equal(at(40).sug.weight, 100);
+    assert.equal(at(70).st.mod, 0.8);
+  });
+
+  test('2 Während einer Pause liefert targetRIR(exName) Ziel-RIR + 1', () => {
+    const pause = loadApp({ history: [bank('2026-09-01')] }, { now: '2026-09-26T08:00:00Z' });   // 25 Tage
+    assert.ok(pause.layoffStatus(BS));
+    assert.equal(pause.targetRIR(BS), 3, 'Woche 1: RIR 2 + 1');
+    const normal = loadApp({ history: [bank('2026-09-01')] }, { now: '2026-09-15T08:00:00Z' });   // 14 Tage
+    assert.equal(normal.targetRIR(BS), 2);
+  });
+
+  test('2 Mesozyklus-Neustart nach > 14 Tagen bezieht sich weiter auf das gesamte Training', () => {
+    const MO = (d) => Date.parse(`${d}T00:00:00`);
+    // Gesamttraining lückenlos, nur Bankdrücken 14 Tage weg → kein Neustart
+    const hist = [bank('2026-09-01'), session('2026-09-08', 'Beinstrecker', [[45, 12, 8]]), bank('2026-09-15')];
+    const ctx = loadApp({ meso: { start: MO('2026-08-31') }, history: hist }, { now: '2026-09-16T08:00:00Z' });
+    assert.equal(ctx.mesoWeek(), 3);
+  });
 }
