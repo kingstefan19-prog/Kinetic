@@ -1465,10 +1465,11 @@ function renderWeightChart(){
   </svg>`;
 }
 // ── Adherence (Spec 3.3) ─────────────────────────────────────────────────
-// Session-Namen ohne Zusätze wie " (KI-optimiert)" / " (optimiert)"
+// Session-Namen ohne Zusätze wie " (KI-optimiert)", " (optimiert)" und
+// " (kompakt)" – "Lower (kompakt)" zählt damit als Lower
 function baseDayName(n){
   var x = String(n||'').trim(), prev;
-  do { prev = x; x = x.replace(/\s*\((KI-)?optimiert\)\s*$/i, '').trim(); } while(x !== prev);
+  do { prev = x; x = x.replace(/\s*\(((KI-)?optimiert|kompakt)\)\s*$/i, '').trim(); } while(x !== prev);
   return x;
 }
 // Pro Pflicht-Gymtag: in welcher der letzten 3 Wochen wurde er absolviert?
@@ -1500,6 +1501,64 @@ function oftenMissedDays(){
 function moveMissedDay(idx){
   navigate('plan');
   safeCall(function(){ openDayEditor(idx); });
+}
+
+// ── Wochen-Warteschlange (feat/week-queue) ───────────────────────────────
+// Verpasste Pflichttrainings werden innerhalb der Kalenderwoche (Mo–So)
+// nachgeholt, ohne AppState.plan zu ändern: für Hypertrophie zählt das
+// Wochenvolumen, nicht der Wochentag. Wochentage ergeben sich wie in
+// dayLabel() aus der Position im Plan (0 = Montag).
+function dayIdxOf(ts){ return (new Date(ts).getDay()+6)%7; }
+function dayKeyOf(ts){ var d = new Date(ts); d.setHours(0,0,0,0); return d.getTime(); }
+// Bein-Tag: mindestens eine Übung mit quads oder hams (musclesFor)
+function isLegPlanDay(day){
+  return !!day && (day.ex||[]).some(function(e){
+    return musclesFor(e.n||'').some(function(x){ return x.m==='quads' || x.m==='hams'; });
+  });
+}
+function sessionIsLeg(sess){
+  return (sess && sess.sets || []).some(function(x){
+    return musclesFor(x.ex||'').some(function(m){ return m.m==='quads' || m.m==='hams'; });
+  });
+}
+function sessionIsUpper(sess){
+  return !sessionIsLeg(sess) && (sess && sess.sets || []).some(function(x){
+    return musclesFor(x.ex||'').some(function(m){ return UPPER_MUSCLES[m.m]; });
+  });
+}
+// Pflicht-Gymtage des Plans (type 'gym', nicht optional, mit Übungen)
+function mandatoryGymDays(){
+  var out = [];
+  (AppState.plan||[]).forEach(function(d, i){
+    if(d && d.type==='gym' && !d.optional && (d.ex||[]).length) out.push({idx:i, day:d});
+  });
+  return out;
+}
+// Sessions einer Kalenderwoche (wk = weekKeyOf) bis einschließlich `until`
+function weekSessions(wk, until){
+  return (AppState.history||[]).filter(function(e){
+    return e && e.ts && weekKeyOf(e.ts)===wk && (until==null || e.ts <= until);
+  }).sort(function(a,b){ return a.ts - b.ts; });
+}
+// Warteschlange der Woche: jedes Pflichttraining ist erledigt, sobald es in
+// dieser Woche eine Session mit gleichem baseDayName() gibt
+function weekQueue(date){
+  var now = date==null ? Date.now() : +new Date(date);
+  var wk = weekKeyOf(now);
+  var items = mandatoryGymDays().map(function(m){
+    return {idx:m.idx, day:m.day, name:m.day.name, base:baseDayName(m.day.name),
+            isLeg:isLegPlanDay(m.day), done:false};
+  });
+  weekSessions(wk, now).forEach(function(e){
+    var b = baseDayName(e.dayName);
+    var it = items.find(function(x){ return !x.done && x.base===b; });
+    if(!it) return;
+    it.done = true; it.doneTs = e.ts; it.doneIdx = dayIdxOf(e.ts);
+    it.compact = /\(kompakt\)/i.test(e.dayName||'');
+  });
+  return {weekStart:wk, items:items,
+          done:items.filter(function(x){ return x.done; }),
+          open:items.filter(function(x){ return !x.done; })};
 }
 
 // ── Datenerfassung (Spec 6) ──────────────────────────────────────────────
