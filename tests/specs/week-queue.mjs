@@ -107,4 +107,32 @@ export default function ({ test, assert, loadApp }) {
     assert.equal(g.today, true);
     assert.equal(g.day.name, 'Upper A');
   });
+
+  // ── 3 Lower kompakt ──
+  test('3 Mittwoch (Lower) verpasst, Donnerstag: Empfehlung "Lower kompakt" ohne Nordic und RDL', () => {
+    const ctx = app([sess(DATE.mo, 'Upper A')], `${DATE.do}T08:00:00Z`);
+    const r = ctx.recommendedDay();
+    assert.equal(r.kind, 'train');
+    assert.equal(r.label, 'Lower kompakt');
+    assert.equal(r.variant, 'compact', 'morgen (Fr) Fußball-Training');
+    const k = ctx.compactLegDay(r.day);
+    assert.deepEqual(plain(k.ex.map((e) => [e.n, e.s])), [['Kniebeuge (LH)', '3×5'], ['Beinpresse', '2×10'], ['Wadenheben stehend', '3×10-15']]);
+    assert.ok(k.ex.every((e) => !/nordic|rumän|beinbeug/i.test(e.n)), 'keine stark exzentrischen Übungen');
+    ctx.renderTodayCard();
+    assert.match(text(ctx, 'todayCard'), /Heute: Lower kompakt/);
+    assert.match(text(ctx, 'todayCard'), /Kniebeuge \(LH\) 3×5 · Beinpresse 2×10 · Wadenheben stehend 3×10-15/);
+    // Start: Session "Lower (kompakt)" mit RIR 3 für Kniebeuge und Beinpresse
+    ctx.startRecommended();
+    const s = ctx.AppState.activeSession;
+    assert.equal(s.dayName, 'Lower (kompakt)');
+    assert.deepEqual(plain(s.exercises.map((e) => [e.n, e.sets.length])), [['Kniebeuge (LH)', 3], ['Beinpresse', 2], ['Wadenheben stehend', 3]]);
+    assert.equal(ctx.targetRIR('Kniebeuge (LH)'), 3);
+    assert.equal(ctx.targetRIR('Beinpresse'), 3);
+    assert.equal(ctx.targetRIR('Wadenheben stehend'), 2);
+    // Beenden → Historie "Lower (kompakt)" → Lower erledigt
+    s.exercises.forEach((e) => e.sets.forEach((x) => { x.w = '100'; x.r = '5'; x.done = true; }));
+    ctx.finishWorkout();
+    assert.equal(ctx.AppState.history.at(-1).dayName, 'Lower (kompakt)');
+    assert.equal(ctx.weekQueue().items.find((x) => x.name === 'Lower').done, true);
+  });
 }

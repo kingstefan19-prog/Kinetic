@@ -1656,6 +1656,26 @@ function weekSchedule(date, opts){
   return val;
 }
 var DAY_MS_WQ = 86400000;
+// ── Lower kompakt (feat/week-queue, Punkt 3) ─────────────────────────────
+// Abgeleitete Variante des Bein-Tags, kein eigener Plan-Tag: erste
+// Kniebeugen-Variante 3×5 (RIR 3), Beinpresse 2×10 (RIR 3), Wadenheben
+// 3×10-15. Keine stark exzentrischen Übungen (Nordic, Rumänisches
+// Kreuzheben, Beinbeuger) – am Tag vor dem Fußball-Training. In der
+// Historie heißt die Session "<Bein-Tag> (kompakt)"; baseDayName() erkennt
+// sie als Bein-Tag.
+function compactLegDay(day){
+  var ex = (day && day.ex) || [];
+  var pick = function(re, fallback){
+    var e = ex.filter(function(x){ return re.test(x.n||''); })[0];
+    return e ? e.n : fallback;
+  };
+  return {id:day.id, type:'gym', name:day.name+' (kompakt)', compact:true,
+    sub:'Kompakt vor dem Fußball-Training', ex:[
+      {n:pick(/kniebeug|squat/i, 'Kniebeuge (LH)'),    s:'3×5',     note:'Kompakt · sauber, kein Versagen', rir:3},
+      {n:pick(/beinpresse|leg press/i, 'Beinpresse'),  s:'2×10',    note:'Kompakt', rir:3},
+      {n:pick(/waden|calf/i, 'Wadenheben stehend'),    s:'3×10-15', note:'Kompakt'}
+    ]};
+}
 // Anzeigename einer Belegung: "Lower kompakt"
 function scheduleLabel(a){ return a.it.name + (a.variant==='compact' ? ' kompakt' : ''); }
 // Empfehlung für heute (bzw. date): {kind:'train'|'optional'|'rest'|'done', …}
@@ -1700,6 +1720,7 @@ function renderTodayCard(){
     +'<div style="flex:1"><div style="font-size:15px;font-weight:700">'+esc(title)+'</div>'
     +'<div style="font-size:11px;color:var(--t3);margin-top:2px">Diese Woche: '+esc(queueTxt)+'</div></div></div>'
     +((r.hints||[]).length ? '<div style="margin-top:8px;font-size:12px;color:var(--t2);line-height:1.5">'+r.hints.map(function(x){ return '• '+esc(x); }).join('<br>')+'</div>' : '')
+    +(r.kind==='train' && r.variant==='compact' ? '<div style="margin-top:6px;font-size:12px;color:var(--t1)">'+compactLegDay(r.day).ex.map(function(e){ return esc(e.n)+' '+esc(e.s); }).join(' · ')+'</div>' : '')
     +(nextTxt ? '<div style="margin-top:6px;font-size:11px;color:var(--t3)">'+esc(nextTxt)+'</div>' : '')
     +((r.kind==='train' || r.kind==='optional') ? '<button type="button" class="btn bp" onclick="startRecommended()" style="margin-top:10px">Workout starten →</button>' : '')
     +'</div>';
