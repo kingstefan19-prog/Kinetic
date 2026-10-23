@@ -2225,6 +2225,9 @@ function proceedWithWorkout(dayId, day, applyAdjustments, suggestions){
     }),
     currentIdx:0, startTs:Date.now(), restEndTs:0
   };
+  // Peak Week (Zykluswoche 5): letzter Satz der Oberkörper-Isolation = RIR 0
+  var miStart = mesoInfo();
+  if(miStart.week===5 && !miStart.deload) AppState.activeSession.peak = true;
   // RPE-Kalibrierung (Spec 4.2): letzter Satz der letzten Isolationsübung = AMRAP
   if(amrapDue()){
     var amEx = amrapExerciseFor(AppState.activeSession.exercises);
@@ -2309,6 +2312,8 @@ function renderWorkout(){
     const isBWex=!isTimed && isLoadableBodyweight(cur.n);   // Feld "Zusatz (kg)" statt "kg"
     const rpeIdx=rpeTargetIdx(s, cur);                       // Satz, den die RPE-Schnellwahl füllt
     const isAmrapEx=!isTimed && !!s.amrapEx && s.amrapEx===cur.n;
+    const isPeakCalib=!isTimed && !!s.peak && !isAmrapEx && isUpperIsolation(cur.n);   // Peak Week: RIR-0-Satz
+    const markLast=isAmrapEx||isPeakCalib;
     const ask=(_plausAsk && _plausAsk.ts===s.startTs && _plausAsk.ex===s.currentIdx) ? _plausAsk : null;
     const adj=(s.lastAdjust && s.lastAdjust.ex===s.currentIdx) ? s.lastAdjust : null;   // Anpassung in der Session
 
@@ -2318,7 +2323,7 @@ function renderWorkout(){
     const numInp='width:100%;min-width:0;padding:8px 4px;text-align:center;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-size:14px';
     const setsHtml=cur.sets.map((st,i)=>`
       <tr>
-        <td style="color:${isAmrapEx&&i===cur.sets.length-1?'var(--violet)':'var(--t3)'};font-size:12px;overflow:hidden;font-weight:${isAmrapEx&&i===cur.sets.length-1?700:400}">${isAmrapEx&&i===cur.sets.length-1?'AM':i+1}</td>
+        <td style="color:${markLast&&i===cur.sets.length-1?'var(--violet)':'var(--t3)'};font-size:12px;overflow:hidden;font-weight:${markLast&&i===cur.sets.length-1?700:400}">${markLast&&i===cur.sets.length-1?(isAmrapEx?'AM':'R0'):i+1}</td>
         ${isTimed
           ?`<td colspan="2"><input data-set-idx="${i}" data-set-field="secs" type="number" inputmode="numeric" placeholder="Sekunden (z.B. 60)" value="${st.secs||''}" style="${numInp}"></td>`
           :`<td>${isBWex
@@ -2447,6 +2452,7 @@ function renderWorkout(){
             return '<div style="margin-top:10px;padding:8px 10px;background:rgba(10,132,255,.10);border-left:3px solid var(--blue);border-radius:6px;font-size:12px;color:var(--t1)">🧠 <b>Coach:</b> '+wrapTerms(c.hint)+(c.weight!=null?' <span style="color:var(--blue);font-weight:600">→ '+c.weight+' kg × '+c.reps+'</span>':(c.reps?' <span style="color:var(--blue);font-weight:600">→ '+c.reps+' Wdh</span>':''))+'</div>';
           })()}
           ${isAmrapEx?`<div style="margin-top:10px;padding:9px 11px;background:rgba(191,90,242,.12);border:1px solid rgba(191,90,242,.35);border-radius:8px;font-size:12px;color:var(--t1)">🎯 <b>AMRAP im letzten Satz:</b> so viele saubere Wdh wie möglich (bis RIR 0). Damit prüft KINETIC, wie gut deine RIR-Angaben passen.</div>`:''}
+          ${isPeakCalib?`<div style="margin-top:10px;padding:9px 11px;background:rgba(191,90,242,.12);border:1px solid rgba(191,90,242,.35);border-radius:8px;font-size:12px;color:var(--t1)">🎯 <b>Peak Week – letzter Satz bis RIR 0:</b> so viele saubere Wdh wie möglich. Der Satz zählt automatisch als RIR-Kalibrierung.</div>`:''}
           ${tip?`<div style="margin-top:10px;padding:8px 10px;background:rgba(10,132,255,.06);border-left:3px solid rgba(10,132,255,.3);border-radius:6px;font-size:12px;color:var(--t2);line-height:1.5"><b style="color:var(--blue)">Technik:</b> ${esc(tip)}</div>`:''}
           ${stepHtml}
           ${varHtml}
@@ -2924,7 +2930,8 @@ function rpeOffsetText(c){
 }
 // Nach dem Workout: letzter Satz der AMRAP-Übung gegen den Satz davor (bzw.
 // die letzte Session) prüfen. Ein AMRAP-Satz mit RPE < 9,5 zählt nicht.
-function applyRpeCalibration(exName, recs){
+// Kalibrierung einer Übung berechnen, ohne sie zu speichern
+function rpeCalibrationFor(exName, recs){
   var own = (recs||[]).filter(function(x){ return x.ex===exName && +x.w>0 && +x.r>0; });
   if(!own.length) return null;
   var am = own[own.length-1];
@@ -2938,9 +2945,21 @@ function applyRpeCalibration(exName, recs){
   }
   var c = rpeCalibration(ref, am);
   if(!c) return null;
-  AppState.rpeOffset = c.offset;
-  AppState.rpeCalib = {ts:Date.now(), ex:exName, w:+am.w, expected:c.expected, actual:c.actual, refRpe:c.refRpe, offset:c.offset};
+  return {ex:exName, w:+am.w, expected:c.expected, actual:c.actual, refRpe:c.refRpe, offset:c.offset};
+}
+// Eine oder mehrere Kalibrierungen speichern (mehrere: Ø auf 0,5 gerundet)
+function storeRpeCalibration(list){
+  list = (list||[]).filter(Boolean);
+  if(!list.length) return null;
+  var avg = function(f){ return list.reduce(function(a, c){ return a + c[f]; }, 0)/list.length; };
+  var off = Math.round(avg('offset')*2)/2;
+  AppState.rpeOffset = off;
+  AppState.rpeCalib = {ts:Date.now(), ex:list.map(function(c){ return c.ex; }).join(', '), w:list[0].w,
+    expected:list[0].expected, actual:list[0].actual, refRpe:Math.round(avg('refRpe')*2)/2, offset:off, n:list.length};
   return AppState.rpeCalib;
+}
+function applyRpeCalibration(exName, recs){
+  return storeRpeCalibration([rpeCalibrationFor(exName, recs)]);
 }
 
 function nextExercise(){
@@ -2978,7 +2997,14 @@ function finishWorkout(){
       }
     });
   });
-  const calib=s.amrapEx ? applyRpeCalibration(s.amrapEx, sets) : null;
+  // RIR-Kalibrierung: AMRAP-Satz (Varianz-Check, 4.2) und in der Peak Week der
+  // RIR-0-Satz jeder Oberkörper-Isolationsübung (feat/rir-meso, Punkt 5)
+  const calibList=[];
+  if(s.amrapEx) calibList.push(rpeCalibrationFor(s.amrapEx, sets));
+  if(s.peak) s.exercises.forEach(ex=>{
+    if(!ex.isTimed && ex.n!==s.amrapEx && isUpperIsolation(ex.n)) calibList.push(rpeCalibrationFor(ex.n, sets));
+  });
+  const calib=storeRpeCalibration(calibList);
   // Spec 1.2: Dauer bis zum letzten abgehakten Satz – eine vergessene Session
   // zählt sonst die Stunden bis zum Beenden mit
   const endTs=s.lastSetTs||Date.now();

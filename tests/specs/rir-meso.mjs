@@ -280,4 +280,61 @@ export default function ({ test, assert, loadApp }) {
     ctx.setRirForSet(cur, 0, 2); ctx.autoAdjustAfterSet(cur, 0);
     assert.equal(cur.sets[1].w, '80', 'RIR korrigiert auf Ziel → Anpassung zurückgenommen');
   });
+
+  // ── 5 Kalibrierung in der Peak Week ──
+  const peakWorkout = (ctx) => {
+    const day = { id: 'mon', name: 'Upper A', ex: [{ n: BS, s: '3×5-8' }, { n: 'Seitheben (Kabel)', s: '3×12-15' }, { n: 'Trizeps Pushdown (Seil)', s: '3×10-12' }] };
+    ctx.proceedWithWorkout('mon', day, false);
+    const s = ctx.AppState.activeSession;
+    const fill = (n, rows) => { s.exercises.find((e) => e.n === n).sets = rows.map(([w, r, rpe]) => ({ w: String(w), r: String(r), rpe: rpe == null ? '' : String(rpe), done: true })); };
+    return { s, fill };
+  };
+
+  test('5 Peak Week: RIR-0-Satz der Oberkörper-Isolation kalibriert automatisch (Logik aus 4.3)', () => {
+    const ctx = woche5();
+    const { s, fill } = peakWorkout(ctx);
+    assert.equal(s.peak, true);
+    // Seitheben: 14 Wdh @ RIR 2 → erwartet 16 bei gleicher Last, RIR-0-Satz schafft 17 → +1
+    fill('Seitheben (Kabel)', [[20, 14, 8], [20, 14, 8], [20, 17, 10]]);
+    // Pushdown: 12 Wdh @ RIR 1 → erwartet 13, RIR-0-Satz (ohne Angabe = RIR 0) 15 → +2
+    fill('Trizeps Pushdown (Seil)', [[50, 12, 9], [50, 12, 9], [50, 15, null]]);
+    // Bankdrücken (Grundübung): letzter Satz RIR 1 – keine Kalibrierung
+    fill(BS, [[100, 8, 9], [100, 8, 9], [100, 7, 9]]);
+    ctx.finishWorkout();
+    assert.equal(ctx.AppState.rpeOffset, 1.5, 'Ø aus +1 und +2');
+    assert.equal(ctx.AppState.rpeCalib.ex, 'Seitheben (Kabel), Trizeps Pushdown (Seil)');
+    assert.equal(ctx.AppState.rpeCalib.n, 2);
+    const pd = ctx.AppState.history.at(-1).sets.filter((x) => x.ex === 'Trizeps Pushdown (Seil)');
+    assert.equal(pd.at(-1).rpe, 10, 'RIR-0-Satz ohne Angabe = RIR 0');
+    // gleicher Zeitstempel wie die AMRAP-Kalibrierung → 14 Tage Pause für die AMRAP-Karte (Varianz-Check bleibt)
+    assert.equal(ctx.AppState.rpeCalib.ts, ctx.Date.now());
+  });
+
+  test('5 Peak Week: Satz mit RIR ≥ 1 kalibriert nicht; außerhalb der Peak Week keine Auto-Kalibrierung', () => {
+    const ctx = woche5();
+    const { fill } = peakWorkout(ctx);
+    fill('Seitheben (Kabel)', [[20, 14, 8], [20, 14, 8], [20, 15, 9]]);
+    fill('Trizeps Pushdown (Seil)', []);
+    fill(BS, []);
+    ctx.finishWorkout();
+    assert.equal(ctx.AppState.rpeOffset, null);
+    const w1 = loadApp({}, { now: '2026-10-07T08:00:00Z' });
+    const p1 = peakWorkout(w1);
+    assert.equal(p1.s.peak, undefined);
+    p1.fill('Seitheben (Kabel)', [[20, 14, 8], [20, 14, 8], [20, 17, 10]]);
+    w1.finishWorkout();
+    assert.equal(w1.AppState.rpeOffset, null);
+  });
+
+  test('5 Peak Week im Workout: letzter Satz als R0 markiert, Hinweis nur bei Oberkörper-Isolation', () => {
+    const ctx = woche5();
+    const { s } = peakWorkout(ctx);
+    s.currentIdx = 1;   // Seitheben
+    ctx.renderWorkout();
+    assert.match(html(ctx), /Peak Week – letzter Satz bis RIR 0/);
+    assert.match(html(ctx), />R0<\/td>/);
+    s.currentIdx = 0;   // Bankdrücken
+    ctx.renderWorkout();
+    assert.doesNotMatch(html(ctx), /Peak Week – letzter Satz/);
+  });
 }
