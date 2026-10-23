@@ -60,15 +60,20 @@ export default function ({ test, todo, assert, loadApp, loadFixture, fixtureName
     assert.equal(saved[0].r, 12);
   });
 
-  test('1.1 RPE nur 5–10 in 0,5-Schritten: Buttons 6–10, beim Speichern wird alles andere verworfen', () => {
+  test('1.1 RPE nur 5–10 in 0,5-Schritten: RIR-Buttons 0–4+ (= RPE 10–6), beim Speichern wird alles andere verworfen', () => {
     const ctx = loadApp({}, { now: '2026-10-19T17:00:00Z' });
     workout(ctx, [{ n: 'Beinstrecker', s: '3×12-15', sets: [
       { w: '45', r: '12', rpe: '78', done: true }, { w: '45', r: '12', rpe: '8.3', done: true },
       { w: '45', r: '12', rpe: '4', done: true }, { w: '45', r: '12', rpe: '9.5', done: true }] }]);
     ctx.renderWorkout();
     assert.doesNotMatch(html(ctx), /data-set-field="rpe"/, 'kein Zahlenfeld für RPE (Phase 4 bleibt)');
-    const vals = [...html(ctx).matchAll(/data-rpe-val="([\d.]+)"/g)].map((m) => +m[1]);
-    assert.deepEqual(vals, [6, 7, 8, 9, 10]);
+    const vals = [...html(ctx).matchAll(/data-rir-val="([\d.]+)"/g)].map((m) => +m[1]);
+    assert.deepEqual(vals, [0, 1, 2, 3, 4]);
+    // Buttons erzeugen nur gültige Werte: RIR 0–4,5 → RPE 5,5–10
+    const cur = { sets: [{ rpe: '' }] };
+    for (const r of [0, 0.5, 3.5, 4]) { assert.equal(ctx.setRirForSet(cur, 0, r), true); assert.equal(+cur.sets[0].rpe, 10 - r); }
+    assert.equal(ctx.setRirForSet(cur, 0, -1), false);
+    assert.equal(ctx.setRirForSet(cur, 0, 6), false);
     ctx.finishWorkout();
     assert.deepEqual(JSON.parse(JSON.stringify(ctx.AppState.history[0].sets.map((x) => x.rpe))), [null, 8.5, null, 9.5]);
   });
@@ -166,7 +171,7 @@ export default function ({ test, todo, assert, loadApp, loadFixture, fixtureName
     assert.equal(JSON.parse(ctx.localStorage.getItem('kinetic.history')).length, n - 1);
   });
 
-  test('1.3 Log: Bearbeiten-Button, Edit-Ansicht mit RPE-Auswahl 5–10 und "Mehr laden" ab 21 Sessions', () => {
+  test('1.3 Log: Bearbeiten-Button, Edit-Ansicht mit RIR-Auswahl (RPE 5–10) und "Mehr laden" ab 21 Sessions', () => {
     const hist = Array.from({ length: 25 }, (_, i) => session(`2026-09-${String(i + 1).padStart(2, '0')}`, 'Beinstrecker', [[45, 12, 8]]));
     const ctx = loadApp({ history: hist }, { now: '2026-10-19T17:00:00Z' });
     ctx.renderLog();
@@ -180,7 +185,8 @@ export default function ({ test, todo, assert, loadApp, loadFixture, fixtureName
     ctx.logStartEdit(24);
     log = ctx.document.getElementById('logList').innerHTML;
     assert.match(log, /id="lg-w-24-0"[^>]*value="45"/);
-    assert.match(log, /<select id="lg-rpe-24-0"[^>]*>.*<option value="5">5<\/option>.*<option value="8" selected>8<\/option>.*<option value="10">10<\/option><\/select>/s);
+    // Wert bleibt RPE (Speicherformat), angezeigt wird RIR
+    assert.match(log, /<select id="lg-rpe-24-0"[^>]*>.*<option value="10">RIR 0<\/option>.*<option value="8" selected>RIR 2<\/option>.*<option value="5">RIR 5<\/option><\/select>/s);
     assert.doesNotMatch(log, /value="10.5"|value="4.5"/);
   });
   test('1.4 Bereinigungs-Assistent: outliers.json liefert genau 3 Funde', () => {
@@ -231,7 +237,7 @@ export default function ({ test, todo, assert, loadApp, loadFixture, fixtureName
     assert.equal((box.match(/>Korrigieren</g) || []).length, 3);
     assert.equal((box.match(/>Ist korrekt</g) || []).length, 3);
     assert.match(box, />Satz löschen</);
-    assert.match(box, />RPE löschen</);
+    assert.match(box, />RIR löschen</);
     assert.match(box, />Dauer löschen</);
     ctx.dcFix(1);
     assert.match(ctx.document.getElementById('dataCheckBox').innerHTML, /id="dcFixInp"/);

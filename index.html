@@ -1346,8 +1346,8 @@ function renderSmartNotifs(){
   // RPE-Varianz-Check (Spec 4.2) → AMRAP-Satz zur Kalibrierung
   var amrap = amrapSuggestion();
   if(amrap){
-    notifs.push({icon:'🎯', title:'RPE-Check: '+Math.round(amrap.variance.share*100)+' % deiner letzten 40 Sätze mit RPE '+rpeFmt(amrap.variance.value),
-      body:'Deine RPE wirkt gewohnheitsmäßig. '+(amrap.today?'Heute':'Im nächsten Training ('+amrap.day.name+')')+' im letzten Satz von '+amrap.ex+' so viele Wdh wie möglich (AMRAP).', type:'sleep'});
+    notifs.push({icon:'🎯', title:'RIR-Check: '+Math.round(amrap.variance.share*100)+' % deiner letzten 40 Sätze mit RIR '+rpeFmt(10-amrap.variance.value),
+      body:'Deine RIR-Angaben wirken gewohnheitsmäßig. '+(amrap.today?'Heute':'Im nächsten Training ('+amrap.day.name+')')+' im letzten Satz von '+amrap.ex+' so viele Wdh wie möglich (AMRAP).', type:'sleep'});
   }
 
   // Luna-Check-in (Spec 6.2): 3 Tage ohne Wearable-Daten
@@ -1777,7 +1777,7 @@ function renderLog(){
       var sets=exMap[exName];
       var setsStr=sets.map(function(s){
         if(s.secs) return s.secs+'s';
-        return (s.w||'?')+' kg × '+(s.r||'?');
+        return (s.w||'?')+' kg × '+(s.r||'?')+(rirOf(s.rpe)!==null?' @RIR '+rpeFmt(rirOf(s.rpe)):'');
       }).join(' · ');
       var hasPR=sets.some(function(s){return s.pr;});
       var bestE=sessionBestE1rm(sets, exName);
@@ -1842,7 +1842,7 @@ function findDataIssues(includeAccepted){
       if(w>0 && w > 2*med[x.ex]) out.push({kind:'gewicht', hIdx:hi, sIdx:si, ts:s.ts, ex:x.ex, value:w,
         msg:fmtDe(w)+' kg × '+(x.r||'?')+' – mehr als doppelt so viel wie dein Median ('+fmtDe(med[x.ex])+' kg)'});
       if(x.rpe!==null && x.rpe!==undefined && x.rpe!=='' && !(+x.rpe>=5 && +x.rpe<=10)) out.push({kind:'rpe', hIdx:hi, sIdx:si, ts:s.ts, ex:x.ex, value:x.rpe,
-        msg:'RPE '+x.rpe+' – erlaubt sind 5–10'});
+        msg:'RPE '+x.rpe+' ungültig – erlaubt sind RIR 0–5 (RPE 5–10)'});
     });
     if(+s.durationMs > MAX_SESSION_MS) out.push({kind:'dauer', hIdx:hi, sIdx:null, ts:s.ts, ex:s.dayName||'Workout', value:+s.durationMs,
       msg:'Dauer '+Math.round(s.durationMs/60000)+' Min – mehr als 4 h'});
@@ -1898,7 +1898,7 @@ function renderDataCheck(){
     box.innerHTML = '<div class="c" style="font-size:13px;color:var(--green)">✅ Keine auffälligen Einträge gefunden.</div>';
     return;
   }
-  var delLbl = {gewicht:'Satz löschen', rpe:'RPE löschen', dauer:'Dauer löschen'};
+  var delLbl = {gewicht:'Satz löschen', rpe:'RIR löschen', dauer:'Dauer löschen'};
   var inp = 'flex:1;padding:8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-size:13px';
   box.innerHTML = '<div class="c"><div style="font-size:13px;font-weight:600;margin-bottom:8px">🔍 '+_dcList.length+' auffällige Einträge</div>'
     + _dcList.map(function(f, i){
@@ -1906,7 +1906,7 @@ function renderDataCheck(){
       if(_dcFixIdx===i){
         fix = '<div style="display:flex;gap:6px;margin-top:6px">'
           + (f.kind==='rpe'
-              ? '<select id="dcFixInp" style="'+inp+'">'+[5,5.5,6,6.5,7,7.5,8,8.5,9,9.5,10].map(function(v){ return '<option value="'+v+'"'+(v===8?' selected':'')+'>RPE '+rpeFmt(v)+'</option>'; }).join('')+'</select>'
+              ? '<select id="dcFixInp" style="'+inp+'">'+[10,9.5,9,8.5,8,7.5,7,6.5,6,5.5,5].map(function(v){ return '<option value="'+v+'"'+(v===8?' selected':'')+'>RIR '+rpeFmt(10-v)+'</option>'; }).join('')+'</select>'
               : '<input id="dcFixInp" type="number" inputmode="decimal" placeholder="'+(f.kind==='dauer'?'Minuten':'kg')+'" style="'+inp+'">')
           + '<button type="button" class="btn bp" onclick="dcSaveFix('+i+')" style="width:auto;margin:0;padding:8px 12px;font-size:12px">OK</button></div>';
       }
@@ -2014,7 +2014,8 @@ function logEditCardHtml(e, hIdx){
   var inp = 'padding:7px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-size:13px;width:100%';
   var rpeOpts = function(cur){
     var o = '<option value="">–</option>';
-    for(var v=5; v<=10; v+=0.5) o += '<option value="'+v+'"'+(+cur===v?' selected':'')+'>'+rpeFmt(v)+'</option>';
+    // Wert = RPE (Speicherformat), Anzeige = RIR
+    for(var v=10; v>=5; v-=0.5) o += '<option value="'+v+'"'+(+cur===v?' selected':'')+'>RIR '+rpeFmt(10-v)+'</option>';
     return o;
   };
   var rows = (e.sets||[]).map(function(st, i){
@@ -2025,7 +2026,7 @@ function logEditCardHtml(e, hIdx){
           ? '<input id="'+id('add')+'" type="number" inputmode="decimal" step="0.25" min="0" value="'+esc(st.add)+'" aria-label="Zusatz kg" style="'+inp+'">'
           : '<input id="'+id('w')+'" type="number" inputmode="decimal" step="0.25" value="'+esc(st.w)+'" aria-label="kg" style="'+inp+'">')
         +'<input id="'+id('r')+'" type="number" inputmode="numeric" min="1" max="50" step="1" value="'+esc(st.r)+'" aria-label="Wdh" style="'+inp+'">'
-        +'<select id="'+id('rpe')+'" aria-label="RPE" style="'+inp+'">'+rpeOpts(st.rpe)+'</select>';
+        +'<select id="'+id('rpe')+'" aria-label="RIR" style="'+inp+'">'+rpeOpts(st.rpe)+'</select>';
     return '<div style="padding:7px 0;border-bottom:1px solid var(--border)">'
       +'<div style="font-size:12px;color:var(--t2);margin-bottom:4px">'+esc(st.ex||'')+(st.add!=null?' · Zusatz (kg)':'')+'</div>'
       +'<div style="display:grid;grid-template-columns:'+(st.secs?'1fr auto 28px':'1fr 1fr 1fr 28px')+';gap:6px;align-items:center">'+fields
@@ -2035,7 +2036,7 @@ function logEditCardHtml(e, hIdx){
   var armed = _logDelArm === hIdx;
   return '<div style="background:var(--card);border:1px solid var(--blue);border-radius:14px;padding:14px;margin-bottom:10px">'
     +'<div style="font-size:15px;font-weight:700">'+esc(e.dayName||'Workout')+' · bearbeiten</div>'
-    +'<div style="font-size:11px;color:var(--t3);margin:2px 0 8px">'+new Date(e.ts).toLocaleDateString('de',{weekday:'long',day:'2-digit',month:'2-digit',year:'2-digit'})+' · kg / Wdh / RPE</div>'
+    +'<div style="font-size:11px;color:var(--t3);margin:2px 0 8px">'+new Date(e.ts).toLocaleDateString('de',{weekday:'long',day:'2-digit',month:'2-digit',year:'2-digit'})+' · kg / Wdh / RIR</div>'
     +(rows || '<div style="font-size:12px;color:var(--t3);padding:6px 0">Keine Sätze.</div>')
     +'<div style="display:flex;gap:8px;margin-top:10px">'
     +'<button type="button" class="btn bg2" onclick="logCancelEdit()" style="flex:1;margin:0;font-size:13px">Abbrechen</button>'
@@ -2301,7 +2302,7 @@ function renderWorkout(){
               :`<input data-set-idx="${i}" data-set-field="w" type="number" inputmode="decimal" placeholder="kg" value="${st.w||''}" style="${numInp}">`}</td>
            <td><input data-set-idx="${i}" data-set-field="r" type="number" inputmode="numeric" min="1" max="50" step="1" placeholder="Wdh" value="${st.r||''}" style="${numInp}"></td>`
         }
-        <td><button type="button" data-rpe-pick="${i}" aria-label="RPE Satz ${i+1}" style="width:100%;min-width:0;padding:8px 2px;background:var(--card2);border:1px solid ${i===rpeIdx?'var(--violet)':'var(--border)'};border-radius:6px;color:${st.rpe?'var(--t1)':'var(--t3)'};font-size:14px;font-family:var(--f);cursor:pointer">${st.rpe?rpeFmt(st.rpe):'RPE'}</button></td>
+        <td><button type="button" data-rir-pick="${i}" aria-label="RIR Satz ${i+1}" style="width:100%;min-width:0;padding:8px 2px;background:var(--card2);border:1px solid ${i===rpeIdx?'var(--violet)':'var(--border)'};border-radius:6px;color:${st.rpe?'var(--t1)':'var(--t3)'};font-size:14px;font-family:var(--f);cursor:pointer">${rirOf(st.rpe)!==null?rpeFmt(rirOf(st.rpe)):'RIR'}</button></td>
         <td><button type="button" class="btn ${st.done?'bp':'bg2'}" data-set-done="${i}" style="padding:8px 0;font-size:12px;margin:0;width:100%;min-width:0">${st.done?'✓':'○'}</button></td>
         <td>${cur.sets.length>1?`<button type="button" data-set-del="${i}" aria-label="Satz ${i+1} löschen" style="background:none;border:none;color:var(--t3);font-size:15px;cursor:pointer;padding:6px 0;line-height:1;width:100%">✕</button>`:''}</td>
       </tr>${ask&&ask.idx===i?`
@@ -2376,7 +2377,7 @@ function renderWorkout(){
           <div class="sl">Aktuelle Übung</div>
           <div style="font-size:20px;font-weight:700;margin-top:6px">${esc(cur.n)}</div>
           <div style="color:var(--t2);margin-top:4px;font-size:13px">Ziel: ${esc(cur.s)}${isTimed?' · <span style="color:var(--blue)">⏱ Zeitübung</span>':' · <span style="color:var(--violet)">RIR '+targetRIR()+' · Wo '+mesoWeek()+'</span>'}</div>
-          ${last?`<div style="color:var(--t3);font-size:11px;margin-top:6px">Letztes Mal: ${isBWex?(function(){var la=setAddKg(last);return la>0?'+'+la+' kg Zusatz':'Körpergewicht';})():last.w+' kg'} × ${last.r}${last.rpe?' @ RPE '+last.rpe:''}</div>`:''}
+          ${last?`<div style="color:var(--t3);font-size:11px;margin-top:6px">Letztes Mal: ${isBWex?(function(){var la=setAddKg(last);return la>0?'+'+la+' kg Zusatz':'Körpergewicht';})():last.w+' kg'} × ${last.r}${rirOf(last.rpe)!==null?' · '+rirLabel(last.rpe):''}</div>`:''}
           ${(function(){
             if(isTimed) return '';
             var t=liftTrend(cur.n);
@@ -2421,7 +2422,7 @@ function renderWorkout(){
             // Standard blauer Coach-Hinweis
             return '<div style="margin-top:10px;padding:8px 10px;background:rgba(10,132,255,.10);border-left:3px solid var(--blue);border-radius:6px;font-size:12px;color:var(--t1)">🧠 <b>Coach:</b> '+wrapTerms(c.hint)+(c.weight!=null?' <span style="color:var(--blue);font-weight:600">→ '+c.weight+' kg × '+c.reps+'</span>':(c.reps?' <span style="color:var(--blue);font-weight:600">→ '+c.reps+' Wdh</span>':''))+'</div>';
           })()}
-          ${isAmrapEx?`<div style="margin-top:10px;padding:9px 11px;background:rgba(191,90,242,.12);border:1px solid rgba(191,90,242,.35);border-radius:8px;font-size:12px;color:var(--t1)">🎯 <b>AMRAP im letzten Satz:</b> so viele saubere Wdh wie möglich (bis RPE 10). Damit prüft KINETIC, wie gut deine RPE-Angaben passen.</div>`:''}
+          ${isAmrapEx?`<div style="margin-top:10px;padding:9px 11px;background:rgba(191,90,242,.12);border:1px solid rgba(191,90,242,.35);border-radius:8px;font-size:12px;color:var(--t1)">🎯 <b>AMRAP im letzten Satz:</b> so viele saubere Wdh wie möglich (bis RIR 0). Damit prüft KINETIC, wie gut deine RIR-Angaben passen.</div>`:''}
           ${tip?`<div style="margin-top:10px;padding:8px 10px;background:rgba(10,132,255,.06);border-left:3px solid rgba(10,132,255,.3);border-radius:6px;font-size:12px;color:var(--t2);line-height:1.5"><b style="color:var(--blue)">Technik:</b> ${esc(tip)}</div>`:''}
           ${stepHtml}
           ${varHtml}
@@ -2433,7 +2434,7 @@ function renderWorkout(){
             <thead><tr>
               <th></th>
               ${isTimed?'<th colspan="2" style="font-size:10px;color:var(--t3);font-weight:500;text-align:center">SEKUNDEN</th>':'<th style="font-size:10px;color:var(--t3);font-weight:500;text-align:center;line-height:1.15">'+(isBWex?'ZUSATZ (KG)':'KG')+'</th><th style="font-size:10px;color:var(--t3);font-weight:500;text-align:center">WDH</th>'}
-              <th style="font-size:10px;color:var(--t3);font-weight:500;text-align:center">RPE</th>
+              <th style="font-size:10px;color:var(--t3);font-weight:500;text-align:center">RIR</th>
               <th></th>
               <th></th>
             </tr></thead>
@@ -2484,22 +2485,22 @@ function renderWorkout(){
       });
     });
     $$('#workoutContent [data-diff]').forEach(btn=>btn.addEventListener('click',()=>changeVariantBy(parseInt(btn.dataset.diff,10))));
-    // RPE: Zeile antippen wählt den Satz, Schnellwahl setzt den Wert
-    $$('#workoutContent [data-rpe-pick]').forEach(btn=>{
+    // RIR: Zeile antippen wählt den Satz, Schnellwahl setzt den Wert
+    $$('#workoutContent [data-rir-pick]').forEach(btn=>{
       btn.addEventListener('click',()=>{
-        _rpeSel={ts:s.startTs, ex:s.currentIdx, idx:parseInt(btn.dataset.rpePick,10)};
+        _rpeSel={ts:s.startTs, ex:s.currentIdx, idx:parseInt(btn.dataset.rirPick,10)};
         renderWorkout();
       });
     });
-    $$('#workoutContent [data-rpe-val]').forEach(btn=>{
-      const val=parseFloat(btn.dataset.rpeVal);
+    $$('#workoutContent [data-rir-val]').forEach(btn=>{
+      const val=parseFloat(btn.dataset.rirVal);
       const stopLong=()=>Timers.clear('rpeLong');
       btn.addEventListener('pointerdown',()=>{
         _rpeLongFired=false;
-        // lange drücken = halber Punkt (8 → 8,5); 10 hat keinen halben Punkt
-        if(val<10) Timers.set(()=>{
+        // lange drücken = halber Punkt (RIR 1 → 1,5); "4+" hat keinen halben Punkt
+        if(val<4) Timers.set(()=>{
           _rpeLongFired=true;
-          if(setRpeForSet(cur, rpeIdx, val+0.5)){ AppState.saveSession(); renderWorkout(); }
+          if(setRirForSet(cur, rpeIdx, val+0.5)){ AppState.saveSession(); renderWorkout(); }
         }, 450, 'rpeLong');
       });
       btn.addEventListener('pointerup',stopLong);
@@ -2510,8 +2511,8 @@ function renderWorkout(){
         if(_rpeLongFired){ _rpeLongFired=false; return; }
         const st=cur.sets[rpeIdx]; if(!st) return;
         // gleicher Wert noch einmal = löschen
-        if(parseFloat(st.rpe)===val){ st.rpe=''; }
-        else if(!setRpeForSet(cur, rpeIdx, val)) return;
+        if(rirOf(st.rpe)===val){ st.rpe=''; }
+        else if(!setRirForSet(cur, rpeIdx, val)) return;
         AppState.saveSession(); renderWorkout();
       });
     });
@@ -2637,20 +2638,38 @@ function fixPlausible(){
   _focusAfterRender = {idx:a.idx, field:a.field};
 }
 
-// ── RPE-Schnellwahl (Spec 4.1) ───────────────────────────────────────────
+// ── RIR-Schnellwahl (Spec 4.1, ab feat/rir-meso mit RIR statt RPE) ───────
+// Eingegeben wird RIR (Wdh in Reserve), gespeichert bleibt rpe = 10 − RIR –
+// so bleiben Historie, e1rm() und Backups unverändert kompatibel.
 var _rpeSel = null;          // {ts, ex, idx} – per Antippen gewählter Satz
 var _rpeLongFired = false;   // langer Druck hat schon ,5 gesetzt → Klick ignorieren
 function rpeFmt(v){ return String(+v).replace('.', ','); }
-// RIR-Übersetzung: RPE 8 = noch 2 Wdh möglich
+// RIR aus gespeicherter RPE (5–10), sonst null
+function rirOf(rpe){
+  if(rpe===null || rpe===undefined || rpe==='') return null;
+  var v = parseFloat(rpe);
+  return (v>=5 && v<=10) ? Math.round((10 - v)*2)/2 : null;
+}
+// "RIR 2 (RPE 8)" – RIR vorn, RPE nur als Zusatz
+function rirLabel(rpe){
+  var r = rirOf(rpe);
+  return r===null ? '' : 'RIR '+rpeFmt(r)+' (RPE '+rpeFmt(rpe)+')';
+}
+// RIR-Übersetzung: "RIR 2 = noch 2 Wdh möglich · RPE 8"
 function rirText(rpe){
-  var v = +rpe;
-  if(!(v>=5 && v<=10)) return '';
-  var rir = 10 - v;
+  var rir = rirOf(rpe);
+  if(rir===null) return '';
   var txt = rir===0 ? 'keine Wdh mehr möglich'
           : rir===0.5 ? 'keine Wdh mehr, evtl. etwas mehr Gewicht'
           : (rir%1 ? 'noch '+Math.floor(rir)+'–'+Math.ceil(rir)+' Wdh möglich'
                    : 'noch '+rir+' Wdh möglich');
-  return rpeFmt(v)+' = '+txt;
+  return 'RIR '+rpeFmt(rir)+' = '+txt+' · RPE '+rpeFmt(rpe);
+}
+// RIR setzen (0–5 in 0,5-Schritten) → gespeichert als rpe = 10 − RIR
+function setRirForSet(cur, idx, rir){
+  var r = parseFloat(rir);
+  if(!(r>=0 && r<=5)) return false;
+  return setRpeForSet(cur, idx, 10 - r);
 }
 // RPE setzen: 5–10 in 0,5-Schritten, sonst nichts speichern
 function setRpeForSet(cur, idx, val){
@@ -2668,16 +2687,20 @@ function rpeTargetIdx(s, cur){
 }
 function rpeQuickHtml(cur, idx){
   var st = (cur.sets||[])[idx] || {};
-  var curV = parseFloat(st.rpe);
-  var btns = [6,7,8,9,10].map(function(v){
-    var on = curV===v || curV===v+0.5;
-    return '<button type="button" data-rpe-val="'+v+'" style="padding:10px 0;border-radius:8px;font-size:15px;font-weight:700;font-family:var(--f);cursor:pointer;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation;'
-      +'border:1.5px solid '+(on?'var(--violet)':'var(--border2)')+';background:'+(on?'var(--violet)':'var(--card2)')+';color:'+(on?'#fff':'var(--t1)')+'">'
-      +(on && curV%1 ? rpeFmt(curV) : v)+'</button>';
+  var curR = rirOf(st.rpe);
+  var tgt = targetRIR(cur.n, idx === (cur.sets||[]).length-1);
+  // RIR 0 / 1 / 2 / 3 / 4+ – "4+" deckt alles ab RIR 4 ab (RPE 6 und leichter)
+  var btns = [0,1,2,3,4].map(function(v){
+    var on = curR!==null && (v===4 ? curR>=4 : (curR===v || curR===v+0.5));
+    var isT = tgt===v || (v===4 && tgt>=4);
+    return '<button type="button" data-rir-val="'+v+'" style="padding:8px 0 6px;border-radius:8px;font-size:15px;font-weight:700;font-family:var(--f);cursor:pointer;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation;line-height:1.15;'
+      +'border:1.5px solid '+(on?'var(--violet)':(isT?'rgba(191,90,242,.55)':'var(--border2)'))+';background:'+(on?'var(--violet)':'var(--card2)')+';color:'+(on?'#fff':'var(--t1)')+'">'
+      +(on && curR%1 ? rpeFmt(curR) : (v===4 ? '4+' : v))
+      +'<span style="display:block;font-size:9px;font-weight:600;opacity:.75">'+(isT?'Ziel':'&nbsp;')+'</span></button>';
   }).join('');
-  var info = curV ? rirText(curV) : 'Antippen: '+rirText(8);
+  var info = curR!==null ? rirText(st.rpe) : 'Antippen: '+rirText(8);
   return '<div style="margin-top:10px">'
-    +'<div style="font-size:10px;color:var(--t3);margin-bottom:5px">RPE für Satz '+(idx+1)+' · lange drücken = ,5</div>'
+    +'<div style="font-size:10px;color:var(--t3);margin-bottom:5px">RIR für Satz '+(idx+1)+' · Ziel RIR '+rpeFmt(tgt)+' · lange drücken = ,5</div>'
     +'<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:5px">'+btns+'</div>'
     +'<div id="rirInfo" style="font-size:11px;color:var(--t2);margin-top:6px">'+esc(info)+'</div>'
     +(AppState.rpeCalib ? '<div style="font-size:10px;color:var(--t3);margin-top:3px">🎯 Kalibrierung ('+new Date(AppState.rpeCalib.ts).toLocaleDateString('de',{day:'2-digit',month:'2-digit'})+'): '+esc(rpeOffsetText(AppState.rpeCalib))+'</div>' : '')
@@ -2767,7 +2790,8 @@ function rpeOffsetText(c){
   var head = sign + rpeFmt(Math.abs(off)) + ' Wdh';
   if(Math.abs(off) <= 0.5) return head+' · gut kalibriert';
   var real = Math.max(5, Math.min(10, (c.refRpe||8) - off));
-  return head+' · du '+(off>0?'unterschätzt':'überschätzt')+' deine Reserve (gefühlte RPE '+rpeFmt(c.refRpe||8)+' ≈ RPE '+rpeFmt(Math.round(real*2)/2)+')';
+  // in RIR ausgedrückt: gefühlte RIR 1,5 ≈ tatsächlich RIR 3
+  return head+' · du '+(off>0?'unterschätzt':'überschätzt')+' deine Reserve (gefühlte RIR '+rpeFmt(10-(c.refRpe||8))+' ≈ tatsächlich RIR '+rpeFmt(10-Math.round(real*2)/2)+')';
 }
 // Nach dem Workout: letzter Satz der AMRAP-Übung gegen den Satz davor (bzw.
 // die letzte Session) prüfen. Ein AMRAP-Satz mit RPE < 9,5 zählt nicht.
@@ -2839,7 +2863,7 @@ function finishWorkout(){
   const prs=sets.filter(x=>x.pr).length;
   refreshDash(); renderLog(); navigate('dash');
   // nach navigate(), sonst blendet der Seitenwechsel die Meldung sofort aus
-  toast((prs?`💪 Fertig! ${prs} neue PR${prs>1?'s':''}! 🏆`:'💪 Workout abgeschlossen!')+(calib?' · 🎯 RPE-Kalibrierung: '+rpeOffsetText(calib):'')
+  toast((prs?`💪 Fertig! ${prs} neue PR${prs>1?'s':''}! 🏆`:'💪 Workout abgeschlossen!')+(calib?' · 🎯 RIR-Kalibrierung: '+rpeOffsetText(calib):'')
     +(skipped?' · '+skipped+' Satz/Sätze mit mehr als 50 Wdh nicht gespeichert':''));
 }
 
@@ -3227,7 +3251,7 @@ function layoffStatus(exName){
   var dAll = daysSinceLastWorkout();
   var days = (dEx==null) ? dAll : dEx;
   if(days==null || days <= 10) return null;  // ≤10 Tage: normale Schwankung
-  if(days <= 28) return {days:days, mod:1.0,  note:'⏸️ '+days+' Tage Pause → gleiches Gewicht, aber bei RPE 7 bleiben – kein Steigerungsdruck heute.'};
+  if(days <= 28) return {days:days, mod:1.0,  note:'⏸️ '+days+' Tage Pause → gleiches Gewicht, aber bei RIR 3 bleiben – kein Steigerungsdruck heute.'};
   if(days <= 56) return {days:days, mod:0.90, note:'⏸️ '+Math.round(days/7)+' Wochen Pause → −10 %, sauber wieder einsteigen.'};
   return              {days:days, mod:0.80, note:'⏸️ '+Math.round(days/7)+' Wochen Pause → −20 %, Technik vor Last. Muscle Memory bringt dich zügig zurück.'};
 }
@@ -3516,7 +3540,7 @@ function needsDeload(){
   var rpeT = recentRpeTrend();
   var since = Date.now()-7*24*3600*1000;
   var wkSessions = (AppState.history||[]).filter(function(e){return e.ts>=since;}).length;
-  if(rpeT && rpeT.delta>=1.5 && wkSessions>=4) return {reason:'RPE stark gestiegen ('+rpeT.prev+'→'+rpeT.last+') bei hohem Volumen – Ermüdung'};
+  if(rpeT && rpeT.delta>=1.5 && wkSessions>=4) return {reason:'RIR stark gesunken (Ø '+rpeFmt(Math.round((10-rpeT.prev)*10)/10)+' → '+rpeFmt(Math.round((10-rpeT.last)*10)/10)+') bei hohem Volumen – Ermüdung'};
   return null;
 }
 
@@ -3567,8 +3591,8 @@ function readinessScore(){
   var rpeT = recentRpeTrend();
   if(rpeT){
     hasData = true;
-    if(rpeT.delta >= 1){      score -= 12; factors.push('📈 RPE steigt (−12)'); }
-    else if(rpeT.delta <= -1){ score += 6; factors.push('📉 RPE sinkt (+6)'); }
+    if(rpeT.delta >= 1){      score -= 12; factors.push('📉 RIR sinkt (−12)'); }
+    else if(rpeT.delta <= -1){ score += 6; factors.push('📈 RIR steigt (+6)'); }
   }
 
   return {score:Math.max(0, Math.min(100, Math.round(score))), hasData:hasData, factors:factors};
@@ -3609,7 +3633,7 @@ function coachSuggestionCore(exName, targetStr){
   var sleepNote = sleep ? sleep.note : '';
 
   if(!last.length){
-    return {weight:null, reps:range?range.lo:null, hint:joinHint('Erstes Mal – starte mit RPE 7 (≈3 RIR)', sleepNote)};
+    return {weight:null, reps:range?range.lo:null, hint:joinHint('Erstes Mal – starte mit RIR 3 (RPE 7)', sleepNote)};
   }
 
   // Körpergewichtsübungen rechnen mit der Zusatzlast, nicht mit w
@@ -3743,7 +3767,7 @@ function coachSuggestionCore(exName, targetStr){
   }
   // PRIORITÄT 2 – RPE > 9 (aber Wdh im Soll): halten
   if(avgRpe !== null && avgRpe > 9){
-    return {weight:workW, reps:range?range.hi:workReps[0], hint:joinHint('Hohe Anstrengung (RPE>9) – Gewicht halten, Technik sauber', sleepNote&&sleep.q!=='ok' ? sleepNote : '')};
+    return {weight:workW, reps:range?range.hi:workReps[0], hint:joinHint('Hohe Anstrengung (RIR unter 1) – Gewicht halten, Technik sauber', sleepNote&&sleep.q!=='ok' ? sleepNote : '')};
   }
   // PRIORITÄT 2b – Wiederaufbau nach Pause: liegt das Gewicht unter dem
   // Vor-Pausen-Niveau und sitzen die Wdh bei RPE ≤ 8, pro Session ein Schritt
@@ -3788,7 +3812,7 @@ function coachSuggestionCore(exName, targetStr){
     var incE = loadIncrement(workW, exName);
     if(rpeA!==null && rpeB!==null && rpeA<=7 && rpeB<=7 && inRange && incE/workW <= 0.15){
       return {weight:Math.round((workW+incE)*4)/4, reps:range.lo,
-              hint:'RPE 2 Sessions in Folge ≤ 7 (Ø '+(Math.round(rpeB*10)/10)+' / '+(Math.round(rpeA*10)/10)+') → +'+incE+' kg, die Reserve nutzen.'};
+              hint:'RIR 2 Sessions in Folge ≥ 3 (Ø RIR '+rpeFmt(Math.round((10-rpeB)*10)/10)+' / '+rpeFmt(Math.round((10-rpeA)*10)/10)+') → +'+incE+' kg, die Reserve nutzen.'};
     }
   }
 
@@ -3797,7 +3821,7 @@ function coachSuggestionCore(exName, targetStr){
   var targetReps = Math.min(range?range.hi:maxR+1, maxR+1);
   var hint = 'Gleiches Gewicht – +1 Wdh anpeilen.';
   if(avgRpe !== null && avgRpe <= 7){
-    hint = 'RPE niedrig (≤7) – ggf. +'+loadIncrement(workW, exName)+' kg statt nur +1 Wdh.';
+    hint = 'Viel Reserve (RIR ≥ 3) – ggf. +'+loadIncrement(workW, exName)+' kg statt nur +1 Wdh.';
   }
   // Plateau-Hinweis: E1RM seit mehreren Sessions flach → Reiz variieren
   var trend = liftTrend(exName);

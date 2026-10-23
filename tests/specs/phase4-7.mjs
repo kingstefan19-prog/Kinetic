@@ -15,24 +15,30 @@ function workout(ctx, exercises) {
 
 export default function ({ test, todo, assert, loadApp, REPO_ROOT }) {
   // ── Phase 4 ──
-  test('4.1 RPE-Schnellwahl 6/7/8/9/10 mit RIR-Übersetzung statt Zahlenfeld', () => {
+  test('4.1 Schnellwahl RIR 0/1/2/3/4+ (statt RPE 6–10) statt Zahlenfeld', () => {
     const ctx = loadApp({}, { now: '2026-10-19T17:00:00Z' });
     workout(ctx, [{ n: 'Seitheben (Kabel)', s: '3×12-15',
       sets: [{ w: '20', r: '14', rpe: '8', done: true }, { w: '20', r: '13', rpe: '', done: false }] }]);
     ctx.renderWorkout();
     const html = ctx.document.getElementById('workoutContent').innerHTML;
-    for (const v of [6, 7, 8, 9, 10]) assert.match(html, new RegExp(`data-rpe-val="${v}"`));
+    for (const v of [0, 1, 2, 3, 4]) assert.match(html, new RegExp(`data-rir-val="${v}"`));
+    assert.match(html, /data-rir-val="4"[^>]*>4\+/, 'letzter Button heißt 4+');
+    assert.doesNotMatch(html, /data-rpe-val/, 'keine RPE-Buttons mehr');
     assert.doesNotMatch(html, /data-set-field="rpe"/, 'altes Zahlenfeld noch da');
-    assert.match(html, /RPE für Satz 2/, 'Schnellwahl soll auf den ersten offenen Satz zeigen');
+    assert.match(html, /RIR für Satz 2/, 'Schnellwahl soll auf den ersten offenen Satz zeigen');
     assert.match(html, /lange drücken = ,5/);
-    assert.match(html, /8 = noch 2 Wdh möglich/);
+    assert.match(html, /RIR 2 = noch 2 Wdh möglich · RPE 8/);
+    assert.match(html, /data-rir-pick="0"[^>]*>2<\/button>/, 'Satz 1 (RPE 8) zeigt RIR 2');
+    assert.match(html, /<th[^>]*>RIR<\/th>/);
   });
 
   test('4.1 RIR-Texte und Grenzen (5–10 in 0,5-Schritten)', () => {
     const ctx = loadApp({});
-    assert.equal(ctx.rirText(8), '8 = noch 2 Wdh möglich');
-    assert.equal(ctx.rirText(10), '10 = keine Wdh mehr möglich');
-    assert.equal(ctx.rirText(8.5), '8,5 = noch 1–2 Wdh möglich');
+    assert.equal(ctx.rirText(8), 'RIR 2 = noch 2 Wdh möglich · RPE 8');
+    assert.equal(ctx.rirText(10), 'RIR 0 = keine Wdh mehr möglich · RPE 10');
+    assert.equal(ctx.rirText(8.5), 'RIR 1,5 = noch 1–2 Wdh möglich · RPE 8,5');
+    assert.equal(ctx.rirOf('6'), 4);
+    assert.equal(ctx.rirOf(78), null);
     const cur = { sets: [{ rpe: '' }] };
     assert.equal(ctx.setRpeForSet(cur, 0, 8.5), true);
     assert.equal(cur.sets[0].rpe, '8.5');
@@ -62,7 +68,8 @@ export default function ({ test, todo, assert, loadApp, REPO_ROOT }) {
     assert.equal(v.share, 0.75);
     ctx.renderSmartNotifs();
     const html = ctx.document.getElementById('smartNotifs').innerHTML;
-    assert.match(html, /Deine RPE wirkt gewohnheitsmäßig\. Heute im letzten Satz von Overhead Extension \(KH\) so viele Wdh wie möglich \(AMRAP\)/);
+    assert.match(html, /RIR-Check: 75 % deiner letzten 40 Sätze mit RIR 2/);
+    assert.match(html, /Deine RIR-Angaben wirken gewohnheitsmäßig\. Heute im letzten Satz von Overhead Extension \(KH\) so viele Wdh wie möglich \(AMRAP\)/);
   });
 
   test('4.2 Genau 70 % oder weniger als 40 bewertete Sätze → keine Karte', () => {
@@ -107,7 +114,7 @@ export default function ({ test, todo, assert, loadApp, REPO_ROOT }) {
     // 12 Wdh @ RPE 8,5 → erwartet 13,5 bei gleicher Last; AMRAP 15 → +1,5 (Reserve unterschätzt)
     const c = JSON.parse(JSON.stringify(ctx.rpeCalibration({ w: 20, r: 12, rpe: 8.5 }, { w: 20, r: 15 })));
     assert.deepEqual(c, { expected: 13.5, actual: 15, offset: 1.5, refRpe: 8.5 });
-    assert.match(ctx.rpeOffsetText(c), /^\+1,5 Wdh · du unterschätzt deine Reserve \(gefühlte RPE 8,5 ≈ RPE 7\)/);
+    assert.match(ctx.rpeOffsetText(c), /^\+1,5 Wdh · du unterschätzt deine Reserve \(gefühlte RIR 1,5 ≈ tatsächlich RIR 3\)/);
     // andere Last → Epley-Umrechnung: 20×12 @ 10 ≙ 18×≈16,7 → 16,5
     assert.equal(ctx.rpeCalibration({ w: 20, r: 12, rpe: 10 }, { w: 18, r: 14 }).expected, 16.5);
     assert.equal(ctx.rpeCalibration({ w: 20, r: 12 }, { w: 20, r: 15 }), null, 'ohne RPE keine Kalibrierung');
