@@ -4582,13 +4582,9 @@ function coachSuggestionCore(exName, targetStr){
   if(trend.plateau && trend.sessions>=3){
     hint = joinHint(hint, '⚠️ E1RM seit '+trend.sessions+' Sessions flach – Variante wechseln (↑ Schwerer) oder Extra-Satz');
   }
-  // RPE-Autoregulation: Ziel-Gewicht aus E1RM + Ziel-RIR der aktuellen Meso-Woche
-  var tRIR = targetRIR(exName);
-  var arReps = range ? range.hi : targetReps;
-  var arW = loadForReps(exName, arReps, tRIR);
-  if(arW>0 && Math.abs(arW - workW) > plateStep(exName, workW)){
-    hint = joinHint(hint, '🎯 Autoreg (Woche '+mesoWeek()+', Ziel-RIR '+tRIR+'): '+arW+' kg für '+arReps+' Wdh');
-  }
+  // Kein separater Autoreg-Hinweis mehr (fix/integration, Punkt 4): er
+  // widersprach dem eigentlichen Vorschlag; die RIR-Steuerung läuft über die
+  // Anpassung innerhalb der Session. loadForReps() bleibt für Berechnungen.
   // Schlaf-Modulation
   if(sleep){
     if(sleep.q==='top') hint = joinHint(hint, sleepNote);

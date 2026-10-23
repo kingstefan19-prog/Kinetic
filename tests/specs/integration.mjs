@@ -101,4 +101,14 @@ export default function ({ test, assert, loadApp }) {
     assert.equal(ctx.preLayoffRef(SB), null, 'Brust lief durchgehend weiter');
     assert.doesNotMatch(ctx.coachSuggestion(SB, '3×8-12').hint, /Vor der Pause/);
   });
+
+  // ── 4 Autoreg-Hinweis ──
+  test('4 Kein "Autoreg"-Hinweis mehr im Vorschlag, loadForReps() bleibt', () => {
+    // Situation, die früher den Hinweis erzeugte: E1RM deutlich über dem Arbeitsgewicht
+    const ctx = loadApp({ history: [session('2026-10-14', 'Kniebeuge (LH)', [[140, 6, 7], [140, 6, 7], [160, 5, 8]])] }, { now: '2026-10-21T08:00:00Z' });
+    const r = ctx.coachSuggestion('Kniebeuge (LH)', '3×5-8');
+    assert.doesNotMatch(r.hint, /Autoreg/);
+    assert.equal(typeof ctx.loadForReps, 'function');
+    assert.ok(ctx.loadForReps('Kniebeuge (LH)', 8, 2) > 0);
+  });
 }
