@@ -111,4 +111,33 @@ export default function ({ test, assert, loadApp }) {
     assert.equal(typeof ctx.loadForReps, 'function');
     assert.ok(ctx.loadForReps('Kniebeuge (LH)', 8, 2) > 0);
   });
+
+  // ── 5 Startgewicht für neue Übungen ──
+  test('5 Rumänisches Kreuzheben ohne Historie: 45 % des Kniebeugen-E1RM, gerundet auf plateStep', () => {
+    const ctx = loadApp({ history: [session('2026-10-14', 'Kniebeuge (LH)', [[150, 5, 8], [150, 5, 8], [150, 5, 8]])] }, { now: '2026-10-21T08:00:00Z' });
+    const RDL = 'Rumänisches Kreuzheben (LH)';
+    const e1 = ctx.currentE1rm('Kniebeuge (LH)');
+    const r = ctx.coachSuggestion(RDL, '3×8-10');
+    const step = ctx.plateStep(RDL, r.weight);
+    assert.ok(Math.abs(r.weight - e1 * 0.45) <= step / 2 + 1e-9, `${r.weight} vs 45 % von ${e1}`);
+    assert.equal(Math.round(r.weight / step) * step, r.weight, 'Vielfaches von plateStep');
+    assert.equal(r.reps, 8);
+    assert.match(r.hint, /^Schätzung, erster Satz bei RIR 3/);
+  });
+
+  test('5 Andere Familien: 80 % der verwandten Übung mit gleichem Gerätetyp; sonst "Erstes Mal"', () => {
+    const ctx = loadApp({ history: [session('2026-10-14', 'Hammer Curl (KH)', [[18, 12, 8], [18, 12, 8], [18, 11, 8]]),
+      session('2026-10-14', 'Seitheben (Kabel)', [[20, 14, 8]]), session('2026-10-14', 'Schulterdrücken (KH sitzend)', [[32, 9, 8]])] },
+      { now: '2026-10-21T08:00:00Z' });
+    const curl = ctx.coachSuggestion('Incline Curl (KH) 45°', '3×12-15');
+    assert.equal(curl.weight, 14, '80 % von 18 kg = 14,4 → 14 (KH-Schritt 2 kg)');
+    assert.match(curl.hint, /80 % von Hammer Curl \(KH\)/);
+    // Seitheben (KH): Kabel ist anderer Gerätetyp, Schulterdrücken andere Familie → keine Schätzung
+    const sh = ctx.coachSuggestion('Seitheben (KH)', '3×12-15');
+    assert.equal(sh.weight, null);
+    assert.match(sh.hint, /^Erstes Mal/);
+    // Nordic Curl und Copenhagen Adduction ohne Gewicht
+    assert.equal(ctx.coachSuggestion('Nordic Curl (Beinbizeps)', '2×4-6').weight, null);
+    assert.equal(ctx.coachSuggestion('Copenhagen Adduction', '2×20-30s').weight, null);
+  });
 }

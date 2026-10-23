@@ -3514,24 +3514,9 @@ function lastSessionSetsFor(exName){
     const sets=(AppState.history[i].sets||[]).filter(x=>x.ex===exName);
     if(sets.length) return sets;
   }
-  // 2. Fallback: gleiche Familie ABER nur kompatibles Equipment
-  // Beispiel: "Einarmiges KH-Rudern" darf NICHT das Gewicht von "Kabel-Pullover" erben
-  var fam = findFamilyFor(exName);
-  if(fam && fam.variants){
-    var targetEquip = equipmentType(exName);
-    var compatibleVariants = fam.variants
-      .map(function(v){return v.n;})
-      .filter(function(name){ return equipmentType(name) === targetEquip; });
-    if(compatibleVariants.length){
-      for(let i=AppState.history.length-1;i>=0;i--){
-        const sets=(AppState.history[i].sets||[]).filter(function(x){
-          return compatibleVariants.indexOf(x.ex)>=0;
-        });
-        if(sets.length) return sets;
-      }
-    }
-  }
-  // 3. Kein kompatibler Treffer → kein Gewicht vorschlagen (sicherer als falsches Gewicht)
+  // 2. Keine eigene Historie → []. Verwandte Übungen liefern in
+  // coachSuggestion nur noch eine vorsichtige Schätzung (estimateStartWeight,
+  // 80 % bzw. 45 % des Kniebeugen-E1RM) statt 100 % des fremden Gewichts.
   return [];
 }
 
@@ -4380,6 +4365,39 @@ function coachSuggestion(exName, targetStr){
   return res;
 }
 
+// ── Startgewicht für neue Übungen (fix/integration, Punkt 5) ─────────────
+// Ohne eigene Historie, aber mit Daten einer verwandten Übung: vorsichtiger
+// Startwert, gerundet auf plateStep.
+// - Rumänisches Kreuzheben: 45 % des Kniebeugen-E1RM
+// - sonst 80 % des Arbeitsgewichts der zuletzt trainierten Übung derselben
+//   Familie mit gleichem Gerätetyp (und gleicher Art Grund-/Isolationsübung)
+// Nordic Curl, Copenhagen Adduction und Körpergewicht bleiben ohne Gewicht.
+function estimateStartWeight(exName){
+  var n = String(exName||'');
+  if(!n || /nordic|copenhagen|plank/i.test(n) || equipmentType(n)==='bodyweight') return null;
+  var round = function(w){ var st = plateStep(n, w); return Math.max(st, Math.round(w/st)*st); };
+  var names = {};
+  (AppState.history||[]).forEach(function(e){ (e.sets||[]).forEach(function(x){ if(x.ex && x.ex!==n && +x.w>0) names[x.ex] = e.ts; }); });
+  var known = Object.keys(names);
+  if(/rumän|romanian|\brdl\b/i.test(n)){
+    var sq = known.filter(function(x){ return /kniebeug/i.test(x) && equipmentType(x)==='barbell'; });
+    var e1 = Math.max.apply(null, [0].concat(sq.map(currentE1rm)));
+    if(e1 > 0) return {weight:round(e1*0.45), ref:'Kniebeuge',
+      hint:'Schätzung, erster Satz bei RIR 3 – 45 % des Kniebeugen-E1RM ('+fmtDe(Math.round(e1))+' kg)'};
+  }
+  var fam = findFamilyFor(n);
+  if(!fam) return null;
+  var refs = known.filter(function(x){
+    var f = findFamilyFor(x);
+    return f && f.id===fam.id && equipmentType(x)===equipmentType(n) && isCompoundLift(x)===isCompoundLift(n);
+  }).sort(function(a, b){ return names[b] - names[a]; });                  // zuletzt trainiert zuerst
+  if(!refs.length) return null;
+  var ww = lastWorkWeight(refs[0]);
+  if(!(ww > 0)) return null;
+  return {weight:round(ww*0.8), ref:refs[0],
+    hint:'Schätzung, erster Satz bei RIR 3 – 80 % von '+refs[0]+' ('+fmtDe(ww)+' kg)'};
+}
+
 function coachSuggestionCore(exName, targetStr){
   var range = parseRepRange(targetStr);
   var last = lastSessionSetsFor(exName);
@@ -4387,6 +4405,9 @@ function coachSuggestionCore(exName, targetStr){
   var sleepNote = sleep ? sleep.note : '';
 
   if(!last.length){
+    // Neue Übung: vorsichtige Schätzung aus einer verwandten Übung (Punkt 5)
+    var est = estimateStartWeight(exName);
+    if(est) return {weight:est.weight, reps:range?range.lo:null, hint:joinHint(est.hint, sleepNote), estimate:true};
     return {weight:null, reps:range?range.lo:null, hint:joinHint('Erstes Mal – starte mit RIR 3 (RPE 7)', sleepNote)};
   }
 
