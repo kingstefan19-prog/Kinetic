@@ -2690,6 +2690,23 @@ function lastWeightFor(exName){
   return null;
 }
 
+// Überspringen im Workout: Button, Pflicht-Auswahl des Grundes
+function skipBoxHtml(s, cur){
+  var ask = skipAskFor(s);
+  if(!ask) return '<button type="button" id="skipBtn" class="btn bg2" style="margin-top:6px;font-size:12px;padding:8px">⏭ Überspringen</button>';
+  var btn = function(k){ return '<button type="button" class="btn bg2" data-skip-reason="'+k+'" style="flex:1;min-width:0;padding:8px 4px;font-size:12px;margin:0">'+esc(SKIP_REASONS[k])+'</button>'; };
+  return '<div style="margin-top:8px;padding:10px;background:var(--card2);border:1px solid var(--border2);border-radius:8px">'
+    +'<div style="font-size:12px;color:var(--t1);margin-bottom:6px">Warum überspringen? '+esc(exShortName(cur.n))+'</div>'
+    +'<div style="display:flex;gap:6px">'+btn('dislike')+btn('busy')+btn('pain')+'</div>'
+    +'<button type="button" id="skipCancel" class="btn bo" style="margin-top:6px;font-size:12px;padding:7px">Abbrechen</button></div>';
+}
+function skippedCardHtml(cur){
+  return '<div class="c"><div class="sl">Übersprungen</div>'
+    +'<div style="font-size:18px;font-weight:700;margin-top:6px">'+esc(cur.n)+'</div>'
+    +'<div style="color:var(--t2);margin-top:4px;font-size:13px">Grund: '+esc(SKIP_REASONS[cur.skipped]||cur.skipped)+'</div></div>';
+}
+function chooseSkipReason(reason){ return skipCurrent(reason); }
+
 function renderWorkout(){
   const el_=el('workoutContent'); if(!el_) return;
   const s=AppState.activeSession;
@@ -2711,7 +2728,7 @@ function renderWorkout(){
   }
   try {
     const cur=s.exercises[s.currentIdx]||s.exercises[0];
-    if(!cur.sets||!cur.sets.length) cur.sets=[{w:'',r:'',secs:'',rpe:'',done:false}];
+    if(!cur.skipped && (!cur.sets||!cur.sets.length)) cur.sets=[{w:'',r:'',secs:'',rpe:'',done:false}];
     const elapsed=formatTime(Date.now()-s.startTs);
     const last=lastWeightFor(cur.n);
     const pr=AppState.prs[cur.n];
@@ -2810,7 +2827,7 @@ function renderWorkout(){
           ${s.exercises.map((ex,i)=>`<button type="button" data-jump="${i}" style="flex-shrink:0;padding:5px 10px;border-radius:20px;font-size:11px;font-weight:600;border:1.5px solid ${i===s.currentIdx?'var(--accent)':ex.done?'var(--green)':'var(--border2)'};background:${i===s.currentIdx?'var(--accent)':ex.done?'rgba(52,199,89,.1)':'var(--card2)'};color:${i===s.currentIdx?'#000':ex.done?'var(--green)':'var(--t3)'};cursor:pointer;font-family:var(--f)">${ex.done?'✓ ':''} ${esc(ex.n.split(' ')[0])}</button>`).join('')}
         </div>
 
-        <div class="c">
+        ${cur.skipped ? skippedCardHtml(cur) : `<div class="c">
           <div class="sl">Aktuelle Übung</div>
           <div style="font-size:20px;font-weight:700;margin-top:6px">${esc(cur.n)}</div>
           <div style="color:var(--t2);margin-top:4px;font-size:13px">Ziel: ${esc(cur.s)}${isTimed?' · <span style="color:var(--blue)">⏱ Zeitübung</span>':' · <span style="color:var(--violet)">'+targetRIRLabel(cur.n)+' · '+mesoLabel()+'</span>'}</div>
@@ -2882,7 +2899,9 @@ function renderWorkout(){
           ${adj?`<div style="margin-top:6px;padding:8px 10px;background:rgba(10,132,255,.10);border-left:3px solid var(--blue);border-radius:6px;font-size:12px;color:var(--t1);display:flex;align-items:center;gap:8px"><span style="flex:1">🔧 ${esc(adj.msg)}</span><button type="button" id="adjUndo" class="btn bg2" style="width:auto;padding:6px 10px;font-size:12px;margin:0">Rückgängig</button></div>`:''}
           ${isTimed?'':rpeQuickHtml(cur, rpeIdx)}
           <button type="button" id="addSetBtn" class="btn bo" style="margin-top:8px;font-size:12px;padding:8px">+ Satz hinzufügen</button>
-        </div>
+          ${skipBoxHtml(s, cur)}
+        </div>`}
+        ${(s.skipNotes||[]).length?`<div style="margin-top:10px;padding:8px 10px;background:rgba(10,132,255,.10);border-left:3px solid var(--blue);border-radius:6px;font-size:12px;color:var(--t1);line-height:1.5">${s.skipNotes.map(x=>'⏭ '+esc(x)).join('<br>')}</div>`:''}
 
         ${restHtml}
 
@@ -2994,6 +3013,9 @@ function renderWorkout(){
     $$('#workoutContent [data-set-done]').forEach(btn=>{
       btn.addEventListener('click',()=>{ toggleSetDone(parseInt(btn.dataset.setDone,10)); renderWorkout(); });
     });
+    const skipBtn=el('skipBtn'); if(skipBtn) skipBtn.addEventListener('click', skipAskOpen);
+    const skipCancel=el('skipCancel'); if(skipCancel) skipCancel.addEventListener('click', skipAskCancel);
+    $$('#workoutContent [data-skip-reason]').forEach(btn=>btn.addEventListener('click',()=>chooseSkipReason(btn.dataset.skipReason)));
     const adjUndo=el('adjUndo'); if(adjUndo) adjUndo.addEventListener('click',()=>{ undoAutoAdjust(); renderWorkout(); toast('Anpassung zurückgenommen'); });
     const plausOk=el('plausOk'); if(plausOk) plausOk.addEventListener('click',()=>{ confirmPlausible(); renderWorkout(); });
     const plausFix=el('plausFix'); if(plausFix) plausFix.addEventListener('click',()=>{ fixPlausible(); renderWorkout(); });
@@ -3419,7 +3441,9 @@ function finishWorkout(){
   // Spec 1.2: Dauer bis zum letzten abgehakten Satz – eine vergessene Session
   // zählt sonst die Stunden bis zum Beenden mit
   const endTs=s.lastSetTs||Date.now();
-  AppState.history.push({ts:endTs,dayName:s.dayName,durationMs:Math.max(0,endTs-s.startTs),volume,sets});
+  const entry={ts:endTs,dayName:s.dayName,durationMs:Math.max(0,endTs-s.startTs),volume,sets};
+  if(s.skipped && s.skipped.length) entry.skipped=s.skipped.slice();   // feat/skip-redistribute
+  AppState.history.push(entry);
   // Streak
   const today=new Date(endTs).toDateString();
   if(AppState.lastStreakDate!==today){ AppState.streak+=1; AppState.lastStreakDate=today; }
@@ -4946,6 +4970,54 @@ function changeVariantBy(delta){
   else        next=sorted.slice().reverse().find(v=>v.lvl<lvl.lvl)||sorted[0];
   if(!next||next.n===cur.n){ toast(delta>0?'Schon schwerste Variante':'Schon leichteste Variante'); return; }
   applyVariant(next.n,next.s);
+}
+
+// ── Übung überspringen (feat/skip-redistribute) ─────────────────────────
+// Grund ist Pflicht. Gespeichert in der Session als skipped: [{ex, reason, sets}]
+// und beim Beenden in der Historie (optionales Feld, abwärtskompatibel).
+var SKIP_REASONS = {dislike:'Mag ich nicht', busy:'Gerät belegt', pain:'Schmerz/Unwohlsein'};
+var _skipAsk = null;   // {ts, ex, step:'reason'|'alt'} – offene Auswahl im Workout
+// Kurzname für Hinweise: "RDL", "Beinbeuger", "Seitheben"
+function exShortName(exName){
+  var n = String(exName||'');
+  if(/rumän|romanian|\brdl\b/i.test(n)) return 'RDL';
+  return n.replace(/\s*\([^)]*\)/g, '').replace(/\s+/g, ' ').trim() || n;
+}
+function skipAskOpen(){
+  var s = AppState.activeSession; if(!s) return;
+  _skipAsk = {ts:s.startTs, ex:s.currentIdx, step:'reason'};
+  renderWorkout();
+}
+function skipAskCancel(){ _skipAsk = null; renderWorkout(); }
+function skipAskFor(s){
+  return (_skipAsk && s && _skipAsk.ts===s.startTs && _skipAsk.ex===s.currentIdx) ? _skipAsk : null;
+}
+// Übung idx der aktiven Session überspringen. Erledigte Sätze bleiben,
+// offene entfallen. Liefert den skipped-Eintrag oder null.
+function skipExercise(idx, reason){
+  var s = AppState.activeSession; if(!s || !SKIP_REASONS[reason]) return null;
+  var ex = s.exercises[idx]; if(!ex || ex.skipped) return null;
+  var open = (ex.sets||[]).filter(function(st){ return !st.done; }).length;
+  ex.sets = (ex.sets||[]).filter(function(st){ return st.done; });
+  ex.skipped = reason;
+  ex.done = true;
+  var entry = {ex:ex.n, reason:reason, sets:open};
+  s.skipped = (s.skipped||[]).concat([entry]);
+  s.skipNotes = (s.skipNotes||[]).concat([exShortName(ex.n)+' übersprungen ('+SKIP_REASONS[reason]+').']);
+  _skipAsk = null;
+  if(idx===s.currentIdx){
+    s.restEndTs = 0;
+    s.currentIdx++;
+    if(s.currentIdx>=s.exercises.length){ finishWorkout(); return entry; }
+  }
+  AppState.saveSession();
+  return entry;
+}
+function skipCurrent(reason){
+  var s = AppState.activeSession; if(!s) return null;
+  var r = skipExercise(s.currentIdx, reason);
+  if(AppState.activeSession) renderWorkout();
+  return r;
 }
 
 // ── 19. FORM TIPS ───────────────────────────────────────
