@@ -186,4 +186,76 @@ export default function ({ test, assert, loadApp }) {
     assert.ok(alts.every((a) => /^[^–]*$/.test(c.familyAlternatives(RDL).find((x) => x.n === a).s)), 'Plan-Format mit Bindestrich');
     assert.equal(c.familyAlternatives('Beinbeuger (Maschine liegend)')[0].n, 'Beinbeuger (Maschine sitzend)', 'sonst Familienreihenfolge');
   });
+
+  // ── 5 Dauerhaft ersetzen ──
+  // Lower mit RDL "Mag ich nicht" an den Mittwochen dates (über die App selbst)
+  function dislikedRdl(dates) {
+    const PLAN = plain(loadApp({}).plan3plus1());
+    const c = loadApp({ plan: PLAN, history: [], prs: { [RDL]: 120 } }, { now: `${dates[0]}T16:00:00Z` });
+    for (const d of dates) {
+      c.__harness.setNow(`${d}T16:00:00Z`);
+      c.startWorkout('wed');
+      const s = c.AppState.activeSession;
+      c.skipExercise(s.exercises.findIndex((e) => e.n === RDL), 'dislike');
+      s.exercises.forEach((e) => e.sets.forEach((st) => { st.w = st.w || '50'; st.r = st.r || '10'; st.done = true; }));
+      c.finishWorkout();
+    }
+    c.__harness.setNow(`${dates[dates.length - 1]}T20:00:00Z`);
+    return c;
+  }
+
+  test('5 Einmal "Mag ich nicht" → noch keine Karte', () => {
+    const c = dislikedRdl(['2026-10-21']);
+    assert.equal(c.permanentReplaceSuggestion(), null);
+  });
+
+  test('5 Zweimal "Mag ich nicht" → Karte "RDL dauerhaft ersetzen?" mit Hyperextension 45°, Plan erst nach Bestätigung', () => {
+    const c = dislikedRdl(['2026-10-21', '2026-10-28']);
+    const sg = c.permanentReplaceSuggestion();
+    assert.equal(sg.ex, RDL);
+    assert.equal(sg.count, 2);
+    assert.ok(sg.options.some((o) => o.n === 'Hyperextension 45° (Hamstring-Fokus)'));
+    assert.equal(sg.target.n, 'Beinbeuger (Maschine liegend)');
+    c.renderSmartNotifs();
+    const card = c.document.getElementById('smartNotifs').innerHTML;
+    assert.match(card, /RDL dauerhaft ersetzen\?/);
+    assert.match(card, /Hyperextension 45° \(Hamstring-Fokus\)/);
+    c.offerPermanentReplace();
+    const dlg = c.document.getElementById('appDialog').innerHTML;
+    assert.match(dlg, /RDL dauerhaft ersetzen\?/);
+    assert.match(dlg, /choosePermanentReplace\(\d\)[^>]*>Hyperextension 45° \(Hamstring-Fokus\) · 3×10-15/);
+    assert.match(dlg, /Entfernen und Sätze auf Beinbeuger \(Maschine liegend\) verteilen/);
+    const histLen = c.AppState.history.length, prs = plain(c.AppState.prs);
+    c.choosePermanentReplace(sg.options.findIndex((o) => o.n === 'Hyperextension 45° (Hamstring-Fokus)'));
+    const lower = () => c.AppState.plan.find((d) => d.id === 'wed').ex.map((e) => `${e.n} ${e.s}`);
+    assert.ok(lower().includes(`${RDL} 3×8-10`), 'vor der Bestätigung unverändert');
+    assert.match(c.document.getElementById('appDialog').innerHTML, /RDL durch Hyperextension 45° \(Hamstring-Fokus\) ersetzen\?/);
+    c.confirmDialogOk();
+    assert.ok(lower().includes('Hyperextension 45° (Hamstring-Fokus) 3×10-15'));
+    assert.ok(!lower().some((x) => x.startsWith(RDL)));
+    assert.equal(c.AppState.history.length, histLen, 'Historie bleibt');
+    assert.deepEqual(plain(c.AppState.prs), prs, 'PRs bleiben');
+    assert.equal(c.permanentReplaceSuggestion(), null, 'erledigt');
+  });
+
+  test('5 Entfernen verteilt die Sätze auf den Beinbeuger; "Nein, danke" fragt erst nach dem nächsten Mal wieder', () => {
+    const c = dislikedRdl(['2026-10-21', '2026-10-28']);
+    const sg = c.permanentReplaceSuggestion();
+    c.offerPermanentReplace();
+    c.choosePermanentReplace(sg.options.length);
+    c.confirmDialogOk();
+    const lower = c.AppState.plan.find((d) => d.id === 'wed').ex;
+    assert.ok(!lower.some((e) => e.n === RDL));
+    assert.equal(lower.find((e) => e.n === 'Beinbeuger (Maschine liegend)').s, '4×10-12');
+    assert.equal(lower.find((e) => e.n === 'Nordic Curl (Beinbizeps)').s, '2×4-6');
+    // Ablehnen
+    const d = dislikedRdl(['2026-10-21', '2026-10-28']);
+    d.declinePermanentReplace();
+    assert.equal(d.permanentReplaceSuggestion(), null);
+    d.__harness.setNow('2026-11-04T16:00:00Z');
+    d.startWorkout('wed');
+    d.skipExercise(d.AppState.activeSession.exercises.findIndex((e) => e.n === RDL), 'dislike');
+    d.finishWorkout();
+    assert.equal(d.permanentReplaceSuggestion().count, 3);
+  });
 }

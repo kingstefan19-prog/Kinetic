@@ -1361,6 +1361,15 @@ function renderSmartNotifs(){
       type:'sleep', prio:1, buttons:[{label:'Ansehen', fn:'offerPermanentMove()'}, {label:'Nein, danke', fn:'declinePermanentMove()'}]});
   }
 
+  // Zweimal "Mag ich nicht" → dauerhaft ersetzen? (feat/skip-redistribute, Punkt 5)
+  var prs_ = permanentReplaceSuggestion();
+  if(prs_){
+    notifs.push({icon:'🔄', title:exShortName(prs_.ex)+' dauerhaft ersetzen?',
+      body:prs_.count+'× mit „Mag ich nicht“ übersprungen. Ersatz: '+prs_.options.map(function(o){ return o.n; }).join(', ')
+        +(prs_.target ? ' – oder entfernen und Sätze auf '+prs_.target.n+' verteilen' : '')+'. Der Plan ändert sich erst nach Bestätigung.',
+      type:'sleep', prio:1, buttons:[{label:'Ansehen', fn:'offerPermanentReplace()'}, {label:'Nein, danke', fn:'declinePermanentReplace()'}]});
+  }
+
   // Montags-Wiegen (Spec 6.1): ohne Gewichtsverlauf keine Recomp-Auswertung
   var wDue = weighInDue();
   if(wDue){
@@ -5183,6 +5192,96 @@ function lastSkipReason(exName){
     if(sk) return sk.reason;
   }
   return null;
+}
+// ── Dauerhaft ersetzen (Punkt 5) ────────────────────────────────────────
+// Zweimal mit "Mag ich nicht" übersprungen → Karte mit Ersatz aus der Familie
+// oder "Entfernen und Sätze auf <Übung> verteilen". Der Plan ändert sich erst
+// nach Bestätigung im App-Dialog; Historie und PRs bleiben.
+var REPLACE_AFTER_DISLIKES = 2;
+var _replaceOffer = null;
+function dislikeSkips(exName){
+  return (AppState.history||[]).reduce(function(a, e){
+    return a + ((e && e.skipped)||[]).filter(function(x){ return x && x.ex===exName && x.reason==='dislike'; }).length;
+  }, 0);
+}
+// Plan-String mit neuer Satzzahl: "2×10-12" → "4×10-12"
+function withSetCount(str, n){ return /^\d+/.test(String(str||'')) ? String(str).replace(/^\d+/, String(n)) : n+'×'+str; }
+function permanentReplaceSuggestion(){
+  var declined = DB.get('replaceDeclined', {}) || {}, found = null;
+  (AppState.plan||[]).some(function(day, dIdx){
+    return (day && day.type==='gym' ? day.ex||[] : []).some(function(e){
+      var n = dislikeSkips(e.n);
+      if(n < REPLACE_AFTER_DISLIKES || (declined[e.n] && n <= declined[e.n])) return false;
+      var names = day.ex.map(function(x){ return x.n; });
+      var options = familyAlternatives(e.n, names).slice(0, 4);
+      // Entfernen: Sätze auf die passende Übung desselben Tags (gleicher Primärmuskel, Dehnung zuerst)
+      var target = null;
+      primaryMuscles(e.n).some(function(m){
+        var stretch = STRETCH_RE[m];
+        var c = day.ex.filter(function(x){ return x.n!==e.n && !x.timed && !/\d+s/.test(x.s||'') && !/nordic/i.test(x.n) && primaryMuscles(x.n).indexOf(m)>=0; })
+          .sort(function(a, b){ return ((stretch && stretch.test(b.n)) ? 1 : 0) - ((stretch && stretch.test(a.n)) ? 1 : 0); })[0];
+        if(c) target = {n:c.n, muscle:m};
+        return !!c;
+      });
+      if(!options.length && !target) return false;
+      found = {ex:e.n, dayIdx:dIdx, dayName:day.name, count:n, options:options, target:target};
+      return true;
+    });
+  });
+  return found;
+}
+function offerPermanentReplace(){
+  var sg = permanentReplaceSuggestion(); if(!sg) return;
+  _replaceOffer = sg;
+  var btn = function(i, label){ return '<button type="button" class="btn bg2" onclick="choosePermanentReplace('+i+')" style="margin:0 0 6px;font-size:13px;padding:10px">'+label+'</button>'; };
+  var body = 'Du hast '+esc(sg.ex)+' '+sg.count+'× mit „Mag ich nicht“ übersprungen. Wähle einen Ersatz für '+esc(sg.dayName)+':'
+    +'<div style="margin-top:12px">'
+    +sg.options.map(function(o, i){ return btn(i, esc(o.n)+' · '+esc(o.s)); }).join('')
+    +(sg.target ? btn(sg.options.length, 'Entfernen und Sätze auf '+esc(sg.target.n)+' verteilen') : '')
+    +'</div>Historie und PRs bleiben unverändert.';
+  showConfirmDialog({title:exShortName(sg.ex)+' dauerhaft ersetzen?', bodyHtml:body, cancelLabel:'Später', okLabel:'Nein, danke', onOk:declinePermanentReplace});
+}
+function choosePermanentReplace(i){
+  var sg = _replaceOffer; if(!sg) return;
+  var opt = sg.options[i] || (i===sg.options.length && sg.target ? {remove:true} : null);
+  if(!opt) return;
+  var what = opt.remove ? exShortName(sg.ex)+' entfernen und die Sätze auf '+sg.target.n+' verteilen?'
+                        : exShortName(sg.ex)+' durch '+opt.n+' ersetzen?';
+  showConfirmDialog({title:what,
+    bodyHtml:'Gilt ab dem nächsten Training für '+esc(sg.dayName)+' im Plan. Vorher wird eine Sicherung angelegt. <b>Historie und PRs bleiben unverändert.</b>',
+    okLabel:opt.remove ? 'Entfernen' : 'Ersetzen', onOk:function(){ applyPermanentReplace(sg, opt); }});
+}
+function applyPermanentReplace(sg, opt){
+  var day = (AppState.plan||[])[sg.dayIdx]; if(!day || !Array.isArray(day.ex)) return false;
+  var i = day.ex.findIndex(function(e){ return e.n===sg.ex; }); if(i<0) return false;
+  if(typeof snapshotState==='function') snapshotState('pre-replace');
+  var old = day.ex[i], rng = parseRepRange(old.s), oldSets = rng ? rng.sets : 3;
+  if(opt.remove){
+    day.ex.splice(i, 1);
+    var t = day.ex.find(function(e){ return e.n===sg.target.n; });
+    if(t){
+      var tr = parseRepRange(t.s), tSets = tr ? tr.sets : 3, m = sg.target.muscle;
+      // gleiche Grenzen wie in der Session: +2 Sätze, 10 gewichtete Sätze pro Muskel
+      var used = day.ex.reduce(function(a, e){ var r = parseRepRange(e.s); return a + (r ? r.sets : 0) * muscleWeight(e.n, m); }, 0);
+      var add = Math.max(0, Math.min(SKIP_MAX_ADD, oldSets, Math.floor((SKIP_MAX_MUSCLE_SESSION - used) / (muscleWeight(t.n, m)||1) + 1e-9)));
+      t.s = withSetCount(t.s, tSets + add);
+      t.note = ((t.note ? t.note+' · ' : '') + '+'+add+' aus '+exShortName(sg.ex)).trim();
+    }
+  } else {
+    var nr = parseRepRange(opt.s);
+    day.ex[i] = {n:opt.n, s:nr ? withSetCount(opt.s, oldSets) : opt.s, note:'Ersetzt '+exShortName(sg.ex), timed:opt.timed||undefined};
+  }
+  AppState.save();
+  toast(opt.remove ? '✅ '+exShortName(sg.ex)+' entfernt – Sätze auf '+sg.target.n : '✅ '+exShortName(sg.ex)+' → '+opt.n+' im Plan');
+  safeCall(refreshDash);
+  return true;
+}
+function declinePermanentReplace(){
+  var sg = permanentReplaceSuggestion(); if(!sg) return;
+  var d = DB.get('replaceDeclined', {}) || {};
+  d[sg.ex] = sg.count;                  // erst nach einem weiteren "Mag ich nicht" wieder fragen
+  DB.set('replaceDeclined', d);
+  safeCall(refreshDash);
 }
 function skipAskOpen(){
   var s = AppState.activeSession; if(!s) return;
