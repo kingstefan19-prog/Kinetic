@@ -145,4 +145,25 @@ export default function ({ test, assert, loadApp }) {
     assert.deepEqual(plain(b.s.skipped), [{ ex: RDL, reason: 'busy', sets: 3 }]);
     assert.equal(setsOf(b.s, 'Beinbeuger (Maschine liegend)'), 4);
   });
+
+  // ── 4 Schmerz/Unwohlsein ──
+  test('4 Grund "Schmerz": keine Umverteilung, Hinweis jetzt und beim nächsten Mal', () => {
+    const { c, s } = lowerAt(loadApp, RDL);
+    const before = plain(s.exercises.map((e) => [e.n, e.sets.length])).filter((x) => x[0] !== RDL);
+    c.skipExercise(s.currentIdx, 'pain');
+    assert.deepEqual(plain(s.exercises.map((e) => [e.n, e.sets.length])).filter((x) => x[0] !== RDL), before);
+    assert.equal(s.volOpen, undefined, 'auch kein offenes Volumen');
+    assert.match(s.skipNotes[0], /Bei wiederkehrenden Schmerzen abklären lassen\.$/);
+    c.finishWorkout();
+    // nächste Woche: Hinweis am RDL, bis er wieder trainiert wurde
+    c.__harness.setNow('2026-11-04T08:00:00Z');
+    const sug = c.coachSuggestion(RDL, '3×8-10');
+    assert.match(sug.hint, /^Zuletzt wegen Schmerz übersprungen – leichter starten oder ersetzen\./);
+    c.startWorkout('wed');
+    assert.match(c.AppState.activeSession.exercises.find((e) => e.n === RDL).coach.hint, /Zuletzt wegen Schmerz übersprungen/);
+    assert.doesNotMatch(c.coachSuggestion('Beinbeuger (Maschine liegend)', '2×10-12').hint, /Schmerz/);
+    c.AppState.activeSession.exercises.forEach((e) => e.sets.forEach((st) => { st.w = st.w || '60'; st.r = st.r || '8'; st.done = true; }));
+    c.finishWorkout();
+    assert.doesNotMatch(c.coachSuggestion(RDL, '3×8-10').hint, /Schmerz/, 'nach normalem Training weg');
+  });
 }

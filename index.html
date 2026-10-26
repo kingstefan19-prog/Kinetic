@@ -4439,6 +4439,8 @@ function coachSuggestion(exName, targetStr){
     var ref = preLayoffRef(exName);
     if(ref && belowPreLayoff(ref, recentSessionSets(exName, 1)[0])) res.hint = joinHint(res.hint, 'Vor der Pause: '+ref.w+' kg × '+ref.r);
   }
+  // Zuletzt wegen Schmerz übersprungen (feat/skip-redistribute, Punkt 4)
+  if(res && lastSkipReason(exName)==='pain') res.hint = joinHint('Zuletzt wegen Schmerz übersprungen – leichter starten oder ersetzen', res.hint||'');
   if(res && typeof res.hint==='string') res.hint = joinHint(res.hint);   // sauberes Satzende
   // Jeder Kurzhantel-Vorschlag liegt im 2-kg-Raster (auch Vor-Pausen-Niveau, Schätzungen)
   if(res && typeof res.weight==='number' && res.weight>0) res.weight = dbGridWeight(exName, res.weight);
@@ -5156,6 +5158,17 @@ function chooseSkipAlt(i){
   renderWorkout();
   return r;
 }
+// Letzter Stand der Übung in der Historie: zuletzt übersprungen (Grund) oder trainiert (null)
+function lastSkipReason(exName){
+  var h = AppState.history||[];
+  for(var i=h.length-1; i>=0; i--){
+    var e = h[i]; if(!e) continue;
+    if((e.sets||[]).some(function(x){ return x.ex===exName; })) return null;
+    var sk = (e.skipped||[]).filter(function(x){ return x && x.ex===exName; })[0];
+    if(sk) return sk.reason;
+  }
+  return null;
+}
 function skipAskOpen(){
   var s = AppState.activeSession; if(!s) return;
   _skipAsk = {ts:s.startTs, ex:s.currentIdx, step:'reason'};
@@ -5179,6 +5192,8 @@ function skipExercise(idx, reason){
   var note = exShortName(ex.n)+' übersprungen ('+SKIP_REASONS[reason]+').';
   // Umverteilung nur bei "Mag ich nicht" und "Gerät belegt"
   if((reason==='dislike' || reason==='busy') && open>0) note = redistributeSkipped(s, idx, open).note;
+  // Schmerz (Punkt 4): nichts umverteilen, schon gar nicht auf dieselbe Bewegung
+  if(reason==='pain') note = exShortName(ex.n)+' übersprungen (Schmerz/Unwohlsein) – keine Umverteilung. Bei wiederkehrenden Schmerzen abklären lassen.';
   s.skipNotes = (s.skipNotes||[]).concat([note]);
   _skipAsk = null;
   if(idx===s.currentIdx){
