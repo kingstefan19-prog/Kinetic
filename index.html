@@ -1566,7 +1566,7 @@ function weekQueue(date){
     it.done = true; it.doneTs = e.ts; it.doneIdx = dayIdxOf(e.ts);
     it.compact = /\(kompakt\)/i.test(e.dayName||'');
   });
-  return {weekStart:wk, items:items,
+  return {weekStart:wk, items:items, volOpen:weekOpenVolume(now),
           done:items.filter(function(x){ return x.done; }),
           open:items.filter(function(x){ return !x.done; })};
 }
@@ -1844,6 +1844,9 @@ function renderTodayCard(){
   var q = sch.queue;
   var queueTxt = q.items.map(function(x){ return (x.done ? '✓ ' : '') + x.name + (x.done && x.compact ? ' (kompakt)' : ''); }).join(' · ');
   var nextTxt = r.next ? 'Nächstes: '+WEEKDAYS[r.next.d]+' '+scheduleLabel(r.next) : '';
+  var vo = q.volOpen || {};
+  var voTxt = Object.keys(vo).map(function(m){ return satzWort(vo[m])+' '+(MUSCLE_LABEL[m]||m); }).join(', ');
+  if(voTxt) nextTxt = (nextTxt ? nextTxt+' · ' : '')+'Volumen offen: '+voTxt+' (bis +2 Sätze im nächsten passenden Training)';
   c.innerHTML = '<div class="c" style="margin-bottom:10px">'
     +'<div style="display:flex;align-items:center;gap:10px"><div style="font-size:24px">'+icon+'</div>'
     +'<div style="flex:1"><div style="font-size:15px;font-weight:700">'+esc(title)+'</div>'
@@ -2623,6 +2626,8 @@ function proceedWithWorkout(dayId, day, applyAdjustments, suggestions, opts){
   } finally { _buildRirCtx = null; }
   if(opts.rirBonus) AppState.activeSession.rirBonus = opts.rirBonus;
   if(opts.hints && opts.hints.length) AppState.activeSession.hints = opts.hints.slice();
+  // Volumen offen aus übersprungenen Übungen dieser Woche (über weekQueue)
+  applyOpenVolume(AppState.activeSession, weekQueue(Date.now()).volOpen);
   // Peak Week (Zykluswoche 5): letzter Satz der Oberkörper-Isolation = RIR 0
   var miStart = mesoInfo();
   if(miStart.week===5 && !miStart.deload) AppState.activeSession.peak = true;
@@ -3443,6 +3448,8 @@ function finishWorkout(){
   const endTs=s.lastSetTs||Date.now();
   const entry={ts:endTs,dayName:s.dayName,durationMs:Math.max(0,endTs-s.startTs),volume,sets};
   if(s.skipped && s.skipped.length) entry.skipped=s.skipped.slice();   // feat/skip-redistribute
+  if(s.volOpen) entry.volOpen=Object.assign({}, s.volOpen);
+  if(s.volPaid) entry.volPaid=Object.assign({}, s.volPaid);
   AppState.history.push(entry);
   // Streak
   const today=new Date(endTs).toDateString();
@@ -4983,6 +4990,100 @@ function exShortName(exName){
   if(/rumän|romanian|\brdl\b/i.test(n)) return 'RDL';
   return n.replace(/\s*\([^)]*\)/g, '').replace(/\s+/g, ' ').trim() || n;
 }
+// ── Umverteilung (Punkt 2): Für Hypertrophie zählen harte Sätze pro Muskel
+// und Woche. Sätze einer übersprungenen Übung gehen nur auf offene Übungen
+// derselben Session mit gleichem Primärmuskel (musclesFor, w = 1.0):
+// höchstens +2 Sätze pro Übung, höchstens 10 gewichtete Sätze pro Muskel
+// und Session, Übungen mit Dehnung zuerst, Nordic Curl nie. Was nicht
+// passt, bleibt als "Volumen offen" für die restliche Woche.
+var SKIP_MAX_ADD = 2, SKIP_MAX_MUSCLE_SESSION = 10;
+var MUSCLE_LABEL = {hams:'Hamstrings', quads:'Quads', glutes:'Gesäß', brust:'Brust', ruecken:'Rücken', schulter:'Schulter',
+  bizeps:'Bizeps', trizeps:'Trizeps', adduktoren:'Adduktoren', abduktoren:'Abduktoren', wade:'Waden', core:'Core'};
+// Übungen in gedehnter Position je Muskel (z. B. Beinbeuger sitzend vor liegend)
+var STRETCH_RE = {hams:/sitzend|rumän|romanian|\brdl\b|hyperext|pull.?through/i, bizeps:/incline|schrägbank/i,
+  trizeps:/overhead|french/i, brust:/fly|kabelfly|schrägbank/i, schulter:/kabel/i, ruecken:/pullover/i,
+  quads:/beinstrecker|split squat|hack/i, wade:/stehend/i};
+function muscleWeight(exName, m){
+  var e = musclesFor(exName||'').filter(function(x){ return x.m===m; })[0];
+  return e ? (e.w||1) : 0;
+}
+// Gewichtete Sätze eines Muskels in der Session (übersprungene zählen mit ihren erledigten Sätzen)
+function sessionMuscleSets(s, m){
+  return (s.exercises||[]).reduce(function(a, e){ return a + (e.sets||[]).length * muscleWeight(e.n, m); }, 0);
+}
+function canTakeSets(e, m){
+  return !e.done && !e.skipped && !e.isTimed && !/nordic/i.test(e.n) && primaryMuscles(e.n).indexOf(m)>=0;
+}
+function addPlannedSets(e, n){
+  var c = e.coach || {}, w = c.weight!=null ? String(c.weight) : '', r = c.reps!=null ? String(c.reps) : '', a = c.add!=null ? String(c.add) : '';
+  for(var i=0; i<n; i++) e.sets.push({w:w, add:a, r:r, secs:'', rpe:'', done:false});
+  e.addedSets = (e.addedSets||0) + n;
+}
+// Bis zu `n` Sätze für Muskel m auf passende Übungen der Session legen;
+// limit = Obergrenze der insgesamt zu vergebenden Sätze. Liefert [{to, sets, muscle}].
+function placeMuscleSets(s, m, n, skipIdx){
+  var placed = [], left = n, stretch = STRETCH_RE[m];
+  var cands = (s.exercises||[]).map(function(e, i){ return {e:e, i:i}; })
+    .filter(function(c){ return c.i!==skipIdx && canTakeSets(c.e, m); })
+    .sort(function(a, b){
+      var sa = stretch && stretch.test(a.e.n) ? 1 : 0, sb = stretch && stretch.test(b.e.n) ? 1 : 0;
+      return (sb - sa) || (a.i - b.i);
+    });
+  cands.forEach(function(c){
+    if(left<=0) return;
+    var w = muscleWeight(c.e.n, m) || 1;
+    var room = Math.floor((SKIP_MAX_MUSCLE_SESSION - sessionMuscleSets(s, m)) / w + 1e-9);
+    var add = Math.min(left, SKIP_MAX_ADD - (c.e.addedSets||0), room);
+    if(add<=0) return;
+    addPlannedSets(c.e, add);
+    left -= add;
+    placed.push({to:c.e.n, sets:add, muscle:m});
+  });
+  return {placed:placed, left:left};
+}
+var satzWort = function(n){ return n===1 ? '1 Satz' : n+' Sätze'; };
+function redistributeSkipped(s, idx, nSets){
+  var ex = s.exercises[idx], out = {placed:[], open:{}};
+  primaryMuscles(ex.n).forEach(function(m){
+    var r = placeMuscleSets(s, m, nSets, idx);
+    out.placed = out.placed.concat(r.placed);
+    if(r.left>0) out.open[m] = r.left;
+  });
+  // Hinweis: "RDL übersprungen → Beinbeuger +2 Sätze (Hamstrings)."
+  var parts = [];
+  out.placed.forEach(function(p){ parts.push(exShortName(p.to)+' +'+satzWort(p.sets)+' ('+(MUSCLE_LABEL[p.muscle]||p.muscle)+')'); });
+  var note = exShortName(ex.n)+' übersprungen → '+(parts.length ? parts.join(', ')+'.' : 'heute keine passende Übung.');
+  Object.keys(out.open).forEach(function(m){
+    note += ' Volumen offen: '+satzWort(out.open[m])+' '+(MUSCLE_LABEL[m]||m)+' fürs nächste Training dieser Woche.';
+    s.volOpen = s.volOpen || {};
+    s.volOpen[m] = (s.volOpen[m]||0) + out.open[m];
+  });
+  out.note = note;
+  return out;
+}
+// Offenes Volumen der laufenden Woche je Muskel: in der Woche entstanden
+// (volOpen) minus schon nachgeholt (volPaid). Nichts geht in die Folgewoche.
+function weekOpenVolume(date){
+  var now = date==null ? Date.now() : +new Date(date), acc = {};
+  weekSessions(weekKeyOf(now), now).forEach(function(e){
+    Object.keys(e.volOpen||{}).forEach(function(m){ acc[m] = (acc[m]||0) + (+e.volOpen[m]||0); });
+    Object.keys(e.volPaid||{}).forEach(function(m){ acc[m] = (acc[m]||0) - (+e.volPaid[m]||0); });
+  });
+  Object.keys(acc).forEach(function(m){ if(!(acc[m]>0)) delete acc[m]; });
+  return acc;
+}
+// Beim Start: offenes Volumen bis zu +2 Sätze je Muskel auf passende Übungen
+function applyOpenVolume(s, open){
+  Object.keys(open||{}).forEach(function(m){
+    var r = placeMuscleSets(s, m, Math.min(SKIP_MAX_ADD, open[m]), -1);
+    var n = r.placed.reduce(function(a, p){ return a + p.sets; }, 0);
+    if(!n) return;
+    s.volPaid = s.volPaid || {};
+    s.volPaid[m] = (s.volPaid[m]||0) + n;
+    s.skipNotes = (s.skipNotes||[]).concat(['Volumen offen aus dieser Woche: '+r.placed.map(function(p){
+      return exShortName(p.to)+' +'+satzWort(p.sets); }).join(', ')+' ('+(MUSCLE_LABEL[m]||m)+').']);
+  });
+}
 function skipAskOpen(){
   var s = AppState.activeSession; if(!s) return;
   _skipAsk = {ts:s.startTs, ex:s.currentIdx, step:'reason'};
@@ -5003,7 +5104,10 @@ function skipExercise(idx, reason){
   ex.done = true;
   var entry = {ex:ex.n, reason:reason, sets:open};
   s.skipped = (s.skipped||[]).concat([entry]);
-  s.skipNotes = (s.skipNotes||[]).concat([exShortName(ex.n)+' übersprungen ('+SKIP_REASONS[reason]+').']);
+  var note = exShortName(ex.n)+' übersprungen ('+SKIP_REASONS[reason]+').';
+  // Umverteilung nur bei "Mag ich nicht" und "Gerät belegt"
+  if((reason==='dislike' || reason==='busy') && open>0) note = redistributeSkipped(s, idx, open).note;
+  s.skipNotes = (s.skipNotes||[]).concat([note]);
   _skipAsk = null;
   if(idx===s.currentIdx){
     s.restEndTs = 0;
