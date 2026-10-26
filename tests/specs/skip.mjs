@@ -166,4 +166,24 @@ export default function ({ test, assert, loadApp }) {
     c.finishWorkout();
     assert.doesNotMatch(c.coachSuggestion(RDL, '3×8-10').hint, /Schmerz/, 'nach normalem Training weg');
   });
+
+  // ── 6 Familien ergänzen ──
+  test('6 Hamstring-Familie: Hyperextension 45° und Kabel Pull-Through (hams 1.0, glutes 0.5)', () => {
+    const c = loadApp({});
+    const fam = c.EXERCISE_FAMILIES.find((f) => f.id === 'hamstring');
+    const v = (n) => fam.variants.find((x) => x.n === n);
+    assert.equal(v('Hyperextension 45° (Hamstring-Fokus)').s.replace('–', '-'), '3×10-15');
+    assert.equal(v('Kabel Pull-Through').s.replace('–', '-'), '3×12-15');
+    for (const n of ['Hyperextension 45° (Hamstring-Fokus)', 'Kabel Pull-Through']) {
+      assert.deepEqual(plain(c.musclesFor(n)), [{ m: 'hams', w: 1 }, { m: 'glutes', w: 0.5 }], n);
+      assert.equal(c.findFamilyFor(n).id, 'hamstring');
+    }
+    // Ersatz für Hüftstrecker: Beinbeuger sitzend vor liegend, Nordic zuletzt
+    const alts = c.familyAlternatives(RDL).map((a) => a.n);
+    assert.ok(alts.indexOf('Beinbeuger (Maschine sitzend)') < alts.indexOf('Beinbeuger (Maschine liegend)'));
+    assert.ok(alts.indexOf('Hyperextension 45° (Hamstring-Fokus)') < alts.indexOf('Beinbeuger (Maschine sitzend)'));
+    assert.equal(alts[alts.length - 1], 'Nordic Curl (Beinbizeps)');
+    assert.ok(alts.every((a) => /^[^–]*$/.test(c.familyAlternatives(RDL).find((x) => x.n === a).s)), 'Plan-Format mit Bindestrich');
+    assert.equal(c.familyAlternatives('Beinbeuger (Maschine liegend)')[0].n, 'Beinbeuger (Maschine sitzend)', 'sonst Familienreihenfolge');
+  });
 }

@@ -4804,6 +4804,8 @@ const EXERCISE_FAMILIES=[
     {lvl:1,n:'Beinbeuger (Maschine liegend)',s:'3×10–12'},
     {lvl:2,n:'Beinbeuger (Maschine sitzend)',s:'3×10–12'},
     {lvl:2,n:'Rumänisches Kreuzheben (LH)', s:'4×8–10'},
+    {lvl:2,n:'Hyperextension 45° (Hamstring-Fokus)', s:'3×10–15'},
+    {lvl:1,n:'Kabel Pull-Through',          s:'3×12–15'},
     {lvl:3,n:'Nordic Curl (Beinbizeps)',    s:'3×6–8'},
     {lvl:3,n:'Sumo Kreuzheben (LH)',        s:'4×5–6'},
     {lvl:4,n:'Konventionelles Kreuzheben',  s:'4×3–5'}
@@ -4856,6 +4858,7 @@ const MUSCLE_MAP=[
   [/kniebeug|squat|front squat|hack squat|goblet/i, [{m:'quads',w:1.0},{m:'glutes',w:0.7}]],
   [/beinstrecker|leg extension/i,      [{m:'quads',w:1.0}]],
   [/ausfallschritt|lunge|split squat/i,[{m:'quads',w:1.0},{m:'glutes',w:0.5}]],
+  [/hyperext|pull.?through/i,          [{m:'hams',w:1.0},{m:'glutes',w:0.5}]],
   [/rumän|romanian|rdl/i,              [{m:'hams',w:1.0},{m:'glutes',w:0.7}]],
   [/beinbeug|leg curl|nordic/i,        [{m:'hams',w:1.0}]],
   [/hip thrust|glute bridge/i,         [{m:'glutes',w:1.0},{m:'hams',w:0.5}]],
@@ -5118,7 +5121,19 @@ function familyAlternatives(exName, exclude){
     seen[k] = 1;
     out.push({n:v.n, s:String(v.s).replace(/–/g, '-'), timed:!!v.timed});
   });
-  return out;
+  return rankAlternatives(exName, out);
+}
+// Ersatz für einen Hüftstrecker (RDL, Kreuzheben, Hyperextension, Pull-Through):
+// erst Hüftbeuge-Varianten, dann Beinbeuger sitzend (Dehnung) vor liegend, Nordic zuletzt
+var HIP_HINGE_RE = /rumän|romanian|\brdl\b|kreuzheb|hyperext|pull.?through/i;
+function isHipExtensor(exName){ return HIP_HINGE_RE.test(String(exName||'')); }
+function rankAlternatives(exName, alts){
+  if(!isHipExtensor(exName)) return alts;
+  var rank = function(n){ return HIP_HINGE_RE.test(n) && !/kreuzheben \(lh\)$|sumo|konvention/i.test(n) ? 0
+    : /beinbeuger.*sitzend/i.test(n) ? 1 : /beinbeuger.*liegend/i.test(n) ? 2 : /nordic/i.test(n) ? 4 : 3; };
+  return alts.map(function(a, i){ return {a:a, i:i}; })
+    .sort(function(x, y){ return (rank(x.a.n) - rank(y.a.n)) || (x.i - y.i); })
+    .map(function(x){ return x.a; });
 }
 function sessionAlternatives(s, idx){
   var ex = s.exercises[idx];
@@ -5246,6 +5261,8 @@ const FORM_TIPS={
   'Beinbeuger (Maschine liegend)': 'Hamstring/Beinbizeps Isolation. Volle ROM. 2 Sek Peak-Kontraktion oben festhalten.',
   'Beinbeuger (Maschine sitzend)': 'Sitzende Variante. Rücken anlehnen. Volle ROM. Kontrolliert zurückführen.',
   'Nordic Curl (Beinbizeps)':      'Fortgeschritten! Exzentrisch so langsam wie möglich senken. Konzentrisch helfen ok.',
+  'Hyperextension 45° (Hamstring-Fokus)': 'Hüfte am Polsterrand, Rücken neutral. Aus der Hüfte beugen, nicht aus dem Rücken – Dehnung hinten im Oberschenkel.',
+  'Kabel Pull-Through':            'Rücken zum Kabel, Seil zwischen den Beinen. Hüfte weit nach hinten schieben, oben Gesäß anspannen.',
   // BEINE ADDUKTOREN
   'Adduktionsmaschine (sitzend)':  'Oberschenkelinnenseite. Kontrolliert zusammendrücken – kein Schwung! Aufrecht sitzen.',
   'Sumo Squat (KH)':               'Füße breit & nach außen gedreht. Knie in Zehenrichtung. Betont Adduktoren & Gesäß.',
