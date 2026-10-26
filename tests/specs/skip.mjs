@@ -116,4 +116,33 @@ export default function ({ test, assert, loadApp }) {
       }
     }
   });
+
+  // ── 3 Gerät belegt ──
+  test('3 Gerät belegt: erst Alternativen aus der Familie, dann erst umverteilen', () => {
+    const { c, s } = lowerAt(loadApp, RDL);
+    const idx = s.currentIdx;
+    c.skipAskOpen();
+    c.chooseSkipReason('busy');
+    assert.equal(s.skipped, undefined, 'noch nicht übersprungen');
+    c.renderWorkout();
+    const html = c.document.getElementById('workoutContent').innerHTML;
+    assert.match(html, /Gerät belegt – Alternative für heute/);
+    assert.match(html, /data-skip-alt="0"/);
+    assert.doesNotMatch(html, /data-skip-alt="\d"[^>]*>Beinbeuger \(Maschine liegend\)/, 'schon in der Session');
+    assert.match(html, /Keine Alternative – Sätze umverteilen/);
+    const alts = c.sessionAlternatives(s, idx).map((a) => a.n);
+    assert.ok(!alts.includes(RDL) && !alts.includes('Nordic Curl (Beinbizeps)'));
+    // Alternative wählen: nur heute, Plan bleibt
+    const alt = c.chooseSkipAlt(0);
+    assert.equal(s.exercises[idx].n, alts[0]);
+    assert.equal(alt.sets.length, 3);
+    assert.equal(c.AppState.plan.find((d) => d.id === 'wed').ex[1].n, RDL, 'Plan unverändert');
+    assert.equal(setsOf(s, 'Beinbeuger (Maschine liegend)'), 2, 'keine Umverteilung');
+    assert.match(s.skipNotes[0], /^Gerät belegt: RDL → /);
+    // ohne Alternative: umverteilen
+    const b = lowerAt(loadApp, RDL);
+    b.c.skipAskOpen(); b.c.chooseSkipReason('busy'); b.c.chooseSkipReason('busy');
+    assert.deepEqual(plain(b.s.skipped), [{ ex: RDL, reason: 'busy', sets: 3 }]);
+    assert.equal(setsOf(b.s, 'Beinbeuger (Maschine liegend)'), 4);
+  });
 }

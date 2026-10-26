@@ -2699,6 +2699,14 @@ function lastWeightFor(exName){
 function skipBoxHtml(s, cur){
   var ask = skipAskFor(s);
   if(!ask) return '<button type="button" id="skipBtn" class="btn bg2" style="margin-top:6px;font-size:12px;padding:8px">⏭ Überspringen</button>';
+  if(ask.step==='alt'){
+    var alts = sessionAlternatives(s, s.currentIdx);
+    return '<div style="margin-top:8px;padding:10px;background:var(--card2);border:1px solid var(--border2);border-radius:8px">'
+      +'<div style="font-size:12px;color:var(--t1);margin-bottom:6px">Gerät belegt – Alternative für heute:</div>'
+      +alts.map(function(a, i){ return '<button type="button" class="btn bg2" data-skip-alt="'+i+'" style="margin:0 0 6px;font-size:12px;padding:8px">'+esc(a.n)+' · '+esc(a.s)+'</button>'; }).join('')
+      +'<button type="button" class="btn bo" data-skip-reason="busy" style="margin:0;font-size:12px;padding:8px">Keine Alternative – Sätze umverteilen</button>'
+      +'<button type="button" id="skipCancel" class="btn bo" style="margin-top:6px;font-size:12px;padding:7px">Abbrechen</button></div>';
+  }
   var btn = function(k){ return '<button type="button" class="btn bg2" data-skip-reason="'+k+'" style="flex:1;min-width:0;padding:8px 4px;font-size:12px;margin:0">'+esc(SKIP_REASONS[k])+'</button>'; };
   return '<div style="margin-top:8px;padding:10px;background:var(--card2);border:1px solid var(--border2);border-radius:8px">'
     +'<div style="font-size:12px;color:var(--t1);margin-bottom:6px">Warum überspringen? '+esc(exShortName(cur.n))+'</div>'
@@ -2710,7 +2718,16 @@ function skippedCardHtml(cur){
     +'<div style="font-size:18px;font-weight:700;margin-top:6px">'+esc(cur.n)+'</div>'
     +'<div style="color:var(--t2);margin-top:4px;font-size:13px">Grund: '+esc(SKIP_REASONS[cur.skipped]||cur.skipped)+'</div></div>';
 }
-function chooseSkipReason(reason){ return skipCurrent(reason); }
+function chooseSkipReason(reason){
+  var s = AppState.activeSession;
+  // Gerät belegt: zuerst Alternativen aus der Familie zeigen
+  if(reason==='busy' && s && _skipAsk && _skipAsk.step!=='alt' && sessionAlternatives(s, s.currentIdx).length){
+    _skipAsk.step = 'alt';
+    renderWorkout();
+    return null;
+  }
+  return skipCurrent(reason);
+}
 
 function renderWorkout(){
   const el_=el('workoutContent'); if(!el_) return;
@@ -3021,6 +3038,7 @@ function renderWorkout(){
     const skipBtn=el('skipBtn'); if(skipBtn) skipBtn.addEventListener('click', skipAskOpen);
     const skipCancel=el('skipCancel'); if(skipCancel) skipCancel.addEventListener('click', skipAskCancel);
     $$('#workoutContent [data-skip-reason]').forEach(btn=>btn.addEventListener('click',()=>chooseSkipReason(btn.dataset.skipReason)));
+    $$('#workoutContent [data-skip-alt]').forEach(btn=>btn.addEventListener('click',()=>chooseSkipAlt(parseInt(btn.dataset.skipAlt,10))));
     const adjUndo=el('adjUndo'); if(adjUndo) adjUndo.addEventListener('click',()=>{ undoAutoAdjust(); renderWorkout(); toast('Anpassung zurückgenommen'); });
     const plausOk=el('plausOk'); if(plausOk) plausOk.addEventListener('click',()=>{ confirmPlausible(); renderWorkout(); });
     const plausFix=el('plausFix'); if(plausFix) plausFix.addEventListener('click',()=>{ fixPlausible(); renderWorkout(); });
@@ -5083,6 +5101,60 @@ function applyOpenVolume(s, open){
     s.skipNotes = (s.skipNotes||[]).concat(['Volumen offen aus dieser Woche: '+r.placed.map(function(p){
       return exShortName(p.to)+' +'+satzWort(p.sets); }).join(', ')+' ('+(MUSCLE_LABEL[m]||m)+').']);
   });
+}
+// ── Gerät belegt (Punkt 3): erst eine Alternative aus derselben Familie ──
+// Varianten der Familie ohne die Übung selbst und ohne Übungen, die schon
+// in der Session sind (Plan-Format "3×10-12")
+function familyAlternatives(exName, exclude){
+  var fam = findFamilyFor(exName); if(!fam) return [];
+  var skip = {}; skip[String(exName).toLowerCase()] = 1;
+  (exclude||[]).forEach(function(n){ skip[String(n).toLowerCase()] = 1; });
+  var seen = {}, out = [];
+  fam.variants.forEach(function(v){
+    var k = v.n.toLowerCase();
+    if(skip[k] || seen[k]) return;
+    seen[k] = 1;
+    out.push({n:v.n, s:String(v.s).replace(/–/g, '-'), timed:!!v.timed});
+  });
+  return out;
+}
+function sessionAlternatives(s, idx){
+  var ex = s.exercises[idx];
+  return familyAlternatives(ex.n, s.exercises.map(function(e){ return e.n; })).slice(0, 4);
+}
+// Alternative nur für heute (der Plan bleibt). Schon erledigte Sätze bleiben
+// bei der alten Übung, die Alternative kommt mit den offenen Sätzen dahinter.
+function swapForSession(idx, alt){
+  var s = AppState.activeSession; if(!s || !alt) return null;
+  var ex = s.exercises[idx]; if(!ex) return null;
+  var done = (ex.sets||[]).filter(function(st){ return st.done; });
+  var nOpen = Math.max(1, (ex.sets||[]).length - done.length);
+  var rng = parseRepRange(alt.s);
+  var range = rng ? String(alt.s).replace(/^\d+/, String(nOpen)) : alt.s;
+  var sug = coachSuggestion(alt.n, range);
+  var isTimed = !!(alt.timed || /\d+s/.test(range||'') || /plank/i.test(alt.n));
+  var w = sug.weight!=null ? String(sug.weight) : '', r = sug.reps!=null ? String(sug.reps) : '', a = sug.add!=null ? String(sug.add) : '';
+  var nx = {n:alt.n, s:range, isTimed:isTimed, coach:sug, swappedFrom:ex.n, done:false,
+    sets:Array.from({length:nOpen}, function(){ return {w:w, add:a, r:r, secs:'', rpe:'', done:false}; })};
+  if(done.length){
+    ex.sets = done; ex.done = true;
+    s.exercises.splice(idx+1, 0, nx);
+    if(idx===s.currentIdx) s.currentIdx = idx+1;
+  } else {
+    s.exercises[idx] = nx;
+  }
+  s.swaps = (s.swaps||[]).concat([{from:ex.n, to:alt.n}]);
+  s.skipNotes = (s.skipNotes||[]).concat(['Gerät belegt: '+exShortName(ex.n)+' → '+alt.n+' (nur heute).']);
+  _skipAsk = null;
+  AppState.saveSession();
+  return nx;
+}
+function chooseSkipAlt(i){
+  var s = AppState.activeSession; if(!s) return null;
+  var alt = sessionAlternatives(s, s.currentIdx)[i];
+  var r = swapForSession(s.currentIdx, alt);
+  renderWorkout();
+  return r;
 }
 function skipAskOpen(){
   var s = AppState.activeSession; if(!s) return;
