@@ -280,7 +280,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 <!-- ══ PAGE: PLAN ══ -->
 <section id="page-plan" class="page">
   <div class="sh" style="justify-content:space-between;align-items:center">
-    <span class="sh-t">Wochenplan</span>
+    <span class="sh-t">Rotation</span>
     <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
       <button id="editDaysBtn" class="btn bg2" style="width:auto;padding:6px 10px;font-size:11px;margin:0">✏️ Anpassen</button>
       <button onclick="resetToDefaultPlan()" class="btn bg2" style="width:auto;padding:6px 10px;font-size:11px;margin:0;color:var(--orange)">↺ Reset</button>
@@ -1965,6 +1965,57 @@ function appointmentOccurrences(from, days){
   }
   return out.sort(function(x, y){ return x.ts - y.ts; });
 }
+// ── Rotation (Punkt 2) ──
+// Gym-Einheiten = Gym-Tage des Plans mit Übungen, in der Reihenfolge des Plans
+// (sortierbar mit ↑/↓). Die nächste Einheit folgt auf die zuletzt im Log
+// trainierte – unabhängig vom Wochentag.
+function rotationUnits(){
+  return (AppState.plan||[]).filter(function(d){ return d && d.type==='gym' && (d.ex||[]).length; });
+}
+// Zu welcher Einheit gehört ein Log-Eintrag? (Session über den Namen, activityLog über "gym:<id>")
+function unitOfSession(e){
+  if(!e) return null;
+  if(e.activity && String(e.activity).indexOf('gym:')===0){
+    var id = e.activity.slice(4);
+    return rotationUnits().filter(function(d){ return d.id===id; })[0] || null;
+  }
+  var b = baseDayName(e.dayName);
+  return rotationUnits().filter(function(d){ return baseDayName(d.name)===b; })[0] || null;
+}
+// Letzte trainierte Einheit bis `until` (Session oder Eintrag im activityLog)
+function lastRotationEntry(until){
+  var t = until==null ? Date.now() : +new Date(until), best = null;
+  (AppState.history||[]).forEach(function(e){
+    if(e && e.ts<=t && unitOfSession(e) && (!best || e.ts>best.ts)) best = {ts:e.ts, unit:unitOfSession(e)};
+  });
+  (AppState.activityLog||[]).forEach(function(a){
+    var ts = activityTs(a);
+    if(a && a.status!=='cancelled' && ts<=t && unitOfSession(a) && (!best || ts>best.ts)) best = {ts:ts, unit:unitOfSession(a)};
+  });
+  return best;
+}
+function activityTs(a){ return a && a.ts ? +a.ts : Date.parse(String(a && a.d)+'T'+((a && a.time)||'18:00')+':00'); }
+// Nächste Einheit: auf die zuletzt trainierte folgt die nächste (optionale werden übersprungen)
+function nextRotationUnit(until){
+  var units = rotationUnits(); if(!units.length) return null;
+  var last = lastRotationEntry(until);
+  var start = last ? units.indexOf(last.unit) + 1 : 0;
+  for(var k=0; k<units.length; k++){
+    var u = units[(start + k) % units.length];
+    if(!u.optional) return u;
+  }
+  return units[start % units.length];
+}
+// ↑/↓ im Plan: mit der vorherigen bzw. nächsten Gym-Einheit tauschen
+function moveGymDay(idx, dir){
+  var plan = AppState.plan||[], j = idx + dir;
+  while(j>=0 && j<plan.length && !(plan[j] && plan[j].type==='gym')) j += dir;
+  if(j<0 || j>=plan.length) return false;
+  var t = plan[idx]; plan[idx] = plan[j]; plan[j] = t;
+  AppState.save(); safeCall(renderPlan);
+  return true;
+}
+
 // ── Einstellungen: Termine anlegen, bearbeiten, löschen, "fällt aus" ──
 function apptById(id){ return flexSchedule().appointments.filter(function(a){ return a.id===id; })[0] || null; }
 function addAppointment(){
@@ -2174,8 +2225,11 @@ function renderPlan(){
     const typeBadge={gym:'<span class="bd r">GYM</span>',soccer:'<span class="bd g">⚽ Fußball</span>',match:'<span class="bd b">🏟️ Spiel</span>',flex:'<span class="bd gr">Flex</span>'};
 
     const deloadOn=deloadActive();
-    const overlay=weekPlanOverlay();                  // Belegung dieser Woche (nur Anzeige)
+    // Rotation statt Wochentage (feat/flex-planning): nur Gym-Einheiten,
+    // Termine (Fußball, Spiel) stehen im Profil unter "Feste Termine"
+    const units=rotationUnits(), nextU=nextRotationUnit();
     list.innerHTML=AppState.plan.map(function(day,idx){
+      if(!day || day.type!=='gym') return '';
       if(deloadOn && day.optional) return '';       // Deload: optionale Tage aus
       const badge=(day.optional?'<span class="bd gr" style="margin-right:4px">OPTIONAL</span>':'')+(typeBadge[day.type]||typeBadge.flex);
       // Exercise rows with notes
@@ -2202,8 +2256,8 @@ function renderPlan(){
 
       const editCtrl=em
         ?'<div style="display:flex;gap:5px;align-items:center;margin-right:6px">'
-          +'<button type="button" class="btn bg2" data-move-up="'+idx+'" '+(idx===0?'disabled':'')+' style="width:30px;padding:6px 0;font-size:13px;margin:0">↑</button>'
-          +'<button type="button" class="btn bg2" data-move-down="'+idx+'" '+(idx===AppState.plan.length-1?'disabled':'')+' style="width:30px;padding:6px 0;font-size:13px;margin:0">↓</button>'
+          +'<button type="button" class="btn bg2" data-move-up="'+idx+'" '+(units[0]===day?'disabled':'')+' style="width:30px;padding:6px 0;font-size:13px;margin:0">↑</button>'
+          +'<button type="button" class="btn bg2" data-move-down="'+idx+'" '+(units[units.length-1]===day?'disabled':'')+' style="width:30px;padding:6px 0;font-size:13px;margin:0">↓</button>'
           +'<button type="button" class="btn bg2" data-edit-day="'+idx+'" style="width:auto;padding:6px 10px;font-size:11px;margin:0">✏️</button>'
           +'</div>'
         :'';
@@ -2211,9 +2265,9 @@ function renderPlan(){
       return '<div class="wk" data-day="'+day.id+'">'
         +'<div class="wk-h"'+(em?'':' data-toggle="'+day.id+'"')+'>'
         +'<div class="wk-d">'
-        +'<div class="wk-n">'+esc(dayLabel(idx,day))+'</div>'
+        +'<div class="wk-n">'+(units.indexOf(day)+1)+' · '+esc(day.name||'')+'</div>'
         +'<div class="wk-s">'+esc(planDaySub(day))+'</div>'
-        +(overlay[idx]?'<div class="wk-ov" style="font-size:11px;color:var(--violet);font-weight:600;margin-top:3px">Diese Woche: '+esc(overlay[idx].join(' · '))+'</div>':'')
+        +(day===nextU?'<div class="wk-ov" style="font-size:11px;color:var(--violet);font-weight:600;margin-top:3px">▶ Nächste Einheit</div>':'')
         +'</div>'
         +editCtrl+badge+(em?'':'<div class="wk-c">▼</div>')
         +'</div>'
@@ -5943,9 +5997,9 @@ function bindEvents(){
     if(ev.target.closest('#editDaysBtn')){ toggleEditMode(); return; }
 
     const up=ev.target.closest('[data-move-up]');
-    if(up){ const i=parseInt(up.dataset.moveUp,10); moveDay(i,i-1); return; }
+    if(up){ const i=parseInt(up.dataset.moveUp,10); moveGymDay(i,-1); return; }
     const dn=ev.target.closest('[data-move-down]');
-    if(dn){ const i=parseInt(dn.dataset.moveDown,10); moveDay(i,i+1); return; }
+    if(dn){ const i=parseInt(dn.dataset.moveDown,10); moveGymDay(i,1); return; }
     const ed=ev.target.closest('[data-edit-day]');
     if(ed){ openDayEditor(parseInt(ed.dataset.editDay,10)); return; }
 
