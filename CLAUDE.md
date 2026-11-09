@@ -7,7 +7,8 @@
 
 ## Nutzer und Trainingskontext
 - Stefan, fortgeschritten, Ziel Recomp (KFA runter, Kraft halten oder steigern).
-- Fußball: Di und Fr Training, So Spiel. Gym: in der Regel 3x pro Woche (Mo, Mi, Sa), selten 4x (optional Do).
+- Fußball: Training und Spiel als feste Termine (Profil → Feste Termine), Wochentage ändern sich saisonal (Winter: Mi + Fr, Spiel So). Gym: Ziel 3–4x pro Woche, nicht an Wochentage gebunden.
+- Planung (feat/flex-planning): Rotation der Gym-Einheiten + Tagesvorschlag aus der Erholung pro Muskelgruppe (flexSuggestion, groupRecovery). Grundlage ist das Log (history + activityLog), nicht der Plan.
 - Fachbegriffe konsequent nutzen: E1RM, RPE, RIR, Double Progression, Deload, MEV/MAV/MRV.
 
 ## Code-Regeln
@@ -18,7 +19,7 @@
 - Plan-Strings für Sätze/Wdh im Format `3×8-10` (parseRepRange akzeptiert Bindestrich).
 
 ## Wichtige Funktionen (Einstiegspunkte)
-coachSuggestion, layoffStatus, liftTrend, stalledLifts, needsDeload, recentRpeTrend, e1rm (Epley mit RPE-Korrektur, Cap 12 Wdh), recomputePRs, loadIncrement, plateStep, justIncreasedWeight, equipmentType, MUSCLE_MAP, musclesFor, VOLUME_LM, weeklyMuscleSets, volumeProgressionAdvice, startWorkout, renderWorkout, finishWorkout, renderLog, defaultPlan, generatePlan, applyBackupState, logWeight, logWearable.
+flexSuggestion, groupRecovery, flexEvents, nextRotationUnit, flexSchedule, coachSuggestion, layoffStatus, liftTrend, stalledLifts, needsDeload, recentRpeTrend, e1rm (Epley mit RPE-Korrektur, Cap 12 Wdh), recomputePRs, loadIncrement, plateStep, justIncreasedWeight, equipmentType, MUSCLE_MAP, musclesFor, VOLUME_LM, weeklyMuscleSets, volumeProgressionAdvice, startWorkout, renderWorkout, finishWorkout, renderLog, defaultPlan, generatePlan, applyBackupState, logWeight, logWearable.
 
 ## Test-Workflow (vor jedem Commit)
 1. JS aus `index.html` extrahieren und `node --check` ausführen.
