@@ -205,4 +205,45 @@ export default function ({ test, assert, loadApp }) {
     c.setWeekGoal('min', 4);
     assert.deepEqual(plain(c.flexSchedule().weekGoal), { min: 4, max: 4 });
   });
+
+  // ── 4 Spontane Änderungen ──
+  test('4 "Spiel ausgefallen, Oberkörper trainiert": Folgetag berücksichtigt das automatisch', () => {
+    // So 08.11.: Spiel fällt aus, stattdessen Druck (ohne Satz-Log) eingetragen
+    const c = app({}, '2026-11-08T20:00:00');
+    assert.equal(c.unconfirmedAppointments(1).map((o) => o.appt.name).join(), 'Spiel', 'Startscreen: gestern und heute');
+    assert.equal(c.unconfirmedAppointments(7).map((o) => o.appt.name).join(), 'Spiel,Fußballtraining,Fußballtraining,Spiel', 'Log-Tab: 7 Tage');
+    c.renderTodayCard();
+    assert.match(c.document.getElementById('todayCard').innerHTML, /So 15:00 Spiel – stattgefunden\?/);
+    c.confirmAppointment('2026-11-08|sp', false);
+    assert.equal(c.flexSchedule().cancelled['2026-11-08|sp'], true);
+    assert.equal(c.unconfirmedAppointments(1).length, 0);
+    c.logActivity('2026-11-08', 'gym:push');
+    // Mo: Beine frisch (Spiel zählt nicht), Druck war gestern → nicht Hauptempfehlung
+    c.__harness.setNow(Date.parse('2026-11-09T16:00:00'));
+    const r = c.flexSuggestion();
+    assert.equal(r.rec.legs, 100);
+    assert.ok(r.rec.push < 100);
+    assert.notEqual(r.main.day && r.main.day.id, 'push');
+    assert.deepEqual(plain(r.yFocus), ['push']);
+    assert.equal(c.nextRotationUnit().name, 'Unterkörper', 'gym:push zählt auch für die Rotation');
+    // Log-Tab: Formular und Liste
+    c.renderLog();
+    const html = c.document.getElementById('activityLogCard').innerHTML;
+    assert.match(html, /Tag eintragen/);
+    assert.match(html, /<option value="gym:push">🏋️ Oberkörper Druck \(ohne Sätze\)/);
+    assert.match(html, /08\.11\. · Oberkörper Druck/);
+  });
+
+  test('4 Stattgefundenen Termin bestätigen und Squash nachtragen; Löschen nimmt es wieder raus', () => {
+    const c = app({}, '2026-11-11T21:00:00');                                    // Mi nach dem Training
+    c.confirmAppointment('2026-11-11|fb', true);
+    assert.equal(c.AppState.activityLog[0].apptKey, '2026-11-11|fb');
+    assert.ok(c.groupRecovery().legs < 100);
+    assert.equal(c.logActivity('2026-11-10', 'squash').activity, 'squash');
+    assert.equal(c.logActivity('2026-11-10', 'gibtsnicht'), null);
+    const before = c.groupRecovery().core;
+    c.removeActivity(1);
+    assert.ok(c.groupRecovery().core > before, 'Squash (Rumpf 2, 48 h) zählte mit');
+    assert.equal(c.buildBackupObject().state.activityLog.length, 1);
+  });
 }
