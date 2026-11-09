@@ -68,7 +68,7 @@ export default function ({ test, assert, loadApp }) {
     assert.deepEqual(plain(s.exercises.filter((e) => e.n !== SK).map((e) => [e.n, e.sets.length])), before.filter((x) => x[0] !== SK), 'nichts auf andere Muskeln');
     assert.match(s.skipNotes[0], /^Seitheben übersprungen → heute keine passende Übung\. Volumen offen: 3 Sätze Schulter/);
     c.finishWorkout();
-    assert.deepEqual(plain(c.weekQueue('2026-10-27T08:00:00Z').volOpen), { schulter: 3 });
+    assert.deepEqual(plain(c.weekOpenVolume('2026-10-27T08:00:00Z')), { schulter: 3 });
     // Mi Lower (keine Schulter): nichts
     c.__harness.setNow('2026-10-28T16:00:00Z');
     c.startWorkout('wed');
@@ -85,10 +85,10 @@ export default function ({ test, assert, loadApp }) {
     assert.match(s.skipNotes.join(' '), /Volumen offen aus dieser Woche: Seitheben \+2 Sätze \(Schulter\)/);
     s.exercises.forEach((e) => e.sets.forEach((st) => { st.done = true; }));
     c.finishWorkout();
-    assert.deepEqual(plain(c.weekQueue('2026-11-01T08:00:00Z').volOpen), { schulter: 1 });
+    assert.deepEqual(plain(c.weekOpenVolume('2026-11-01T08:00:00Z')), { schulter: 1 });
     // Folgewoche: nichts übertragen
     c.__harness.setNow('2026-11-02T16:00:00Z');
-    assert.deepEqual(plain(c.weekQueue().volOpen), {});
+    assert.deepEqual(plain(c.weekOpenVolume()), {});
     c.startWorkout('mon');
     assert.equal(setsOf(c.AppState.activeSession, SK), 3);
     assert.equal(c.AppState.activeSession.volPaid, undefined);

@@ -435,6 +435,9 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
   <div class="sh"><div class="sh-t">📅 Feste Termine</div></div>
   <div class="c" id="apptSettings"></div>
 
+  <div class="sh"><div class="sh-t">🔋 Belastung & Erholung</div></div>
+  <div class="c" id="loadSettings"></div>
+
   <div class="sh"><div class="sh-t">😴 Schlaf & Recovery</div></div>
   <div class="c">
     <div style="font-size:12px;color:var(--t2);margin-bottom:10px">Wie viele Stunden hast du heute geschlafen?</div>
@@ -1363,14 +1366,6 @@ function renderSmartNotifs(){
       type:'warn', prio:1, buttons:btns});
   }
 
-  // Wochen-Warteschlange: 3 Wochen in Folge am selben anderen Tag → dauerhaft legen?
-  var pmv = permanentMoveSuggestion();
-  if(pmv){
-    notifs.push({icon:'🔁', title:pmv.name+' dauerhaft auf '+WEEKDAYS[pmv.to]+' legen?',
-      body:'Seit 3 Wochen am '+WEEKDAYS[pmv.to]+' statt am '+WEEKDAYS[pmv.idx]+'. Der Plan ändert sich erst nach Bestätigung.',
-      type:'sleep', prio:1, buttons:[{label:'Ansehen', fn:'offerPermanentMove()'}, {label:'Nein, danke', fn:'declinePermanentMove()'}]});
-  }
-
   // Zweimal "Mag ich nicht" → dauerhaft ersetzen? (feat/skip-redistribute, Punkt 5)
   var prs_ = permanentReplaceSuggestion();
   if(prs_){
@@ -1532,11 +1527,9 @@ function moveMissedDay(idx){
   safeCall(function(){ openDayEditor(idx); });
 }
 
-// ── Wochen-Warteschlange (feat/week-queue) ───────────────────────────────
-// Verpasste Pflichttrainings werden innerhalb der Kalenderwoche (Mo–So)
-// nachgeholt, ohne AppState.plan zu ändern: für Hypertrophie zählt das
-// Wochenvolumen, nicht der Wochentag. Wochentage ergeben sich wie in
-// dayLabel() aus der Position im Plan (0 = Montag).
+// ── Kalender-Helfer (ursprünglich feat/week-queue) ──────────────────────
+// Die Wochen-Warteschlange ist durch die flexible Planung ersetzt (siehe
+// flexSuggestion): Grundlage ist das Log, nicht der Wochentag.
 function dayIdxOf(ts){ return (new Date(ts).getDay()+6)%7; }
 function dayKeyOf(ts){ var d = new Date(ts); d.setHours(0,0,0,0); return d.getTime(); }
 // Bein-Tag: mindestens eine Übung mit quads oder hams (musclesFor)
@@ -1569,118 +1562,6 @@ function weekSessions(wk, until){
     return e && e.ts && weekKeyOf(e.ts)===wk && (until==null || e.ts <= until);
   }).sort(function(a,b){ return a.ts - b.ts; });
 }
-// Warteschlange der Woche: jedes Pflichttraining ist erledigt, sobald es in
-// dieser Woche eine Session mit gleichem baseDayName() gibt
-function weekQueue(date){
-  var now = date==null ? Date.now() : +new Date(date);
-  var wk = weekKeyOf(now);
-  var items = mandatoryGymDays().map(function(m){
-    return {idx:m.idx, day:m.day, name:m.day.name, base:baseDayName(m.day.name),
-            isLeg:isLegPlanDay(m.day), done:false};
-  });
-  weekSessions(wk, now).forEach(function(e){
-    var b = baseDayName(e.dayName);
-    var it = items.find(function(x){ return !x.done && x.base===b; });
-    if(!it) return;
-    it.done = true; it.doneTs = e.ts; it.doneIdx = dayIdxOf(e.ts);
-    it.compact = /\(kompakt\)/i.test(e.dayName||'');
-  });
-  return {weekStart:wk, items:items, volOpen:weekOpenVolume(now),
-          done:items.filter(function(x){ return x.done; }),
-          open:items.filter(function(x){ return !x.done; })};
-}
-
-// ── Empfehlung für heute (feat/week-queue, Punkt 2) ──────────────────────
-function planTypeAt(idx){
-  var d = (AppState.plan||[])[((idx%7)+7)%7];
-  return d ? d.type : 'flex';
-}
-function isFootballType(t){ return t==='soccer' || t==='match'; }
-// Bein-Training an Plan-Position idx: 'full', 'compact' oder null.
-// Voll nur, wenn heute und morgen kein Fußball ist. Kompakt, wenn morgen
-// Fußball-Training (kein Spiel) ist und heute keiner. Vor einem Spiel nie.
-function legVariantAt(idx){
-  var today = planTypeAt(idx), tomorrow = planTypeAt(idx+1);
-  if(tomorrow==='match') return null;
-  if(!isFootballType(today) && !isFootballType(tomorrow)) return 'full';
-  if(tomorrow==='soccer' && !isFootballType(today)) return 'compact';
-  return null;
-}
-function sessionsOnDay(ts){
-  var k = dayKeyOf(ts);
-  return (AppState.history||[]).filter(function(e){ return e && e.ts && dayKeyOf(e.ts)===k; });
-}
-// Bestmögliche Belegung der restlichen Woche (heute bis Sonntag). Probiert
-// alle Zuordnungen der offenen Pflichttrainings auf die Tage durch und wählt
-// lexikografisch: (Bein-Pflicht zuerst) · möglichst viele Trainings ·
-// geplante Tage an ihrem Wochentag (Vorrang des heute geplanten Tags) ·
-// Beine behalten · voll vor kompakt · wenig Oberkörper an Folgetagen ·
-// möglichst früh nachholen · Planreihenfolge.
-// Spieltage (match) bekommen nie ein Training – auch nicht heute
-// (fix/integration, Punkt 6). Fußball-Trainingstage bleiben für Oberkörper.
-var _wsCache = {key:null, val:null};
-function weekSchedule(date, opts){
-  var now = date==null ? Date.now() : +new Date(date);
-  opts = opts || {};
-  var mustLegs = opts.mustLegs!=null ? !!opts.mustLegs : (typeof legsMustDo==='function' ? legsMustDo(now) : false);
-  var h = AppState.history||[];
-  var key = [dayKeyOf(now), h.length, h.length ? h[h.length-1].ts : 0, mustLegs,
-    (AppState.plan||[]).map(function(d){ return d ? d.id+':'+d.type+':'+(d.optional?1:0)+':'+d.name : '-'; }).join(',')].join('|');
-  if(_wsCache.key===key) return _wsCache.val;
-
-  var q = weekQueue(now), todayIdx = dayIdxOf(now);
-  var today = sessionsOnDay(now).filter(function(e){ return e.ts <= now; });
-  var trainedToday = today.length > 0;
-  var startIdx = trainedToday ? todayIdx+1 : todayIdx;
-  var prevUpper = trainedToday ? today.some(sessionIsUpper) : sessionsOnDay(now - DAY_MS_WQ).some(sessionIsUpper);
-  var open = q.open.slice();
-  var best = null, bestScore = null;
-  function score(assign){
-    var legs = assign.filter(function(a){ return a.it.isLeg; });
-    var legDay = legs.length ? legs[0].d : 99;
-    return [
-      mustLegs && !legs.length ? 1 : 0,
-      mustLegs ? legDay : 0,
-      -assign.length,
-      -assign.filter(function(a){ return a.it.idx===a.d; }).length,
-      open.some(function(x){ return x.isLeg; }) && !legs.length ? 1 : 0,
-      assign.filter(function(a){ return a.variant==='compact'; }).length,
-      assign.filter(function(a){ return a.consec; }).length,
-      assign.reduce(function(sum, a){ return sum + a.d; }, 0),
-      assign.reduce(function(sum, a, k){ return sum + a.it.idx * Math.pow(8, 6-k); }, 0)
-    ];
-  }
-  function better(a, b){
-    for(var i=0; i<a.length; i++){ if(a[i]!==b[i]) return a[i] < b[i]; }
-    return false;
-  }
-  function rec(d, prevUp, rest, assign){
-    if(d > 6 || !rest.length){
-      var sc = score(assign);
-      if(!best || better(sc, bestScore)){ best = assign.slice(); bestScore = sc; }
-      return;
-    }
-    rec(d+1, false, rest, assign);                    // Tag d ohne Pflichttraining
-    if(planTypeAt(d)==='match') return;               // Spieltag: kein Gym
-    rest.forEach(function(it, k){
-      var variant;
-      if(it.isLeg){ variant = legVariantAt(d); if(!variant) return; }
-      else variant = 'upper';
-      assign.push({d:d, it:it, variant:variant, consec:!it.isLeg && prevUp});
-      rec(d+1, !it.isLeg, rest.slice(0, k).concat(rest.slice(k+1)), assign);
-      assign.pop();
-    });
-  }
-  if(startIdx <= 6) rec(startIdx, prevUpper, open, []);
-  best = best || [];
-  var scheduled = best.map(function(a){ return a.it; });
-  var val = {now:now, todayIdx:todayIdx, weekStart:q.weekStart, queue:q, trainedToday:trainedToday,
-    todaySessions:today, prevUpper:prevUpper, mustLegs:mustLegs, assign:best,
-    dropped:open.filter(function(x){ return scheduled.indexOf(x) < 0; })};
-  _wsCache = {key:key, val:val};
-  return val;
-}
-var DAY_MS_WQ = 86400000;
 // ── Lower kompakt (feat/week-queue, Punkt 3) ─────────────────────────────
 // Abgeleitete Variante des Bein-Tags, kein eigener Plan-Tag: erste
 // Kniebeugen-Variante 3×5 (RIR 3), Beinpresse 2×10 (RIR 3), Wadenheben
@@ -1701,213 +1582,6 @@ function compactLegDay(day){
       {n:pick(/waden|calf/i, 'Wadenheben stehend'),    s:'3×10-15', note:'Kompakt'}
     ]};
 }
-// ── Restwochen-Check (feat/week-queue, Punkt 4) ──────────────────────────
-// Nichts wird in die nächste Woche übertragen. Ausnahme: Fehlte das Bein-
-// Training 2 Wochen in Folge (trainiert, aber ohne Beine), ist es in der
-// dritten Woche nicht streichbar und wird zuerst eingeplant.
-function legsMustDo(date){
-  var now = date==null ? Date.now() : +new Date(date);
-  if(!mandatoryGymDays().some(function(m){ return isLegPlanDay(m.day); })) return false;
-  var wk = weekKeyOf(now);
-  for(var k=1; k<=2; k++){
-    var w = weekKeyOf(wk - (k*7 - 3.5)*DAY_MS_WQ);    // DST-fest: Mitte der Vorwoche
-    var ss = weekSessions(w);
-    if(!ss.length || ss.some(sessionIsLeg)) return false;
-  }
-  return true;
-}
-// "Diese Woche nur noch 1 von 2: Upper B, Lower entfällt." – oder null
-function restWeekNotice(date){
-  var sch = weekSchedule(date);
-  if(!sch.dropped.length) return null;
-  var names = sch.dropped.map(function(x){ return x.name; });
-  var dropTxt = names.length > 1 ? names.slice(0, -1).join(', ')+' und '+names[names.length-1]+' entfallen' : names[0]+' entfällt';
-  var y = sch.queue.open.length, x = sch.assign.length;
-  if(!x) return 'Diese Woche ist kein Pflichttraining mehr möglich: '+dropTxt+'.';
-  return 'Diese Woche nur noch '+x+' von '+y+': '+sch.assign.map(scheduleLabel).join(', ')+', '+dropTxt+'.';
-}
-// ── Plan-Overlay der laufenden Woche (feat/week-queue, Punkt 5) ──────────
-// Tatsächliche bzw. empfohlene Belegung je Wochentag – nur Anzeige, der
-// gespeicherte Plan bleibt unverändert; ab Montag gilt wieder der Grundplan.
-function weekPlanOverlay(date){
-  var sch = weekSchedule(date), q = sch.queue, out = {};
-  var add = function(i, txt){ (out[i] = out[i] || []).push(txt); };
-  var short = function(i){ return WEEKDAYS[i].slice(0, 2); };
-  weekSessions(q.weekStart, sch.now).forEach(function(e){
-    var di = dayIdxOf(e.ts);
-    var it = q.items.filter(function(x){ return x.done && x.doneTs===e.ts; })[0];
-    var comp = /\(kompakt\)/i.test(e.dayName||'') ? ' kompakt' : '';
-    if(it && it.idx===di){ add(di, '✓ erledigt'+comp); return; }
-    if(it){
-      add(di, '✓ '+it.name+comp+' (verschoben von '+short(it.idx)+')');
-      add(it.idx, 'erledigt am '+WEEKDAYS[di]);
-      return;
-    }
-    add(di, '✓ '+baseDayName(e.dayName)+comp);
-  });
-  sch.assign.forEach(function(a){
-    var moved = a.it.idx!==a.d, today = a.d===sch.todayIdx;
-    if(!moved && !today && a.variant!=='compact' && !a.consec) return;   // wie geplant
-    add(a.d, (today ? 'Heute: ' : '→ ')+scheduleLabel(a)+(moved ? ' (verschoben von '+short(a.it.idx)+')' : '')+(a.consec ? ' · RIR +1' : ''));
-    if(moved) add(a.it.idx, 'verschoben auf '+WEEKDAYS[a.d]);
-  });
-  sch.dropped.forEach(function(x){ add(x.idx, 'entfällt diese Woche'); });
-  return out;
-}
-// ── Dauerhaft tauschen (feat/week-queue, Punkt 6) ────────────────────────
-// Wurde ein Pflichttraining 3 Wochen in Folge am selben anderen Wochentag
-// gemacht, fragt eine Karte, ob es dauerhaft dorthin soll. Erst nach
-// Bestätigung tauscht moveDay() die beiden Plan-Tage. Fußballtermine
-// bleiben fix (kein Tausch mit soccer/match), ein Bein-Tag landet nie auf
-// einem Tag vor Fußball.
-function permanentMoveSuggestion(date){
-  var now = date==null ? Date.now() : +new Date(date);
-  var plan = AppState.plan||[];
-  var wks = [0,1,2,3].map(function(k){ return weekKeyOf(weekKeyOf(now) - (k*7 - 3.5)*DAY_MS_WQ); });
-  wks[0] = weekKeyOf(now);
-  var declined = DB.get('swapDeclined', {}) || {};
-  var found = null;
-  mandatoryGymDays().some(function(m){
-    var base = baseDayName(m.day.name);
-    var pos = wks.map(function(w){
-      var e = weekSessions(w, now).filter(function(x){ return baseDayName(x.dayName)===base; })[0];
-      return e ? dayIdxOf(e.ts) : null;
-    });
-    [[0,1,2],[1,2,3]].some(function(run){
-      var p = pos[run[0]];
-      if(p==null || p===m.idx || !run.every(function(k){ return pos[k]===p; })) return false;
-      var target = plan[p];
-      if(!target || isFootballType(target.type)) return false;
-      if(isLegPlanDay(m.day)){
-        // Typ des Folgetags nach dem Tausch
-        var nxt = (p+1)%7;
-        var tNext = nxt===m.idx ? target.type : planTypeAt(nxt);
-        if(isFootballType(tNext)) return false;
-      }
-      var key = base+'|'+p;
-      if(declined[key] && now - declined[key] < 28*DAY_MS_WQ) return false;
-      found = {idx:m.idx, to:p, name:m.day.name, key:key};
-      return true;
-    });
-    return !!found;
-  });
-  return found;
-}
-// Zwei Plan-Tage tauschen – über moveDay (a → b, dann der verdrängte Tag nach a)
-function swapPlanDays(i, j){
-  if(i===j) return;
-  var a = Math.min(i, j), b = Math.max(i, j);
-  moveDay(a, b);
-  moveDay(b-1, a);
-}
-function offerPermanentMove(){
-  var mv = permanentMoveSuggestion(); if(!mv) return;
-  var other = (AppState.plan||[])[mv.to];
-  showConfirmDialog({
-    title:mv.name+' dauerhaft auf '+WEEKDAYS[mv.to]+' legen?',
-    bodyHtml:'Seit 3 Wochen trainierst du '+esc(mv.name)+' am '+WEEKDAYS[mv.to]+' statt am '+WEEKDAYS[mv.idx]+'. '
-      +'Dann tauschen '+esc(mv.name)+' und '+esc(other ? other.name : 'der '+WEEKDAYS[mv.to])+' im Plan die Plätze. Historie und PRs bleiben unverändert.',
-    okLabel:'Dauerhaft tauschen', onOk:function(){
-      swapPlanDays(mv.idx, mv.to);
-      toast('✅ '+mv.name+' liegt jetzt dauerhaft am '+WEEKDAYS[mv.to]);
-      safeCall(refreshDash);
-    }
-  });
-}
-function declinePermanentMove(){
-  var mv = permanentMoveSuggestion(); if(!mv) return;
-  var d = DB.get('swapDeclined', {}) || {};
-  d[mv.key] = Date.now();
-  DB.set('swapDeclined', d);
-  safeCall(refreshDash);
-}
-// Anzeigename einer Belegung: "Lower kompakt"
-function scheduleLabel(a){ return a.it.name + (a.variant==='compact' ? ' kompakt' : ''); }
-// Empfehlung für heute (bzw. date): {kind:'train'|'optional'|'rest'|'done', …}
-function recommendedDay(date){
-  var sch = weekSchedule(date);
-  var now = sch.now, todayIdx = sch.todayIdx, todayType = planTypeAt(todayIdx);
-  var next = sch.assign.filter(function(a){ return a.d > todayIdx; })[0] || null;
-  var base = {date:now, todayIdx:todayIdx, schedule:sch, next:next};
-  if(sch.trainedToday){
-    return Object.assign(base, {kind:'done', label:'Heute erledigt: '+sch.todaySessions.map(function(e){ return e.dayName; }).join(', ')});
-  }
-  var a = sch.assign.filter(function(x){ return x.d===todayIdx; })[0];
-  if(a){
-    var hints = [];
-    if(a.it.idx!==todayIdx) hints.push('Verschoben von '+WEEKDAYS[a.it.idx]+'.');
-    if(isFootballType(todayType)) hints.push('Mit mindestens 3 h Abstand zum Fußball, idealerweise danach.');
-    if(a.variant==='compact') hints.push('Morgen Fußball-Training: Lower kompakt – nur Kniebeuge, Beinpresse und Waden, RIR 3.');
-    if(a.consec) hints.push('Gestern Oberkörper: heute RIR +1');
-    if(a.it.isLeg && sch.mustLegs) hints.push('Beine sind 2 Wochen in Folge ausgefallen – diese Woche zuerst.');
-    return Object.assign(base, {kind:'train', day:a.it.day, idx:a.it.idx, variant:a.variant,
-      moved:a.it.idx!==todayIdx, rirBonus:a.consec ? 1 : 0, label:scheduleLabel(a), hints:hints});
-  }
-  // Kein Pflichttraining passt: optionaler Tag an seinem Wochentag, sonst
-  // Ruhetag. Am Spieltag nie Gym.
-  if(todayType==='match') return Object.assign(base, {kind:'rest', label:'Kein Gym – Spieltag'});
-  var pd = (AppState.plan||[])[todayIdx];
-  if(pd && pd.type==='gym' && pd.optional && (pd.ex||[]).length && !(sch.prevUpper && !isLegPlanDay(pd))){
-    return Object.assign(base, {kind:'optional', day:pd, idx:todayIdx, variant:null, rirBonus:0, label:pd.name, hints:['Optional – nur wenn Zeit ist.']});
-  }
-  return Object.assign(base, {kind:'rest',
-    label: todayType==='soccer' ? 'Kein Gym – ⚽ Fußball Training' : 'Ruhetag'});
-}
-// Dashboard-Karte "Heute"
-function renderTodayCard(){
-  var c = el('todayCard'); if(!c) return;
-  if(!mandatoryGymDays().length){ c.innerHTML = ''; return; }
-  var r = recommendedDay(), sch = r.schedule;
-  var icon = r.kind==='train' ? '🏋️' : r.kind==='optional' ? '➕' : r.kind==='done' ? '✅' : (/Fußball|Spieltag/.test(r.label) ? '⚽' : '😌');
-  var title = r.kind==='train' ? 'Heute: '+r.label : r.kind==='optional' ? 'Heute optional: '+r.label : r.label;
-  var q = sch.queue;
-  var queueTxt = q.items.map(function(x){ return (x.done ? '✓ ' : '') + x.name + (x.done && x.compact ? ' (kompakt)' : ''); }).join(' · ');
-  var nextTxt = r.next ? 'Nächstes: '+WEEKDAYS[r.next.d]+' '+scheduleLabel(r.next) : '';
-  var vo = q.volOpen || {};
-  var voTxt = Object.keys(vo).map(function(m){ return satzWort(vo[m])+' '+(MUSCLE_LABEL[m]||m); }).join(', ');
-  if(voTxt) nextTxt = (nextTxt ? nextTxt+' · ' : '')+'Volumen offen: '+voTxt+' (bis +2 Sätze im nächsten passenden Training)';
-  c.innerHTML = '<div class="c" style="margin-bottom:10px">'
-    +'<div style="display:flex;align-items:center;gap:10px"><div style="font-size:24px">'+icon+'</div>'
-    +'<div style="flex:1"><div style="font-size:15px;font-weight:700">'+esc(title)+'</div>'
-    +'<div style="font-size:11px;color:var(--t3);margin-top:2px">Diese Woche: '+esc(queueTxt)+'</div></div></div>'
-    +((r.hints||[]).length ? '<div style="margin-top:8px;font-size:12px;color:var(--t2);line-height:1.5">'+r.hints.map(function(x){ return '• '+esc(x); }).join('<br>')+'</div>' : '')
-    +(r.kind==='train' && r.variant==='compact' ? '<div style="margin-top:6px;font-size:12px;color:var(--t1)">'+compactLegDay(r.day).ex.map(function(e){ return esc(e.n)+' '+esc(e.s); }).join(' · ')+'</div>' : '')
-    +(nextTxt ? '<div style="margin-top:6px;font-size:11px;color:var(--t3)">'+esc(nextTxt)+'</div>' : '')
-    +(restWeekNotice() ? '<div style="margin-top:8px;padding:8px 10px;background:rgba(255,149,0,.12);border:1px solid rgba(255,149,0,.35);border-radius:8px;font-size:12px;color:var(--t1)">⚠️ '+esc(restWeekNotice())+'</div>' : '')
-    +((r.kind==='train' || r.kind==='optional') ? '<button type="button" class="btn bp" onclick="startRecommended()" style="margin-top:10px">Workout starten →</button>' : '')
-    +'</div>';
-}
-// Start aus der Empfehlung (Variante und RIR-Zuschlag inklusive)
-function startRecommended(){
-  var r = recommendedDay();
-  if(!(r.kind==='train' || r.kind==='optional') || !r.day) return;
-  startWorkout(r.day.id, {variant:r.variant, rirBonus:r.rirBonus, hints:r.hints, fromRec:true});
-}
-// ── Starten bleibt frei (feat/week-queue, Punkt 7) ───────────────────────
-// Manueller Start eines Plan-Tags: nie gesperrt, nur kurze Hinweise, wenn
-// er von der Empfehlung abweicht oder eine Regel verletzt.
-// Liefert {hints, rirBonus}.
-function manualStartCheck(day, variant, date){
-  var r = recommendedDay(date), i = r.todayIdx, hints = [], bonus = 0;
-  var todayT = planTypeAt(i), tomorrowT = planTypeAt(i+1);
-  if(todayT==='match') hints.push('Spieltag: Glykogen zuerst auffüllen');
-  if(r.kind==='train' && r.day && r.day.id !== day.id) hints.push('Empfohlen wäre heute: '+r.label+'.');
-  else if(r.kind==='done') hints.push('Heute schon trainiert.');
-  else if(r.kind==='rest' && day.type==='gym' && !day.optional) hints.push('Laut Wochenplan heute kein Pflichttraining.');
-  var q = weekQueue(date);
-  if(q.done.some(function(x){ return x.day.id===day.id; })) hints.push(day.name+' ist diese Woche schon erledigt.');
-  if(isLegPlanDay(day)){
-    var v = legVariantAt(i);
-    if(tomorrowT==='match') hints.push('Morgen Spiel: Bein-Training wird heute nicht empfohlen.');
-    else if(!v) hints.push('Fußball heute: Bein-Training wird heute nicht empfohlen.');
-    else if(v==='compact' && variant!=='compact') hints.push('Morgen Fußball-Training: Lower kompakt wäre empfohlen.');
-  } else {
-    if(todayT==='soccer') hints.push('Mit mindestens 3 h Abstand zum Fußball, idealerweise danach.');
-    var sch = r.schedule;
-    if(!day.optional && sch.prevUpper && !sch.trainedToday){ hints.push('Gestern Oberkörper: heute RIR +1'); bonus = 1; }
-  }
-  return {hints:hints, rirBonus:bonus};
-}
 
 // ── Flexible Planung (feat/flex-planning) ────────────────────────────────
 // Gym-Einheiten sind nicht mehr an Wochentage gebunden. Grundlage ist, was
@@ -1922,7 +1596,7 @@ var FLEX_DEFAULT_ACTIVITIES = {
   squash:  {name:'Squash',          load:{legs:2, push:1, pull:1, core:2}},
   mobility:{name:'Mobility',        load:{legs:0, push:0, pull:0, core:0}}
 };
-var FLEX_DEFAULTS = {recoveryHours:{1:24, 2:48, 3:72}, thresholds:{main:70, rest:60, restStreak:3}, weekGoal:{min:3, max:4}};
+var FLEX_DEFAULTS = {recoveryHours:{1:24, 2:48, 3:72}, thresholds:{main:65, min:40, rest:60, restStreak:3}, weekGoal:{min:3, max:4}};
 var FLEX_APPT_TIME = {soccer:'19:00', match:'15:00'};
 function flexCopy(o){ return JSON.parse(JSON.stringify(o)); }
 // Termine aus dem alten Wochenplan (Fußball/Spiel-Tage, 0 = Montag)
@@ -2014,6 +1688,364 @@ function moveGymDay(idx, dir){
   var t = plan[idx]; plan[idx] = plan[j]; plan[j] = t;
   AppState.save(); safeCall(renderPlan);
   return true;
+}
+
+// ── Belastung, Erholung, Tagesvorschlag (Punkt 3) ──
+// Gruppen: Beine, Druck (Brust/Schulter/Trizeps), Zug (Rücken/Bizeps), Rumpf
+var FLEX_GROUP_OF = {quads:'legs', hams:'legs', glutes:'legs', adduktoren:'legs', abduktoren:'legs', wade:'legs',
+  brust:'push', schulter:'push', trizeps:'push', ruecken:'pull', bizeps:'pull', core:'core'};
+function zeroLoad(){ return {legs:0, push:0, pull:0, core:0}; }
+// Stufe aus gewichteten Sätzen einer Gruppe: 1–4 → 1, 5–9 → 2, ab 10 → 3
+function flexLevel(n){ return n>=10 ? 3 : n>=5 ? 2 : n>=1 ? 1 : 0; }
+// Gewichtete Sätze je Gruppe; pro Satz zählt der stärkste Muskel der Gruppe
+// (Bankdrücken = 1 Satz Druck, nicht Brust 1 + Trizeps 0,25)
+function groupSets(items){
+  var acc = zeroLoad();
+  (items||[]).forEach(function(it){
+    var best = {};
+    musclesFor(it.ex||'').forEach(function(m){ var g = FLEX_GROUP_OF[m.m]; if(g) best[g] = Math.max(best[g]||0, m.w||1); });
+    Object.keys(best).forEach(function(g){ acc[g] += best[g]*(it.n||0); });
+  });
+  return acc;
+}
+function levelsOf(acc){ var o = zeroLoad(); FLEX_GROUPS.forEach(function(g){ o[g] = flexLevel(acc[g]||0); }); return o; }
+// Tatsächliche Belastung einer Session aus den geloggten Sätzen
+function sessionLoad(e){
+  var n = {};
+  ((e && e.sets)||[]).forEach(function(x){ if(x && x.ex && ((+x.r||0)>0 || (+x.secs||0)>0)) n[x.ex] = (n[x.ex]||0) + 1; });
+  return levelsOf(groupSets(Object.keys(n).map(function(k){ return {ex:k, n:n[k]}; })));
+}
+// Geplante Belastung einer Einheit (überschreibbar unter activities['gym:<id>'])
+function unitLoad(day){
+  if(!day) return zeroLoad();
+  var ov = flexSchedule().activities['gym:'+day.id];
+  if(ov && ov.load) return Object.assign(zeroLoad(), ov.load);
+  return levelsOf(groupSets((day.ex||[]).map(function(e){ var r = parseRepRange(e.s); return {ex:e.n, n:r ? r.sets : 3}; })));
+}
+function unitById(id){ return rotationUnits().filter(function(d){ return d.id===id; })[0] || null; }
+function activityLoad(key){
+  if(String(key).indexOf('gym:')===0) return unitLoad(unitById(String(key).slice(4)));
+  var a = flexSchedule().activities[key];
+  return Object.assign(zeroLoad(), (a && a.load) || {});
+}
+function activityLabel(key){
+  if(String(key).indexOf('gym:')===0){ var u = unitById(String(key).slice(4)); return u ? u.name : 'Gym'; }
+  if(key==='rest') return 'Ruhetag';
+  var a = flexSchedule().activities[key];
+  return (a && a.name) || String(key);
+}
+function focusOf(load){ return FLEX_GROUPS.filter(function(g){ return (load[g]||0) >= 2; }); }
+function groupLabels(gs){
+  var l = gs.map(function(g){ return FLEX_GROUP_LABEL[g]; });
+  return l.length > 1 ? l.slice(0, -1).join(', ')+' und '+l[l.length-1] : (l[0]||'');
+}
+// Alles, was tatsächlich im Log steht, bis `until`: Gym-Sessions und activityLog
+function flexEvents(until){
+  var t = until==null ? Date.now() : +new Date(until), out = [];
+  (AppState.history||[]).forEach(function(e, i){
+    if(!e || !(e.ts<=t)) return;
+    var u = unitOfSession(e);
+    out.push({ts:e.ts, kind:'gym', key:u ? 'gym:'+u.id : 'gym', label:baseDayName(e.dayName), load:sessionLoad(e),
+      feel:e.feel, feelTs:e.feelTs, ref:{h:i}});
+  });
+  (AppState.activityLog||[]).forEach(function(a, i){
+    if(!a || a.status==='cancelled' || a.activity==='rest') return;
+    var ts = activityTs(a); if(!(ts<=t)) return;
+    var gym = String(a.activity).indexOf('gym:')===0;
+    out.push({ts:ts, kind:gym ? 'gym' : 'activity', key:a.activity, label:activityLabel(a.activity),
+      load:a.load ? Object.assign(zeroLoad(), a.load) : activityLoad(a.activity), feel:a.feel, feelTs:a.feelTs, ref:{a:i}});
+  });
+  return out.sort(function(x, y){ return x.ts - y.ts; });
+}
+// Erholungszeit je Stufe (anpassbar, optional je Gruppe: recoveryHours.legs = {3:96})
+function recoveryHoursFor(g, L){
+  var rh = flexSchedule().recoveryHours, per = rh[g];
+  return (per && typeof per==='object' && +per[L]) || +rh[L] || 24*L;
+}
+// Rest-Ermüdung je Ereignis: 1 − Stunden seit / Erholungszeit; Folgetage stapeln sich
+function rawRecoveryAt(t, events){
+  var out = {};
+  FLEX_GROUPS.forEach(function(g){
+    var f = 0;
+    events.forEach(function(e){
+      var L = e.load[g]||0;
+      if(L>0 && e.ts<=t) f += Math.max(0, 1 - (t - e.ts)/3600000/recoveryHoursFor(g, L));
+    });
+    out[g] = Math.round(100*(1 - Math.min(1, f)));
+  });
+  return out;
+}
+// Erholungsstatus 0–100 % je Gruppe aus der Historie, korrigiert durch das
+// jüngste Feedback der letzten 48 h (Punkt 5; Einfluss läuft linear aus)
+var FEEL_PCT = {1:20, 2:40, 3:60, 4:80, 5:100}, FEEL_DECAY_H = 48;
+function groupRecovery(date){
+  var t = date==null ? Date.now() : +new Date(date), ev = flexEvents(t), rec = rawRecoveryAt(t, ev);
+  FLEX_GROUPS.forEach(function(g){
+    var fb = null;
+    ev.forEach(function(e){
+      var v = e.feel && +e.feel[g];
+      if(v && FEEL_PCT[v] && e.feelTs && e.feelTs<=t && t - e.feelTs < FEEL_DECAY_H*3600000 && (!fb || e.feelTs > fb.ts)) fb = {ts:e.feelTs, v:v};
+    });
+    if(!fb) return;
+    var d = (FEEL_PCT[fb.v] - rawRecoveryAt(fb.ts, ev)[g]) * (1 - (t - fb.ts)/3600000/FEEL_DECAY_H);
+    rec[g] = Math.max(0, Math.min(100, Math.round(rec[g] + d)));
+  });
+  return rec;
+}
+// Gruppen, die ein kommender Termin so bald belastet, dass sie heute nur
+// leicht trainiert werden: Stufe 3 in weniger als 48 h oder Stufe 2 morgen
+function apptSoonHits(o, focus, now){
+  var L = activityLoad(o.appt.activity), tomorrow = dayKeyOf(dayKeyOf(now) + 1.5*86400000);
+  return focus.filter(function(g){
+    return (L[g]>=3 && o.ts - now < 48*3600000) || (L[g]>=2 && dayKeyOf(o.ts)===tomorrow);
+  });
+}
+// Termin schon im Log (gleiche Aktivität am selben Tag)?
+function apptLogged(o){
+  return (AppState.activityLog||[]).some(function(a){ return a && a.d===o.d && (a.apptKey===o.key || a.activity===o.appt.activity); });
+}
+// Tagesvorschlag: Hauptempfehlung + 1 Alternative mit Begründung.
+// Wissenschaftliche Basis: Wochenvolumen pro Muskel zählt, jede Gruppe
+// möglichst 2×/Woche (Schoenfeld 2016), 48–72 h zwischen harten Einheiten
+// derselben Gruppe; Ziel 3–4 Gym-Einheiten pro Woche.
+function flexSuggestion(date){
+  var now = date==null ? Date.now() : +new Date(date), DAY = 86400000;
+  var sch = flexSchedule(), th = sch.thresholds, goal = sch.weekGoal;
+  var ev = flexEvents(now), rec = groupRecovery(now);
+  var todayK = dayKeyOf(now), yK = dayKeyOf(todayK - DAY/2);
+  var evOn = function(k){ return ev.filter(function(e){ return dayKeyOf(e.ts)===k; }); };
+  var yLoad = zeroLoad(), yFocus = {};
+  evOn(yK).forEach(function(e){
+    FLEX_GROUPS.forEach(function(g){ yLoad[g] = Math.max(yLoad[g], e.load[g]||0); });
+    focusOf(e.load).forEach(function(g){ yFocus[g] = e; });
+  });
+  // Tage am Stück mit Belastung ab Stufe 2 (vor heute)
+  var streak = 0, k = todayK;
+  for(var i=0; i<7; i++){
+    k = dayKeyOf(k - DAY/2);
+    if(evOn(k).some(function(e){ return focusOf(e.load).length; })) streak++; else break;
+  }
+  var wk = weekKeyOf(now), weekEv = ev.filter(function(e){ return e.kind==='gym' && weekKeyOf(e.ts)===wk; });
+  var weekGym = weekEv.length, daysLeft = 7 - dayIdxOf(now);
+  var occ = appointmentOccurrences(now, 8).filter(function(o){ return !o.cancelled; });
+  var todayAppts = occ.filter(function(o){ return dayKeyOf(o.ts)===todayK; });
+  var upcoming = occ.filter(function(o){ return o.ts > now; });
+  var nextU = nextRotationUnit(now);
+  var base = {date:now, rec:rec, weekGym:weekGym, goal:goal, streak:streak, yFocus:Object.keys(yFocus),
+    todayAppts:todayAppts, upcoming:upcoming, next:nextU};
+  var mobility = function(reason){ return {kind:'mobility', label:'Mobility', reason:reason||'Locker bewegen, nichts belasten.'}; };
+  var rest = function(reason){ return {kind:'rest', label:'Ruhetag', reason:reason}; };
+  var todayEv = evOn(todayK);
+  if(todayEv.some(function(e){ return e.kind==='gym'; })){
+    return Object.assign(base, {kind:'done', main:{kind:'done', label:'Heute erledigt: '+todayEv.map(function(e){ return e.label; }).join(', '), reason:''}, alt:null});
+  }
+  // Termin heute mit Stufe 3 (Spiel): kein Gym
+  var bigToday = todayAppts.filter(function(o){ var L = activityLoad(o.appt.activity); return FLEX_GROUPS.some(function(g){ return L[g]>=3; }); })[0];
+  if(bigToday) return Object.assign(base, {kind:'rest', main:{kind:'appointment', label:'Heute: '+bigToday.appt.name+' – kein Gym', reason:'Spieltag: Glykogen zuerst auffüllen.'}, alt:null});
+  if(weekGym >= goal.max) return Object.assign(base, {kind:'rest', main:rest('Wochenziel erreicht ('+weekGym+'/'+goal.max+' Gym-Einheiten).'), alt:mobility()});
+  var allLow = FLEX_GROUPS.every(function(g){ return rec[g] < th.rest; });
+  if(allLow || streak >= th.restStreak){
+    return Object.assign(base, {kind:'rest', main:rest(allLow ? 'Alle Gruppen unter '+th.rest+' % erholt.' : streak+' Tage am Stück belastet.'), alt:mobility('Lockere Mobility statt kompletter Pause.')});
+  }
+  // Wochenziel nur noch mit Training an jedem restlichen Tag erreichbar → Schwelle senken
+  var pressure = (goal.min - weekGym) >= daysLeft && goal.min > weekGym;
+  var mainThr = pressure ? th.rest : th.main;
+  var exposure = {};
+  weekEv.forEach(function(e){ focusOf(e.load).forEach(function(g){ exposure[g] = (exposure[g]||0) + 1; }); });
+  var units = rotationUnits(), n = units.length, nextPos = units.indexOf(nextU);
+  var cands = units.map(function(day){
+    var load = unitLoad(day), focus = focusOf(load);
+    if(!focus.length) focus = FLEX_GROUPS.filter(function(g){ return load[g]>=1; });
+    if(!focus.length) return null;
+    var c = {kind:'unit', day:day, label:day.name, focus:focus, variant:null, light:false, noMain:false, hints:[]};
+    c.minRec = Math.min.apply(null, focus.map(function(g){ return rec[g]; }));
+    c.avgRec = focus.reduce(function(a, g){ return a + rec[g]; }, 0) / focus.length;
+    if(c.minRec < th.min) return null;            // Fokus noch deutlich ermüdet: gar nicht
+    // Termin heute belastet dieselbe Gruppe (Beine am Fußballtag) → nicht heute
+    if(todayAppts.some(function(o){ var L = activityLoad(o.appt.activity); return focus.some(function(g){ return L[g]>=2; }); })) return null;
+    if(todayAppts.length) c.hints.push('Mit mindestens 3 h Abstand zum '+todayAppts[0].appt.name+', idealerweise danach.');
+    // Stufe 3 derselben Gruppe in weniger als 48 h oder Stufe 2 morgen → nur leicht (Beine: Lower kompakt)
+    c.soon = upcoming.filter(function(o){ return apptSoonHits(o, focus, now).length; })[0] || null;
+    if(c.soon){
+      c.light = true;
+      if(focus.indexOf('legs')>=0){ c.variant = 'compact'; c.label = day.name+' (leicht)'; }
+    }
+    c.overlap = focus.filter(function(g){ return yFocus[g]; });
+    if(c.overlap.length || c.minRec < mainThr) c.noMain = true;
+    c.rirBonus = focus.some(function(g){ return yLoad[g] >= 1; }) ? 1 : 0;
+    var dist = nextPos>=0 ? (units.indexOf(day) - nextPos + n) % n : 0;
+    c.isNext = day===nextU;
+    // Rangfolge: Rotation zuerst (deine Reihenfolge), Erholung als Feinsortierung,
+    // Bonus für Gruppen mit weniger als 2 Einheiten diese Woche
+    c.score = 50 - 15*dist + 0.3*c.avgRec - (c.light ? 40 : 0) - (day.optional ? 15 : 0)
+      + Math.min(20, 10*focus.filter(function(g){ return (exposure[g]||0) < 2; }).length);
+    return c;
+  }).filter(Boolean);
+  cands.sort(function(a, b){ return (a.noMain - b.noMain) || (b.score - a.score); });
+  var main = cands.filter(function(c){ return !c.noMain; })[0] || null;
+  var alt = cands.filter(function(c){ return c!==main; })[0] || null;
+  // Begründungen
+  var lastIn = function(g){ for(var j=ev.length-1; j>=0; j--){ if((ev[j].load[g]||0)>=1) return ev[j]; } return null; };
+  var groupTxt = function(g){
+    var l = lastIn(g);
+    if(!l || now - l.ts > 7*DAY) return FLEX_GROUP_LABEL[g]+': erholt';
+    return FLEX_GROUP_LABEL[g]+': '+Math.round((now - l.ts)/3600000)+'h seit '+WEEKDAYS[dayIdxOf(l.ts)];
+  };
+  var unitReason = function(c){
+    var parts = c.focus.map(groupTxt);
+    if(c.soon) parts.push(c.soon.appt.name+' in '+Math.round((c.soon.ts - now)/3600000)+' h → nur leicht');
+    else if(c.focus.indexOf('legs')>=0){
+      var nl = upcoming.filter(function(o){ return activityLoad(o.appt.activity).legs >= 2; })[0];
+      if(nl) parts.push(nl.appt.name+(nl.ts - now >= 48*3600000 ? ' erst ' : ' am ')+WEEKDAYS[dayIdxOf(nl.ts)]);
+    }
+    if(c.isNext) parts.push('nächste Einheit der Rotation');
+    if(pressure) parts.push('Wochenziel '+weekGym+'/'+goal.min+', noch '+daysLeft+' Tag'+(daysLeft>1?'e':''));
+    return parts.join(', ')+'.';
+  };
+  if(main) main.reason = unitReason(main);
+  if(alt){
+    var yf = Object.keys(yFocus);
+    alt.reason = (yf.length && !alt.overlap.length) ? 'da gestern Fokus '+groupLabels(yf)+'.'
+      : alt.overlap.length ? 'gestern schon Fokus '+groupLabels(alt.overlap)+' – nur, wenn du dich frisch fühlst.'
+      : unitReason(alt);
+  }
+  if(!main){
+    var why = alt ? (alt.overlap.length ? 'Gestern Fokus '+groupLabels(alt.overlap)+' – keine Gruppe an zwei Folgetagen.'
+                                        : groupLabels(alt.focus)+' erst '+Math.round(alt.minRec)+' % erholt.')
+                  : (todayAppts.length ? todayAppts[0].appt.name+' heute – keine passende Einheit.' : 'Keine Einheit ausreichend erholt.');
+    main = mobility(why);
+    if(!alt) alt = rest('Komplett pausieren ist genauso gut.');
+  } else if(!alt) alt = mobility();
+  return Object.assign(base, {kind:main.kind==='unit' ? 'train' : 'rest', main:main, alt:alt, pressure:pressure, candidates:cands});
+}
+// Start aus dem Vorschlag (Hauptempfehlung bzw. Alternative)
+function startFlexCand(c){
+  if(!c || c.kind!=='unit') return;
+  startWorkout(c.day.id, {variant:c.variant, rirBonus:c.rirBonus||0, hints:(c.light && c.soon ? [c.soon.appt.name+' '+WEEKDAYS[dayIdxOf(c.soon.ts)]+': heute nur leicht'] : []).concat(c.hints||[]), fromRec:true});
+}
+function startRecommended(){ startFlexCand(flexSuggestion().main); }
+function startFlexAlt(){ startFlexCand(flexSuggestion().alt); }
+// Überschreiben: beliebige Einheit starten (manueller Start mit Hinweisen)
+function startFlexUnit(id){ if(id) startWorkout(id); }
+// Manueller Start: nie gesperrt, nur Hinweise, wenn er vom Vorschlag abweicht
+function manualStartCheck(day, variant, date){
+  var r = flexSuggestion(date), hints = [], bonus = 0, now = r.date;
+  var load = unitLoad(day), focus = focusOf(load);
+  if(r.todayAppts.some(function(o){ return activityLoad(o.appt.activity).legs >= 3; })) hints.push('Spieltag: Glykogen zuerst auffüllen');
+  if(r.kind==='done') hints.push('Heute schon trainiert.');
+  else if(r.main && (r.main.kind!=='unit' || r.main.day.id!==day.id)) hints.push('Empfohlen wäre heute: '+r.main.label+'.');
+  r.todayAppts.forEach(function(o){
+    var L = activityLoad(o.appt.activity), hit = focus.filter(function(g){ return L[g]>=2; });
+    if(hit.length) hints.push(o.appt.name+' heute: '+groupLabels(hit)+' wird heute nicht empfohlen.');
+    else hints.push('Mit mindestens 3 h Abstand zum '+o.appt.name+', idealerweise danach.');
+  });
+  var soon = r.upcoming.filter(function(o){ return apptSoonHits(o, focus, now).length; })[0];
+  if(soon && variant!=='compact') hints.push(soon.appt.name+' '+WEEKDAYS[dayIdxOf(soon.ts)]+': '+groupLabels(apptSoonHits(soon, focus, now))+' heute nur leicht.');
+  var ov = focus.filter(function(g){ return r.yFocus.indexOf(g)>=0; });
+  if(ov.length){ hints.push('Gestern Fokus '+groupLabels(ov)+': heute RIR +1'); bonus = 1; }
+  return {hints:hints, rirBonus:bonus};
+}
+// Dashboard-Karte "Heute": Vorschlag, Alternative, Erholung, Wochenziel
+function renderTodayCard(){
+  var c = el('todayCard'); if(!c) return;
+  if(!rotationUnits().length){ c.innerHTML = ''; return; }
+  var r = flexSuggestion(), m = r.main, a = r.alt;
+  var icon = m.kind==='unit' ? '🏋️' : m.kind==='done' ? '✅' : m.kind==='appointment' ? '⚽' : m.kind==='mobility' ? '🧘' : '😌';
+  var bars = FLEX_GROUPS.map(function(g){
+    var v = r.rec[g], col = v>=80 ? 'var(--green)' : v>=60 ? 'var(--orange)' : 'var(--accent)';
+    return '<div style="flex:1;min-width:0"><div style="font-size:10px;color:var(--t3)">'+FLEX_GROUP_LABEL[g]+' '+v+' %</div>'
+      +'<div style="height:4px;background:var(--card3);border-radius:2px;overflow:hidden;margin-top:3px"><div style="height:100%;width:'+v+'%;background:'+col+'"></div></div></div>';
+  }).join('');
+  var others = rotationUnits().map(function(d){ return '<option value="'+esc(d.id)+'">'+esc(d.name)+'</option>'; }).join('');
+  var nextAppt = r.upcoming[0];
+  var vo = weekOpenVolume();
+  var voTxt = Object.keys(vo).map(function(k){ return satzWort(vo[k])+' '+(MUSCLE_LABEL[k]||k); }).join(', ');
+  c.innerHTML = '<div class="c" style="margin-bottom:10px">'
+    +'<div style="display:flex;align-items:center;gap:10px"><div style="font-size:24px">'+icon+'</div>'
+    +'<div style="flex:1"><div style="font-size:15px;font-weight:700">'+esc(m.kind==='unit' ? 'Heute: '+m.label : m.label)+'</div>'
+    +(m.reason ? '<div style="font-size:12px;color:var(--t2);margin-top:2px;line-height:1.5">'+esc(m.reason)+'</div>' : '')+'</div></div>'
+    +(a ? '<div style="margin-top:8px;font-size:12px;color:var(--t2);line-height:1.5">Alternative: <b style="color:var(--t1)">'+esc(a.label)+'</b>'+(a.reason ? ', '+esc(a.reason) : '')+'</div>' : '')
+    +'<div style="display:flex;gap:8px;margin-top:10px">'+bars+'</div>'
+    +'<div style="margin-top:8px;font-size:11px;color:var(--t3)">Gym diese Woche: '+r.weekGym+' · Ziel '+r.goal.min+'–'+r.goal.max+'×'
+    +(r.next ? ' · Nächste Einheit: '+esc(r.next.name) : '')
+    +(nextAppt ? ' · Nächster Termin: '+WEEKDAYS[dayIdxOf(nextAppt.ts)].slice(0,2)+' '+esc(nextAppt.appt.time||'')+' '+esc(nextAppt.appt.name) : '')+'</div>'
+    +(voTxt ? '<div style="margin-top:4px;font-size:11px;color:var(--t3)">Volumen offen: '+esc(voTxt)+' (bis +2 Sätze im nächsten passenden Training)</div>' : '')
+    +'<div style="display:flex;gap:8px;margin-top:10px">'
+    +(m.kind==='unit' ? '<button type="button" class="btn bp" id="flexStartMain" onclick="startRecommended()" style="flex:2;margin:0">Workout starten →</button>' : '')
+    +(a && a.kind==='unit' ? '<button type="button" class="btn bo" id="flexStartAlt" onclick="startFlexAlt()" style="flex:1;margin:0;font-size:12px">Alternative</button>' : '')
+    +'</div>'
+    +(r.kind!=='done' ? '<select id="flexOther" onchange="startFlexUnit(this.value)" style="margin-top:8px;width:100%;padding:8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t2);font-size:12px"><option value="">Andere Einheit starten …</option>'+others+'</select>' : '')
+    +'</div>';
+}
+
+// ── Einstellungen: Belastung (0–3) je Aktivität und Gruppe, Erholungszeiten, Wochenziel ──
+function setActivityLoad(key, g, v){
+  var sch = flexSchedule(), L = Math.max(0, Math.min(3, parseInt(v, 10)||0));
+  if(FLEX_GROUPS.indexOf(g) < 0) return false;
+  if(String(key).indexOf('gym:')===0){
+    var u = unitById(String(key).slice(4)); if(!u) return false;
+    var cur = sch.activities[key] || {name:u.name, load:unitLoad(u)};
+    cur.load = Object.assign(zeroLoad(), cur.load); cur.load[g] = L;
+    sch.activities[key] = cur;
+  } else {
+    if(!sch.activities[key]) return false;
+    sch.activities[key].load = Object.assign(zeroLoad(), sch.activities[key].load); sch.activities[key].load[g] = L;
+  }
+  AppState.save(); renderLoadSettings(); safeCall(renderTodayCard);
+  return true;
+}
+// Gym-Einheit wieder automatisch aus den Plan-Sätzen berechnen
+function resetUnitLoad(id){ delete flexSchedule().activities['gym:'+id]; AppState.save(); renderLoadSettings(); safeCall(renderTodayCard); }
+function addActivity(name){
+  var n = String(name||'').trim(); if(!n) return null;
+  var key = 'act-'+Date.now().toString(36);
+  flexSchedule().activities[key] = {name:n, load:{legs:1, push:0, pull:0, core:1}};
+  AppState.save(); renderLoadSettings(); safeCall(renderApptSettings);
+  return key;
+}
+function setRecoveryHours(L, v){
+  var h = parseInt(v, 10); if(!(h>=6 && h<=240)) return false;
+  flexSchedule().recoveryHours[L] = h; AppState.save(); safeCall(renderTodayCard); return true;
+}
+function setWeekGoal(field, v){
+  var n = parseInt(v, 10), g = flexSchedule().weekGoal;
+  if(!(n>=1 && n<=7)) return false;
+  g[field] = n; if(g.min > g.max){ if(field==='min') g.max = n; else g.min = n; }
+  AppState.save(); renderLoadSettings(); safeCall(renderTodayCard); return true;
+}
+function renderLoadSettings(){
+  var c = el('loadSettings'); if(!c) return;
+  var sch = flexSchedule();
+  var sel = function(key, g, v){
+    return '<select data-load="'+esc(key)+'|'+g+'" onchange="setActivityLoad(\''+esc(key)+'\',\''+g+'\',this.value)" style="width:100%;padding:6px 2px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-size:12px;text-align:center">'
+      +[0,1,2,3].map(function(x){ return '<option value="'+x+'"'+(x===v?' selected':'')+'>'+x+'</option>'; }).join('')+'</select>';
+  };
+  var row = function(key, name, load, extra){
+    return '<tr><td style="font-size:12px;padding:4px 0;color:var(--t1)">'+esc(name)+(extra||'')+'</td>'
+      +FLEX_GROUPS.map(function(g){ return '<td style="padding:3px">'+sel(key, g, load[g]||0)+'</td>'; }).join('')+'</tr>';
+  };
+  var rows = rotationUnits().map(function(u){
+    var custom = !!sch.activities['gym:'+u.id];
+    return row('gym:'+u.id, u.name, unitLoad(u), custom
+      ? ' <button type="button" onclick="resetUnitLoad(\''+esc(u.id)+'\')" style="background:none;border:none;color:var(--blue);font-size:11px;padding:0;cursor:pointer">auto</button>'
+      : ' <span style="font-size:10px;color:var(--t3)">auto</span>');
+  }).join('') + Object.keys(sch.activities).filter(function(k){ return k.indexOf('gym:')!==0; }).map(function(k){
+    return row(k, sch.activities[k].name||k, Object.assign(zeroLoad(), sch.activities[k].load));
+  }).join('');
+  var rh = sch.recoveryHours, wg = sch.weekGoal;
+  var num = function(attrs, val, fn){ return '<input class="li" type="number" '+attrs+' value="'+val+'" onchange="'+fn+'" style="width:64px;padding:6px;font-size:13px">'; };
+  c.innerHTML = '<div style="font-size:12px;color:var(--t2);margin-bottom:8px;line-height:1.5">Belastung pro Muskelgruppe (0 = keine, 3 = hoch). Gym-Einheiten rechnet die App aus den Sätzen (auto), du kannst sie überschreiben.</div>'
+    +'<table style="width:100%;table-layout:fixed;border-collapse:collapse"><colgroup><col><col style="width:48px"><col style="width:48px"><col style="width:48px"><col style="width:48px"></colgroup>'
+    +'<thead><tr><th></th>'+FLEX_GROUPS.map(function(g){ return '<th style="font-size:10px;color:var(--t3);font-weight:500">'+FLEX_GROUP_LABEL[g]+'</th>'; }).join('')+'</tr></thead>'
+    +'<tbody>'+rows+'</tbody></table>'
+    +'<div style="display:flex;gap:6px;margin-top:8px"><input class="li" id="newActName" type="text" placeholder="Neue Aktivität (z. B. Laufen)" style="flex:1;text-align:left;padding:8px;font-size:12px;font-weight:400">'
+    +'<button type="button" class="btn bo" onclick="addActivity((el(\'newActName\')||{}).value)" style="width:auto;padding:8px 12px;font-size:12px;margin:0">+ Aktivität</button></div>'
+    +'<div style="font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin:14px 0 6px">Erholungszeit</div>'
+    +'<div style="display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--t2);align-items:center">'
+    +[1,2,3].map(function(L){ return '<span>Stufe '+L+' '+num('min="6" max="240" data-rh="'+L+'"', rh[L], 'setRecoveryHours('+L+',this.value)')+' h</span>'; }).join('')+'</div>'
+    +'<div style="font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin:14px 0 6px">Wochenziel Gym</div>'
+    +'<div style="display:flex;gap:10px;font-size:12px;color:var(--t2);align-items:center">'
+    +num('min="1" max="7"', wg.min, "setWeekGoal('min',this.value)")+' bis '+num('min="1" max="7"', wg.max, "setWeekGoal('max',this.value)")+' × pro Woche</div>';
 }
 
 // ── Einstellungen: Termine anlegen, bearbeiten, löschen, "fällt aus" ──
@@ -2829,8 +2861,8 @@ function proceedWithWorkout(dayId, day, applyAdjustments, suggestions, opts){
   } finally { _buildRirCtx = null; }
   if(opts.rirBonus) AppState.activeSession.rirBonus = opts.rirBonus;
   if(opts.hints && opts.hints.length) AppState.activeSession.hints = opts.hints.slice();
-  // Volumen offen aus übersprungenen Übungen dieser Woche (über weekQueue)
-  applyOpenVolume(AppState.activeSession, weekQueue(Date.now()).volOpen);
+  // Volumen offen aus übersprungenen Übungen dieser Woche
+  applyOpenVolume(AppState.activeSession, weekOpenVolume(Date.now()));
   // Peak Week (Zykluswoche 5): letzter Satz der Oberkörper-Isolation = RIR 0
   var miStart = mesoInfo();
   if(miStart.week===5 && !miStart.deload) AppState.activeSession.peak = true;
@@ -3537,12 +3569,11 @@ function amrapExerciseFor(exList){
 // Tage lassen sich im Plan verschieben.
 function todayPlanIdx(){ return (new Date().getDay()+6)%7; }
 function upcomingGymDay(){
-  // Wochen-Warteschlange: heutige Empfehlung, sonst das nächste eingeplante Training
-  var r = recommendedDay();
-  var dayFor = function(d, variant){ return (variant==='compact' && typeof compactLegDay==='function') ? compactLegDay(d) : d; };
-  if(r.kind==='train') return {day:dayFor(r.day, r.variant), today:true};
-  if(r.next) return {day:dayFor(r.next.it.day, r.next.variant), today:false};
-  return null;
+  // Flexible Planung: heutiger Vorschlag, sonst die nächste Einheit der Rotation
+  var r = flexSuggestion();
+  if(r.main && r.main.kind==='unit') return {day:r.main.variant==='compact' ? compactLegDay(r.main.day) : r.main.day, today:true};
+  var nx = nextRotationUnit();
+  return nx ? {day:nx, today:false} : null;
 }
 // AMRAP fällig: RPE gewohnheitsmäßig und letzte Kalibrierung älter als 14 Tage
 function amrapDue(){
@@ -4246,9 +4277,9 @@ function mesoDeloadDue(){
   var idxs = [];
   (AppState.plan||[]).forEach(function(d, i){ if(d && d.type==='gym' && !d.optional && (d.ex||[]).length) idxs.push(i); });
   if(!idxs.length) return false;
-  // alle Pflichttrainings der Woche erledigt oder keins mehr einplanbar
-  var sch = weekSchedule();
-  return sch.queue.open.length===0 || sch.assign.length===0;
+  // Wochenziel erreicht oder heute kein Training vorgeschlagen
+  var r = flexSuggestion();
+  return r.weekGym >= r.goal.min || !(r.main && r.main.kind==='unit');
 }
 
 // ── Ziel-RIR je Zykluswoche und Übungstyp (feat/rir-meso, Punkt 4) ────────
@@ -5713,6 +5744,7 @@ function renderBenchmarks(){
 function refreshDataPage(){
   safeCall(loadProfileInputs);
   safeCall(renderApptSettings);
+  safeCall(renderLoadSettings);
   safeCall(renderBenchmarks);
   safeCall(renderGlossarPreview);
   const today=localDateStr();

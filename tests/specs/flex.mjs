@@ -84,4 +84,125 @@ export default function ({ test, assert, loadApp }) {
     assert.doesNotMatch(html, /Montag|Fußball Training|Fußball Spiel/);
     assert.equal(c.moveGymDay(c.AppState.plan.findIndex((d) => d.name === 'Upper A'), -1), false, 'erste bleibt erste');
   });
+
+  // ── 3 Belastung, Erholung, Tagesvorschlag ──
+  // Einheiten wie im Beispiel: Unterkörper, Oberkörper Druck, Oberkörper Zug; Fußball Mi + Fr, Spiel So
+  const UNITS = [
+    { id: 'push', type: 'gym', name: 'Oberkörper Druck', ex: [{ n: 'Bankdrücken (LH)', s: '4×6-8' }, { n: 'Schulterdrücken (KH sitzend)', s: '3×8-10' },
+      { n: 'Seitheben (Kabel)', s: '3×12-15' }, { n: 'Trizeps Pushdown (Seil)', s: '3×10-12' }] },
+    { id: 'legs', type: 'gym', name: 'Unterkörper', ex: [{ n: 'Kniebeuge (LH)', s: '4×5-8' }, { n: 'Rumänisches Kreuzheben (LH)', s: '3×8-10' },
+      { n: 'Beinpresse', s: '3×10-12' }, { n: 'Wadenheben stehend', s: '3×10-15' }] },
+    { id: 'pull', type: 'gym', name: 'Oberkörper Zug', ex: [{ n: 'Klimmzüge', s: '4×6-10' }, { n: 'Rudern (LH Untergriff)', s: '3×8-10' },
+      { n: 'Latzug (Untergriff eng)', s: '3×10-12' }, { n: 'Bizeps Curl (LH)', s: '3×8-10' }] },
+  ];
+  const SCHEDULE = { appointments: [
+    { id: 'fb', name: 'Fußballtraining', activity: 'soccer', weekdays: [2, 4], time: '19:00' },
+    { id: 'sp', name: 'Spiel', activity: 'match', weekdays: [6], time: '15:00' }] };
+  const gym = (iso, unit) => ({ ts: Date.parse(iso), dayName: unit.name, durationMs: 3e6, volume: 0,
+    sets: unit.ex.flatMap((e) => Array.from({ length: +e.s[0] }, () => ({ ex: e.n, w: 50, r: 8, rpe: 8 }))) });
+  const app = (state, now) => loadApp({ plan: plain(UNITS), schedule: plain(SCHEDULE), ...state }, { now });
+
+  test('3 Belastung je Gruppe 0–3 aus den Sätzen; Aktivitäten anpassbar', () => {
+    const c = app({}, '2026-11-09T08:00:00Z');
+    assert.deepEqual(plain(c.unitLoad(UNITS[0])), { legs: 0, push: 3, pull: 0, core: 0 });
+    assert.deepEqual(plain(c.unitLoad(UNITS[1])), { legs: 3, push: 0, pull: 0, core: 0 });
+    assert.deepEqual(plain(c.unitLoad(UNITS[2])), { legs: 0, push: 0, pull: 3, core: 0 });
+    assert.deepEqual(plain(c.activityLoad('match')), { legs: 3, push: 0, pull: 0, core: 2 });
+    c.flexSchedule().activities.squash.load.legs = 1;
+    assert.equal(c.activityLoad('squash').legs, 1);
+  });
+
+  test('3 Erholung aus der Historie: Stufe 3 = 72 h, linear; geplante Termine ohne Log zählen nicht', () => {
+    // Spiel Sa 15:00 im Log, Mo 15:00 = 48 h → Beine 33 % ermüdet → 67 % erholt
+    const c = app({ activityLog: [{ d: '2026-11-07', activity: 'match', time: '15:00' }] }, '2026-11-09T15:00:00');
+    assert.equal(c.groupRecovery().legs, 67);
+    assert.equal(c.groupRecovery().push, 100);
+    // gleiche Woche ohne Log-Eintrag: das geplante Spiel zählt nicht
+    assert.equal(app({}, '2026-11-09T15:00:00').groupRecovery().legs, 100);
+    // Erholungszeit anpassbar
+    const d = app({ activityLog: [{ d: '2026-11-07', activity: 'match', time: '15:00' }] }, '2026-11-09T15:00:00');
+    d.flexSchedule().recoveryHours[3] = 96;
+    assert.equal(d.groupRecovery().legs, 50);
+  });
+
+  test('3 Beispiel: "Beine: 49h seit Samstag, Fußballtraining erst Mittwoch" – Alternative Zug, da gestern Fokus Druck', () => {
+    const c = app({ history: [gym('2026-11-08T10:00:00', UNITS[0])],                 // So Druck
+      activityLog: [{ d: '2026-11-07', activity: 'match', time: '15:00' }] }, '2026-11-09T16:00:00');   // Sa Spiel, jetzt Mo 16 Uhr
+    const r = c.flexSuggestion();
+    assert.equal(r.kind, 'train');
+    assert.equal(r.main.label, 'Unterkörper');
+    assert.equal(r.main.reason, 'Beine: 49h seit Samstag, Fußballtraining erst Mittwoch, nächste Einheit der Rotation.');
+    assert.equal(r.alt.label, 'Oberkörper Zug');
+    assert.equal(r.alt.reason, 'da gestern Fokus Druck.');
+    assert.ok(!r.candidates.find((x) => x.day.id === 'push') || r.candidates.find((x) => x.day.id === 'push').noMain, 'Druck nicht an zwei Folgetagen');
+    c.renderTodayCard();
+    const html = c.document.getElementById('todayCard').innerHTML;
+    assert.match(html, /Heute: Unterkörper/);
+    assert.match(html, /Alternative: <b[^>]*>Oberkörper Zug<\/b>, da gestern Fokus Druck\./);
+    assert.match(html, /Beine 68 %/);
+    assert.match(html, /id="flexStartAlt"/);
+    assert.match(html, /Andere Einheit starten/);
+    // Alternative mit einem Klick
+    c.startFlexAlt();
+    assert.equal(c.AppState.activeSession.dayName, 'Oberkörper Zug');
+  });
+
+  test('3 Beine Stufe 3 in < 48 h → Unterkörper nur leicht; am Spieltag kein Gym', () => {
+    // Fr 10 Uhr, Spiel Sa (hier Sa-Termin), letzte Einheit Zug → Unterkörper wäre dran
+    const sched = plain(SCHEDULE); sched.appointments[1].weekdays = [5]; sched.appointments[0].weekdays = [2];   // Fußball nur Mi
+    const c = app({ schedule: sched, history: [gym('2026-11-12T10:00:00', UNITS[2])] }, '2026-11-13T10:00:00');
+    const r = c.flexSuggestion();
+    const legs = r.candidates.find((x) => x.day.id === 'legs');
+    assert.equal(legs.variant, 'compact');
+    assert.equal(legs.label, 'Unterkörper (leicht)');
+    assert.notEqual(r.main.day.id, 'legs', 'abgewertet');
+    assert.match(c.manualStartCheck(UNITS[1], null, '2026-11-13T10:00:00').hints.join(' '), /Spiel Samstag: Beine heute nur leicht/);
+    const sa = app({ schedule: sched, history: [] }, '2026-11-14T09:00:00');
+    assert.equal(sa.flexSuggestion().main.label, 'Heute: Spiel – kein Gym');
+  });
+
+  test('3 Ruhetag bei 3 belasteten Tagen am Stück oder allen Gruppen unter 60 %', () => {
+    const c = app({ history: [gym('2026-11-06T10:00:00', UNITS[0]), gym('2026-11-07T10:00:00', UNITS[1]), gym('2026-11-08T10:00:00', UNITS[2])] }, '2026-11-09T10:00:00');
+    const r = c.flexSuggestion();
+    assert.equal(r.main.label, 'Ruhetag');
+    assert.match(r.main.reason, /3 Tage am Stück belastet/);
+    assert.equal(r.alt.label, 'Mobility');
+    // alle Gruppen < 60 %: Squash-Last überall auf 3 gesetzt, gestern gespielt
+    const d = app({ activityLog: [{ d: '2026-11-08', activity: 'squash', time: '18:00', load: { legs: 3, push: 3, pull: 3, core: 3 } }] }, '2026-11-09T10:00:00');
+    assert.equal(d.flexSuggestion().main.label, 'Ruhetag');
+    assert.match(d.flexSuggestion().main.reason, /Alle Gruppen unter 60 % erholt/);
+  });
+
+  test('3 Keine gleiche Muskelgruppe an zwei Folgetagen als Hauptempfehlung; Wochenziel 4 → Ruhetag', () => {
+    for (const u of UNITS) {
+      const c = app({ history: [gym('2026-11-08T10:00:00', u)] }, '2026-11-09T18:00:00');
+      const r = c.flexSuggestion();
+      if (r.main.kind === 'unit') assert.notEqual(r.main.day.id, u.id, u.name);
+    }
+    const four = app({ history: ['2026-11-09', '2026-11-10', '2026-11-12', '2026-11-13'].map((d, i) => gym(`${d}T08:00:00`, UNITS[i % 3])) }, '2026-11-14T10:00:00');
+    assert.equal(four.flexSuggestion().main.label, 'Ruhetag');
+    assert.match(four.flexSuggestion().main.reason, /Wochenziel erreicht \(4\/4/);
+  });
+
+  test('3 Einstellungen: Belastung 0–3 je Aktivität und Einheit, Erholungszeit und Wochenziel anpassbar', () => {
+    const c = app({}, '2026-11-09T08:00:00Z');
+    c.renderLoadSettings();
+    let html = c.document.getElementById('loadSettings').innerHTML;
+    assert.match(html, /data-load="gym:legs\|legs"/);
+    assert.match(html, /data-load="match\|legs"[^>]*>(?:<option[^>]*>[0-3]<\/option>)*<option value="3" selected>/);
+    assert.match(html, /data-rh="3" value="72"/);
+    c.setActivityLoad('soccer', 'legs', 3);
+    assert.equal(c.activityLoad('soccer').legs, 3);
+    c.setActivityLoad('gym:pull', 'core', 2);
+    assert.deepEqual(plain(c.unitLoad(UNITS[2])), { legs: 0, push: 0, pull: 3, core: 2 });
+    c.resetUnitLoad('pull');
+    assert.equal(c.unitLoad(UNITS[2]).core, 0);
+    const k = c.addActivity('Laufen');
+    assert.equal(c.flexSchedule().activities[k].name, 'Laufen');
+    assert.equal(c.setRecoveryHours(3, 96), true);
+    assert.equal(c.setRecoveryHours(3, 1000), false);
+    assert.equal(c.flexSchedule().recoveryHours[3], 96);
+    c.setWeekGoal('min', 4);
+    assert.deepEqual(plain(c.flexSchedule().weekGoal), { min: 4, max: 4 });
+  });
 }

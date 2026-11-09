@@ -84,12 +84,14 @@ export default function ({ test, todo, assert, loadApp, REPO_ROOT }) {
     assert.equal(wenig.rpeVariance(), null);
   });
 
-  test('4.2 Kein Gym-Tag heute → Karte nennt das nächste Training', () => {
-    // Montag Push A erledigt, Dienstag Fußball → nächstes Training laut Wochen-Warteschlange: Pull A (Mi)
+  test('4.2 AMRAP-Karte nutzt den Tagesvorschlag (flexible Planung)', () => {
+    // Montag Push A erledigt → Dienstag schlägt der Vorschlag Pull A vor (gestern Fokus Druck,
+    // Oberkörper am Fußballtag erlaubt) – feat/flex-planning ersetzt die Wochen-Warteschlange
     const mo = session('2026-10-19', [{ ex: 'Bankdrücken (LH)', w: 100, r: 8, rpe: 8 }], 'Push A');
     const ctx = loadApp({ history: [...rpeHistory(40), mo] }, { now: '2026-10-20T08:00:00Z' });   // Dienstag
     ctx.renderSmartNotifs();
-    assert.match(ctx.document.getElementById('smartNotifs').innerHTML, /Im nächsten Training \(Pull A\) im letzten Satz von Face Pulls \(Kabel\)/);
+    assert.equal(ctx.flexSuggestion().main.label, 'Pull A');
+    assert.match(ctx.document.getElementById('smartNotifs').innerHTML, /Heute im letzten Satz von Face Pulls \(Kabel\)/);
   });
 
   test('4.2 Wochentag kommt aus der Position im Plan (verschobene Tage)', () => {

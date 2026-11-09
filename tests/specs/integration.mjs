@@ -142,23 +142,21 @@ export default function ({ test, assert, loadApp, loadFixture }) {
   });
 
   // ── 6 Kein Nachholen am Spieltag ──
-  test('6 Spieltag: Empfehlung "Kein Gym – Spieltag", Restwochen-Hinweis vom Samstag passt dazu', () => {
+  test('6 Spieltag: "Heute: Spiel – kein Gym" (seit feat/flex-planning über feste Termine)', () => {
     const PLAN = plain(loadApp({}).plan3plus1());
     const sess = (date, name) => ({ ts: Date.parse(`${date}T17:00:00Z`), dayName: name, durationMs: 3e6, volume: 0,
       sets: PLAN.find((d) => d.name === name).ex.filter((e) => !e.timed).map((e) => ({ ex: e.n, w: 50, r: 8, rpe: 8 })) });
-    const hist = [sess('2026-10-21', 'Lower')];   // Upper A (Mo) verpasst
+    const hist = [sess('2026-10-21', 'Lower')];
     const sa = loadApp({ plan: plain(PLAN), history: hist }, { now: '2026-10-24T08:00:00Z' });
-    assert.equal(sa.recommendedDay().label, 'Upper B');
-    assert.equal(sa.restWeekNotice(), 'Diese Woche nur noch 1 von 2: Upper B, Upper A entfällt.');
+    assert.equal(sa.flexSuggestion().main.label, 'Upper B', 'nach Lower kommt Upper B (optionale Arme übersprungen)');
     const so = loadApp({ plan: plain(PLAN), history: [...hist, sess('2026-10-24', 'Upper B')] }, { now: '2026-10-25T08:00:00Z' });
-    const r = so.recommendedDay();
+    const r = so.flexSuggestion();
     assert.equal(r.kind, 'rest');
-    assert.equal(r.label, 'Kein Gym – Spieltag');
-    assert.equal(r.schedule.assign.length, 0);
-    assert.match(so.restWeekNotice(), /Upper A entfällt/);
-    // Fußball-Training (soccer) bleibt für Oberkörper erlaubt
+    assert.equal(r.main.label, 'Heute: Spiel – kein Gym');
+    // Fußball-Training bleibt für Oberkörper erlaubt
     const di = loadApp({ plan: plain(PLAN), history: [] }, { now: '2026-10-20T08:00:00Z' });
-    assert.equal(di.recommendedDay().label, 'Upper A');
+    assert.equal(di.flexSuggestion().main.label, 'Upper A');
+    assert.ok(di.flexSuggestion().main.hints.some((h) => /3 h Abstand zum Fußballtraining/.test(h)));
   });
 
   test('6 Manueller Start am Spieltag bleibt möglich, mit Hinweis "Spieltag: Glykogen zuerst auffüllen"', () => {
@@ -279,23 +277,22 @@ export default function ({ test, assert, loadApp, loadFixture }) {
     }
   });
 
-  test('7 Woche fällt bis Freitag aus: Sa Upper B, So kein Gym, Restwochen-Hinweis nennt Upper A und Lower', () => {
+  test('7 Woche ohne Training bis Freitag: Sa Oberkörper (Beine nur leicht, Spiel So), So kein Gym', () => {
     const sa = fxAt('2026-10-31');
     assert.equal(sa.AppState.history.filter((x) => x.ts >= Date.parse('2026-10-26T00:00:00Z')).length, 0);
-    const r = sa.recommendedDay();
+    const r = sa.flexSuggestion();
     assert.equal(r.kind, 'train');
-    assert.equal(r.label, 'Upper B');
-    assert.equal(sa.restWeekNotice(), 'Diese Woche nur noch 1 von 3: Upper B, Upper A und Lower entfallen.');
-    // Sonntag (Spiel), egal ob Upper B am Samstag gemacht wurde
+    assert.equal(r.main.label, 'Upper A', 'Rotation: nach Upper B (Sa davor) kommt Upper A');
+    const lower = r.candidates.find((c) => c.day.name === 'Lower');
+    assert.equal(lower.variant, 'compact', 'Spiel in < 48 h → Lower nur kompakt');
+    assert.match(r.main.reason, /Wochenziel 0\/3, noch 2 Tage/);
     const PLAN = loadFixture(FX).state.plan;
-    const upperB = { ts: Date.parse('2026-10-31T10:00:00Z'), dayName: 'Upper B', durationMs: 3e6, volume: 0,
-      sets: PLAN.find((d) => d.name === 'Upper B').ex.map((e) => ({ ex: e.n, w: 50, r: 8, rpe: 8 })) };
-    for (const so of [fxAt('2026-11-01'), fxAt('2026-11-01', [upperB])]) {
-      const s = so.recommendedDay();
+    const upperA = { ts: Date.parse('2026-10-31T10:00:00Z'), dayName: 'Upper A', durationMs: 3e6, volume: 0,
+      sets: PLAN.find((d) => d.name === 'Upper A').ex.map((e) => ({ ex: e.n, w: 50, r: 8, rpe: 8 })) };
+    for (const so of [fxAt('2026-11-01'), fxAt('2026-11-01', [upperA])]) {
+      const s = so.flexSuggestion();
       assert.equal(s.kind, 'rest');
-      assert.equal(s.label, 'Kein Gym – Spieltag');
-      assert.equal(s.schedule.assign.length, 0);
-      assert.match(so.restWeekNotice(), /Upper A und Lower entfallen|Upper A, Lower und Upper B entfallen/);
+      assert.equal(s.main.label, 'Heute: Spiel – kein Gym');
     }
   });
 }
