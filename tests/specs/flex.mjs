@@ -246,4 +246,46 @@ export default function ({ test, assert, loadApp }) {
     assert.ok(c.groupRecovery().core > before, 'Squash (Rumpf 2, 48 h) zählte mit');
     assert.equal(c.buildBackupObject().state.activityLog.length, 1);
   });
+
+  // ── 5 Subjektives Feedback ──
+  test('5 Nach der Einheit optional Feedback 1–5 je Gruppe; korrigiert die Erholung 48 h lang', () => {
+    const c = app({ history: [gym('2026-11-09T10:00:00', UNITS[1])] }, '2026-11-09T12:00:00');   // Unterkörper
+    const p = c.pendingFeedback();
+    assert.equal(p.ev.label, 'Unterkörper');
+    c.renderTodayCard();
+    let html = c.document.getElementById('todayCard').innerHTML;
+    assert.match(html, /Wie fühlst du dich nach Unterkörper\?/);
+    assert.match(html, /data-feel="legs\|5"/);
+    assert.doesNotMatch(html, /data-feel="push/, 'nur belastete Gruppen');
+    // Mo 12:00 gerechnet: Beine 2 h nach Stufe 3 → 97 % ermüdet
+    c.__harness.setNow(Date.parse('2026-11-10T12:00:00'));                                  // Di 12:00, 26 h danach
+    const ohne = c.groupRecovery().legs;
+    assert.equal(ohne, 36);
+    // Feedback am Montag 12:00: Beine frisch (5)
+    c.__harness.setNow(Date.parse('2026-11-09T12:00:00'));
+    c.setFeedback('legs', 5);
+    c.saveFeedback();
+    assert.deepEqual(plain(c.AppState.history[0].feel), { legs: 5 });
+    assert.equal(c.pendingFeedback(), null);
+    c.__harness.setNow(Date.parse('2026-11-10T12:00:00'));
+    const mit = c.groupRecovery().legs;
+    assert.ok(mit > ohne, `${mit} > ${ohne}`);
+    // nach 48 h kein Einfluss mehr
+    c.__harness.setNow(Date.parse('2026-11-11T13:00:00'));
+    assert.equal(c.groupRecovery().legs, app({ history: [gym('2026-11-09T10:00:00', UNITS[1])] }, '2026-11-11T13:00:00').groupRecovery().legs);
+  });
+
+  test('5 Muskelkater (1) senkt die Erholung; Überspringen blendet die Abfrage aus', () => {
+    const c = app({ activityLog: [{ d: '2026-11-08', activity: 'soccer', time: '19:00' }] }, '2026-11-09T08:00:00');
+    assert.equal(c.pendingFeedback().ev.label, 'Fußballtraining');
+    const ohne = c.groupRecovery().legs;
+    c.setFeedback('legs', 1); c.saveFeedback();
+    assert.ok(c.groupRecovery().legs < ohne);
+    assert.deepEqual(plain(c.AppState.activityLog[0].feel), { legs: 1 });
+    const d = app({ history: [gym('2026-11-09T10:00:00', UNITS[0])] }, '2026-11-09T12:00:00');
+    d.skipFeedback();
+    assert.equal(d.pendingFeedback(), null);
+    d.renderTodayCard();
+    assert.doesNotMatch(d.document.getElementById('todayCard').innerHTML, /Wie fühlst du dich/);
+  });
 }

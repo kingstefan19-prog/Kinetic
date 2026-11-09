@@ -1961,7 +1961,7 @@ function renderTodayCard(){
   var nextAppt = r.upcoming[0];
   var vo = weekOpenVolume();
   var voTxt = Object.keys(vo).map(function(k){ return satzWort(vo[k])+' '+(MUSCLE_LABEL[k]||k); }).join(', ');
-  c.innerHTML = '<div class="c" style="margin-bottom:10px">'
+  c.innerHTML = feedbackHtml()+'<div class="c" style="margin-bottom:10px">'
     +'<div style="display:flex;align-items:center;gap:10px"><div style="font-size:24px">'+icon+'</div>'
     +'<div style="flex:1"><div style="font-size:15px;font-weight:700">'+esc(m.kind==='unit' ? 'Heute: '+m.label : m.label)+'</div>'
     +(m.reason ? '<div style="font-size:12px;color:var(--t2);margin-top:2px;line-height:1.5">'+esc(m.reason)+'</div>' : '')+'</div></div>'
@@ -1978,6 +1978,61 @@ function renderTodayCard(){
     +'</div>'
     +(r.kind!=='done' ? '<select id="flexOther" onchange="startFlexUnit(this.value)" style="margin-top:8px;width:100%;padding:8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t2);font-size:12px"><option value="">Andere Einheit starten …</option>'+others+'</select>' : '')
     +'</div>';
+}
+
+// ── Subjektives Feedback (Punkt 5) ──
+// Nach jeder Einheit optional Muskelkater/Frische je Gruppe: 1 = starker
+// Muskelkater … 5 = frisch. Korrigiert groupRecovery() für 48 h.
+// Offen: jüngste Einheit/Aktivität der letzten 24 h ohne Feedback.
+function pendingFeedback(date){
+  var t = date==null ? Date.now() : +new Date(date), best = null;
+  flexEvents(t).forEach(function(e){
+    var src = e.ref.h!=null ? AppState.history[e.ref.h] : AppState.activityLog[e.ref.a];
+    if(!src || src.feel || src.feelSkip || t - e.ts > 24*3600000) return;
+    if(!FLEX_GROUPS.some(function(g){ return (e.load[g]||0) > 0; })) return;
+    if(!best || e.ts > best.ev.ts) best = {ev:e, src:src};
+  });
+  return best;
+}
+function setFeedback(g, v){
+  var p = pendingFeedback() || _fbOpen; if(!p || FLEX_GROUPS.indexOf(g) < 0) return false;
+  v = parseInt(v, 10); if(!(v>=1 && v<=5)) return false;
+  if(_fbDraft.src !== p.src) _fbDraft = {src:p.src, feel:{}};
+  _fbOpen = p; _fbDraft.feel[g] = v;
+  safeCall(renderTodayCard);
+  return true;
+}
+// Auswahl bis "Speichern" nur im Speicher (landet nicht halbfertig in der Historie)
+var _fbOpen = null, _fbDraft = {src:null, feel:{}};
+// Speichern: gilt ab jetzt für die Erholung
+function saveFeedback(){
+  var p = _fbOpen || pendingFeedback(); if(!p || _fbDraft.src!==p.src || !Object.keys(_fbDraft.feel).length) return false;
+  p.src.feel = _fbDraft.feel; p.src.feelTs = Date.now();
+  _fbOpen = null; _fbDraft = {src:null, feel:{}};
+  AppState.save(); safeCall(renderTodayCard); toast('✅ Feedback gespeichert');
+  return true;
+}
+function skipFeedback(){
+  var p = _fbOpen || pendingFeedback(); if(!p) return;
+  p.src.feelSkip = true; _fbOpen = null; _fbDraft = {src:null, feel:{}};
+  AppState.save(); safeCall(renderTodayCard);
+}
+function feedbackHtml(){
+  var p = pendingFeedback(); if(!p) return '';
+  var draft = _fbDraft.src===p.src ? _fbDraft.feel : {};
+  var groups = FLEX_GROUPS.filter(function(g){ return (p.ev.load[g]||0) > 0; });
+  return '<div class="c" style="margin-bottom:10px">'
+    +'<div style="font-size:14px;font-weight:700">Wie fühlst du dich nach '+esc(p.ev.label)+'?</div>'
+    +'<div style="font-size:11px;color:var(--t3);margin:2px 0 6px">Optional · 1 = starker Muskelkater, 5 = frisch</div>'
+    +groups.map(function(g){
+      return '<div style="display:flex;align-items:center;gap:4px;margin-top:5px"><span style="width:52px;font-size:12px;color:var(--t2)">'+FLEX_GROUP_LABEL[g]+'</span>'
+        +[1,2,3,4,5].map(function(v){ var on = draft[g]===v;
+          return '<button type="button" data-feel="'+g+'|'+v+'" onclick="setFeedback(\''+g+'\','+v+')" style="flex:1;padding:6px 0;border-radius:8px;font-size:13px;font-weight:700;border:1.5px solid '+(on?'var(--violet)':'var(--border2)')+';background:'+(on?'var(--violet)':'var(--card2)')+';color:'+(on?'#fff':'var(--t1)')+'">'+v+'</button>'; }).join('')
+        +'</div>';
+    }).join('')
+    +'<div style="display:flex;gap:8px;margin-top:8px">'
+    +'<button type="button" class="btn bp" id="feelSave" onclick="saveFeedback()" style="flex:2;margin:0;font-size:13px"'+(Object.keys(draft).length?'':' disabled')+'>Speichern</button>'
+    +'<button type="button" class="btn bo" onclick="skipFeedback()" style="flex:1;margin:0;font-size:12px">Überspringen</button></div></div>';
 }
 
 // ── Tag eintragen (Punkt 4): was tatsächlich war ──
