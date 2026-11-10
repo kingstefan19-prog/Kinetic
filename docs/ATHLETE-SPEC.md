@@ -287,26 +287,22 @@ Beispiel mit der Vorlage plan3plus1 (synthetisch, aus dem Repo):
 
 ---
 
-## 6. Offene Entscheidungen (vor der Umsetzung)
+## 6. Entscheidungen (Stefan, 10.11.2026) – gehen den Abschnitten oben vor
 
-1. **A6 und deine Termine (Fußball Mi/Fr, Spiel So):** Ein Zeitfenster mindestens 48 h vor
-   dem nächsten Fußball gibt es dann nur So abends nach dem Spiel und Mo bis etwa 19 Uhr.
-   Fällt Montag aus, gibt es in der Woche keinen erlaubten Tag mehr.
-   - **Vorschlag:** 48 h vor dem Spiel, aber 24 h vor einem Training.
-   - **Alternative:** 48 h für beides, notfalls fällt Nordic in der Woche aus.
-2. **A3 Ziel-RIR:** Bei „RIR 2–3“ rechnet der Coach mit 2,5 (Mitte). Alternativ immer mit dem
-   konservativen Wert (3 bzw. 2).
-3. **A4 „wenig Zeit“:** Auswahl 45/60/75 Min beim Start, oder nur über die Readiness-Regel?
-4. **A11 RIR abfragen:** Hinweis plus zweiter Tipp (Vorschlag), oder wirklich blockieren,
-   bis jeder main-Satz einen RIR hat?
-5. **A8 Benchmarks:** Belastbar ist nur die Kniebeuge (Suchomel 2016). Für Bank, Klimmzug,
-   Rudern, RDL und Schulterdrücken gibt es keine wissenschaftlichen Schwellen für Fußballer.
-   - **Vorschlag:** dort nur E1RM/kg und Trend.
-   - **Alternative:** zusätzlich die Coaching-Tabelle von Kilgore/Rippetoe
-     („Practical Programming“), klar als „Coaching-Tabelle, keine Studie“ markiert.
-6. **C2 Navigation ohne Essen:** Heute · Plan · Workout · Log · Profil (5 Tabs). Passt das?
-
----
+1. **A6 Prävention:** nicht in den 48 h vor einem Spiel und nicht in den 24 h vor einem Training.
+2. **A3 Ziel-RIR:** Bereich „RIR 2–3“ bzw. „RIR 1–2“. Der Coach rechnet mit der Mitte (2,5 / 1,5).
+3. **A3/A4 Zeit und Pausen:** Einheiten in der Regel höchstens **60 Min**, einstellbar im Profil
+   (Standard 60). Kurze Pausen: main-heavy 150 s, main 120 s, assist 90 s, iso 60 s,
+   Nordic 90 s, sonst 60 s. A10 meldet sich bei Haupt­übungen erst unter 90 s.
+4. **A11 RIR-Pflicht:** „Nächste Übung“ ist bei main/main-heavy **gesperrt**, bis jeder
+   abgehakte Satz einen RIR hat. Hat eine Übung **keinen** erledigten Satz, schlägt
+   „Nächste Übung“ einen Ersatz vor: Familien-Varianten, die nicht schon in der Einheit sind,
+   sortiert nach möglichst geringer Überschneidung (gleiche Familie bzw. gleiche Primärmuskeln)
+   mit den anderen Übungen der Einheit. Dazu „Ohne Ersatz weiter“ (zählt als übersprungen,
+   Grund „Mag ich nicht“ wird nicht automatisch gesetzt, sondern abgefragt wie gewohnt).
+5. **A8 Benchmarks:** nur der eigene Trend (E1RM und E1RM/kg über 8 Wochen), keine Schwellen –
+   auch nicht für die Kniebeuge. Die Quellen in §7 bleiben als Hintergrund.
+6. **C2 Navigation:** Heute · Plan · Workout · Log · Profil.
 
 ## 7. Quellen
 - Suchomel TJ, Nimphius S, Stone MH. The importance of muscular strength in athletic
