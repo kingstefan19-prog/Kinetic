@@ -289,10 +289,6 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
     </div>
   </div>
 
-  <div id="plan-update-banner" style="display:none;background:rgba(52,199,89,.1);border:1px solid rgba(52,199,89,.3);border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:13px;color:var(--t2);line-height:1.5">
-    ✅ <strong style="color:var(--green)">Plan v5 geladen!</strong> Wissenschaftlich optimiert: Sa = Upper B kompakt (70 Min statt 90). Adduktoren, Abduktoren, vollständiges Beintraining. Tippe auf <strong>Legs A</strong> für alle Übungen.
-    <button onclick="this.parentElement.style.display='none'" style="float:right;background:none;border:none;color:var(--t3);cursor:pointer;font-size:16px;padding:0 0 0 8px">✕</button>
-  </div>
 
   <!-- Science info banner -->
   <div style="background:rgba(10,132,255,.07);border:1px solid rgba(10,132,255,.2);border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--t2);line-height:1.7">
@@ -6973,19 +6969,9 @@ function initApp(){
     // Echter Erststart → Willkommen zeigen
     DB.set('welcomeSeen', true);
     Timers.set(function(){ showWelcomeScreen(); }, 400, 'welcomeDelay');
-  } else {
-    // Bestehender Nutzer: Update-Banner + Legs öffnen (wie bisher)
-    var shownBanner = DB.get('planBannerV'+PLAN_VERSION, false);
-    if(!shownBanner){
-      DB.set('planBannerV'+PLAN_VERSION, true);
-      var banner = el('plan-update-banner');
-      if(banner) banner.style.display = 'block';
-      Timers.set(function(){
-        var c=document.querySelector('[data-day="thu"]'), b=el('wk-b-thu');
-        if(c) c.classList.add('open'); if(b) b.classList.add('open');
-      }, 300, 'autoOpenLegs');
-    }
   }
+  // B2: kein statischer Plan-Update-Banner mehr; das Flag planBannerV* bleibt
+  // nur als Merkmal "bestehender Nutzer" (siehe hasPlanFlag)
 
   if(AppState.activeSession && AppState.activeSession.dayId && !staleSession()) navigate('workout');
   if(window.speechSynthesis) Timers.set(function(){window.speechSynthesis.getVoices();},100,'ttsInit');
