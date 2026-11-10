@@ -241,4 +241,40 @@ export default function ({ test, assert, loadApp }) {
     f.confirmDialogOk();
     assert.ok(lower.ex.some((e) => e.n === 'Copenhagen Adduction' && e.s === '2×20-30s'));
   });
+
+  // ── A7 Power-Primer ──
+  test('A7 Primer bei Bein-Erholung ≥ 65 % und ohne Fußball in 3 h; abschaltbar; ohne Gewicht geloggt', () => {
+    const idOf = (c, n) => c.AppState.plan.find((d) => d.name === n).id;
+    // Di 10:00, frisch: Lower → Sprünge
+    let c = athleteApp({}, '2026-11-10T10:00:00');
+    c.startWorkout(idOf(c, 'Lower'));
+    let s = c.AppState.activeSession;
+    assert.equal(s.primer.kind, 'jump');
+    c.renderWorkout();
+    assert.match(c.document.getElementById('workoutContent').innerHTML, /Power-Primer[^]*3×3-5 Sprünge/);
+    c.togglePrimerSet(0); c.togglePrimerSet(1);
+    s.exercises.forEach((e) => e.sets.forEach((st) => { st.done = true; }));
+    c.finishWorkout();
+    const h = c.AppState.history[c.AppState.history.length - 1];
+    assert.deepEqual(plain(h.primer), { kind: 'jump', sets: 2, reps: '3-5' });
+    assert.ok(!h.sets.some((x) => /Sprung/.test(x.ex)), 'kein Arbeitssatz');
+    // Oberkörper: explosive Liegestütze/Würfe
+    c = athleteApp({}, '2026-11-10T10:00:00');
+    c.startWorkout(idOf(c, 'Upper A'));
+    assert.equal(c.AppState.activeSession.primer.kind, 'upper');
+    // Mi 17:00: Fußball 19:00 in 2 h → weglassen mit Grund
+    c = athleteApp({}, '2026-11-11T17:00:00');
+    c.startWorkout(idOf(c, 'Upper A'));
+    assert.equal(c.AppState.activeSession.primer, undefined);
+    assert.ok(c.AppState.activeSession.hints.some((x) => /Fußballtraining in < 3 h – heute ohne Power-Primer/.test(x)));
+    // Spiel gestern 90 Min → Beine < 65 % → weglassen
+    c = athleteApp({ activityLog: [{ d: '2026-11-08', activity: 'match', time: '15:00', minutes: 90 }] }, '2026-11-09T10:00:00');
+    assert.match(c.primerFor(c.AppState.plan.find((d) => d.name === 'Upper A')).skip, /^Beine \d+ % erholt/);
+    // abgeschaltet bzw. Recomp: nie
+    c = athleteApp({}, '2026-11-10T10:00:00');
+    c.setPowerPrimer(false);
+    assert.equal(c.primerFor(c.AppState.plan.find((d) => d.name === 'Lower')), null);
+    const r = loadApp({ plan: PLAN() }, { now: '2026-11-10T10:00:00' });
+    assert.equal(r.primerFor(r.AppState.plan.find((d) => d.name === 'Lower')), null);
+  });
 }

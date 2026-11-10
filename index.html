@@ -1631,7 +1631,8 @@ function renderGoalSettings(){
     +btn('recomp', 'Recomp', 'Muskelaufbau, KFA senken')
     +btn('athlete', 'Athlet', 'Maximal-/Schnellkraft, Fußball, Masse halten')+'</div>'
     +(g==='athlete' ? '<div style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--t2)">Max. Dauer je Einheit'
-      +'<input class="li" type="number" min="30" max="120" step="5" value="'+sessionMaxMinutes()+'" onchange="setSessionMinutes(this.value)" style="width:70px;padding:6px;font-size:13px"> Min</div>' : '');
+      +'<input class="li" type="number" min="30" max="120" step="5" value="'+sessionMaxMinutes()+'" onchange="setSessionMinutes(this.value)" style="width:70px;padding:6px;font-size:13px"> Min</div>'
+      +'<label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:var(--t2)"><input type="checkbox" id="primerToggle" '+(powerPrimerOn()?'checked':'')+' onchange="setPowerPrimer(this.checked)"> Power-Primer vor dem Training (Sprünge/explosive Würfe)</label>' : '');
 }
 
 // A2: Übungsrollen. Override "role" am Plan-Eintrag, dann Tabelle, dann Regel
@@ -1850,6 +1851,38 @@ function addPreventEx(name){
       AppState.save(); safeCall(renderPlan); safeCall(renderSmartNotifs);
       toast('✅ '+name+' in '+target.name);
     }});
+}
+
+// ── A7 Power-Primer (abschaltbar, Standard an) ──
+// Nach dem Aufwärmen 5–8 Min: Unterkörper 3×3-5 Sprünge, Oberkörper 3×3-5
+// explosive Liegestütze/Medizinballwürfe, volle Pause, ohne Gewicht. Nur bei
+// Bein-Erholung ≥ 65 % und ohne Fußball in den nächsten 3 h (nicht an Readiness gekoppelt).
+function powerPrimerOn(){ return !(AppState.user && AppState.user.powerPrimer===false); }
+function setPowerPrimer(on){ AppState.user.powerPrimer = !!on; AppState.save(); safeCall(renderGoalSettings); }
+function primerFor(day, date){
+  if(!isAthlete() || !powerPrimerOn() || !day) return null;
+  var now = date==null ? Date.now() : +new Date(date);
+  var legs = groupRecovery(now).legs;
+  if(legs < 65) return {skip:'Beine '+legs+' % erholt – heute ohne Power-Primer.'};
+  var fb = appointmentOccurrences(now, 2).filter(function(o){ return !o.cancelled && o.ts > now && o.ts - now < 3*3600000 && (o.appt.activity==='soccer' || o.appt.activity==='match'); })[0];
+  if(fb) return {skip:fb.appt.name+' in < 3 h – heute ohne Power-Primer.'};
+  var lower = isLegPlanDay(day);
+  return {kind:lower ? 'jump' : 'upper', label:lower ? 'Sprünge (Box- oder Strecksprung)' : 'Explosive Liegestütze oder Medizinballwürfe',
+    sets:3, reps:'3-5', done:[false, false, false]};
+}
+function togglePrimerSet(i){
+  var s = AppState.activeSession; if(!s || !s.primer || !s.primer.done || i<0 || i>=s.primer.done.length) return;
+  s.primer.done[i] = !s.primer.done[i];
+  AppState.saveSession(); safeCall(renderWorkout);
+}
+function primerHtml(s){
+  var p = s && s.primer; if(!p || s.currentIdx!==0) return '';
+  return '<div class="c" style="border-color:rgba(255,214,10,.35)"><div class="sl">⚡ Power-Primer · 5–8 Min nach dem Aufwärmen</div>'
+    +'<div style="font-size:14px;font-weight:600;margin-top:4px">'+p.sets+'×'+p.reps+' '+esc(p.label)+'</div>'
+    +'<div style="font-size:12px;color:var(--t2);margin-top:2px">Maximal explosiv, volle Pause (60–90 s), ohne Gewicht. Nicht bis zur Ermüdung.</div>'
+    +'<div style="display:flex;gap:6px;margin-top:8px">'+p.done.map(function(d, i){
+      return '<button type="button" data-primer="'+i+'" onclick="togglePrimerSet('+i+')" class="btn '+(d?'bp':'bg2')+'" style="flex:1;margin:0;padding:10px 0;font-size:13px">'+(d?'✓ ':'')+'Satz '+(i+1)+'</button>'; }).join('')
+    +'</div></div>';
 }
 
 // Einstiegsgewicht nach der Umstellung: E1RM für die Mitte des neuen Bereichs bei Ziel-RIR, abgerundet
@@ -3330,6 +3363,10 @@ function proceedWithWorkout(dayId, day, applyAdjustments, suggestions, opts){
   };
   } finally { _buildRirCtx = null; }
   if(opts.rirBonus) AppState.activeSession.rirBonus = opts.rirBonus;
+  // A7: Power-Primer vor der ersten Übung (oder Begründung, warum nicht)
+  var pr = primerFor(day);
+  if(pr && pr.skip) opts = Object.assign({}, opts, {hints:(opts.hints||[]).concat([pr.skip])});
+  else if(pr) AppState.activeSession.primer = pr;
   if(opts.hints && opts.hints.length) AppState.activeSession.hints = opts.hints.slice();
   // Volumen offen aus übersprungenen Übungen dieser Woche
   applyOpenVolume(AppState.activeSession, weekOpenVolume(Date.now()));
@@ -3554,6 +3591,7 @@ function renderWorkout(){
           ${s.exercises.map((ex,i)=>`<button type="button" data-jump="${i}" style="flex-shrink:0;padding:5px 10px;border-radius:20px;font-size:11px;font-weight:600;border:1.5px solid ${i===s.currentIdx?'var(--accent)':ex.done?'var(--green)':'var(--border2)'};background:${i===s.currentIdx?'var(--accent)':ex.done?'rgba(52,199,89,.1)':'var(--card2)'};color:${i===s.currentIdx?'#000':ex.done?'var(--green)':'var(--t3)'};cursor:pointer;font-family:var(--f)">${ex.done?'✓ ':''} ${esc(ex.n.split(' ')[0])}</button>`).join('')}
         </div>
 
+        ${primerHtml(s)}
         ${cur.skipped ? skippedCardHtml(cur) : `<div class="c">
           <div class="sl">Aktuelle Übung</div>
           <div style="font-size:20px;font-weight:700;margin-top:6px">${esc(cur.n)}</div>
@@ -4170,6 +4208,8 @@ function finishWorkout(){
   const endTs=s.lastSetTs||Date.now();
   const entry={ts:endTs,dayName:s.dayName,durationMs:Math.max(0,endTs-s.startTs),volume,sets};
   if(s.skipped && s.skipped.length) entry.skipped=s.skipped.slice();   // feat/skip-redistribute
+  if(s.primer && s.primer.done && s.primer.done.some(Boolean))         // A7: ohne Gewicht, kein Arbeitssatz
+    entry.primer={kind:s.primer.kind, sets:s.primer.done.filter(Boolean).length, reps:s.primer.reps};
   if(s.volOpen) entry.volOpen=Object.assign({}, s.volOpen);
   if(s.volPaid) entry.volPaid=Object.assign({}, s.volPaid);
   AppState.history.push(entry);
