@@ -21,4 +21,20 @@ export default function ({ test, assert, loadApp }) {
     c.setTrainingGoal('recomp');
     assert.equal(c.trainingGoal(), 'recomp');
   });
+
+  // ── A2 Übungsrollen ──
+  test('A2 exerciseRole: Tabelle, Mehrgelenk = assist, Rest = iso, Override am Plan-Eintrag', () => {
+    const c = loadApp({ plan: PLAN() });
+    const r = (n, e) => c.exerciseRole(n, e);
+    for (const n of ['Bankdrücken (LH)', 'Kniebeuge (LH)', 'Schrägbank Bankdrücken (LH)']) assert.equal(r(n), 'main-heavy', n);
+    for (const n of ['Klimmzüge', 'Rudern (LH Untergriff)', 'Rumänisches Kreuzheben (LH)', 'Schulterdrücken (KH sitzend)']) assert.equal(r(n), 'main', n);
+    for (const n of ['Nordic Curl (Beinbizeps)', 'Copenhagen Adduction', 'Wadenheben stehend']) assert.equal(r(n), 'prevent', n);
+    for (const n of ['Beinpresse', 'Latzug (Untergriff eng)', 'Einarmiges KH-Rudern', 'Schrägbankdrücken (KH)']) assert.equal(r(n), 'assist', n);
+    for (const n of ['Seitheben (Kabel)', 'Bizeps Curl (LH)', 'Trizeps Pushdown (Seil)', 'Beinstrecker', 'Face Pulls (Kabel)']) assert.equal(r(n), 'iso', n);
+    assert.equal(r('Plank', { n: 'Plank', s: '3×45s', timed: true }), null);
+    assert.equal(r('Beinpresse', { n: 'Beinpresse', s: '2×10-12', role: 'main' }), 'main');
+    assert.equal(r('Beinpresse', { n: 'Beinpresse', s: '2×10-12', role: 'quatsch' }), 'assist');
+    // jede Übung der Vorlage hat eine Rolle (außer Plank)
+    for (const d of PLAN()) for (const e of d.ex || []) if (!/Plank/.test(e.n)) assert.ok(c.exerciseRole(e.n, e), e.n);
+  });
 }

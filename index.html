@@ -1612,6 +1612,22 @@ function renderGoalSettings(){
     +btn('athlete', 'Athlet', 'Maximal-/Schnellkraft, Fußball, Masse halten')+'</div>';
 }
 
+// A2: Übungsrollen. Override "role" am Plan-Eintrag, dann Tabelle, dann Regel
+var ROLE_TABLE = {
+  'Bankdrücken (LH)':'main-heavy', 'Kniebeuge (LH)':'main-heavy', 'Schrägbank Bankdrücken (LH)':'main-heavy',
+  'Klimmzüge':'main', 'Rudern (LH Untergriff)':'main', 'Rumänisches Kreuzheben (LH)':'main', 'Schulterdrücken (KH sitzend)':'main',
+  'Nordic Curl (Beinbizeps)':'prevent', 'Copenhagen Adduction':'prevent', 'Wadenheben stehend':'prevent'
+};
+var ROLE_LABEL = {'main-heavy':'Hauptübung schwer', 'main':'Hauptübung', 'assist':'Assistenz', 'iso':'Isolation', 'prevent':'Prävention'};
+function exerciseRole(exName, entry){
+  if(entry && ROLE_LABEL[entry.role]) return entry.role;
+  var n = String(exName||'');
+  if(ROLE_TABLE[n]) return ROLE_TABLE[n];
+  if(/plank|\d+s\b/i.test(n) || (entry && (entry.timed || /\d+s\b/.test(entry.s||'')))) return null;   // Zeitübung ohne Rolle
+  return isCompoundLift(n) ? 'assist' : 'iso';
+}
+function isMainRole(r){ return r==='main' || r==='main-heavy'; }
+
 // ── Flexible Planung (feat/flex-planning) ────────────────────────────────
 // Gym-Einheiten sind nicht mehr an Wochentage gebunden. Grundlage ist, was
 // tatsächlich im Log steht (history + activityLog); feste Termine (Fußball,
