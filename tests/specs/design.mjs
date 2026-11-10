@@ -16,7 +16,7 @@ export function contrast(a, b) {
   return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
 }
 
-export default function ({ test, assert, loadApp, REPO_ROOT }) {
+export default function ({ test, assert, loadApp, loadFixture, REPO_ROOT }) {
   const html = () => fs.readFileSync(path.join(REPO_ROOT, 'index.html'), 'utf8');
   const tokens = () => {
     const root = html().match(/:root\{([\s\S]*?)\}/)[1], t = {};
@@ -126,5 +126,26 @@ export default function ({ test, assert, loadApp, REPO_ROOT }) {
     c.document.getElementById('planMenu').open = true;
     c.closePlanMenu();
     assert.equal(c.document.getElementById('planMenu').open, false);
+  });
+
+  test('C5 Inline-SVG-Iconset für Navigation und Hinweis-Karten', () => {
+    const src = html();
+    const s0 = src.indexOf('<svg xmlns="http://www.w3.org/2000/svg" style="display:none"');
+    const sprite = src.slice(s0, src.indexOf('</svg>', s0) + 6);
+    assert.ok(sprite.length > 100, 'Sprite vorhanden');
+    assert.doesNotMatch(sprite, /<image|xlink:href="http|href="http/, 'keine Fremd-Dateien');
+    for (const m of sprite.matchAll(/<symbol id="i-[\w-]+" viewBox="0 0 24 24">/g)) assert.ok(m);
+    assert.match(src, /\.ic\{width:24px;height:24px;[^}]*fill:none;stroke:currentColor;stroke-width:1\.75/);
+    const nav = src.slice(src.indexOf('<nav class="nav">'), src.indexOf('</nav>'));
+    assert.equal((nav.match(/<use href="#i-/g) || []).length, 5);
+    assert.doesNotMatch(nav, /\p{Extended_Pictographic}/u, 'keine Emojis in der Nav');
+    for (const id of [...nav.matchAll(/href="#(i-[\w-]+)"/g)].map((m) => m[1])) assert.match(sprite, new RegExp('id="' + id + '"'));
+    // Hinweis-Karten: SVG statt Emoji
+    const c = loadApp(loadFixture('realistic-3plus1'), { now: '2026-10-26T06:00:00Z' });
+    c.renderSmartNotifs();
+    const h = c.document.getElementById('smartNotifs').innerHTML;
+    const icons = [...h.matchAll(/<div class="sm-icon">([\s\S]*?)<\/div>/g)].map((m) => m[1]);
+    assert.ok(icons.length > 0);
+    for (const i of icons) { assert.match(i, /^<svg class="ic"/); assert.doesNotMatch(i, /\p{Extended_Pictographic}/u); }
   });
 }
