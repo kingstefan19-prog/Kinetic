@@ -148,4 +148,22 @@ export default function ({ test, assert, loadApp, loadFixture, REPO_ROOT }) {
     assert.ok(icons.length > 0);
     for (const i of icons) { assert.match(i, /^<svg class="ic"/); assert.doesNotMatch(i, /\p{Extended_Pictographic}/u); }
   });
+
+  test('C6 Angefasste Screens ohne statische Inline-Styles (Heute, Workout, Plan-Kopf, Nav)', () => {
+    const src = html();
+    const fn = (name) => { const i = src.indexOf('function ' + name + '('); return src.slice(i, src.indexOf('\nfunction ', i + 10)); };
+    const parts = {
+      nav: src.slice(src.indexOf('<nav class="nav">'), src.indexOf('</nav>')),
+      planHead: src.slice(src.indexOf('<section id="page-plan"'), src.indexOf('id="planList"')),
+      dash: src.slice(src.indexOf('<section id="page-dash"'), src.indexOf('<!-- ══ PAGE: PLAN')),
+      renderWorkout: fn('renderWorkout'),
+      renderTodayCard: fn('renderTodayCard'), todayLinesHtml: fn('todayLinesHtml'), renderWeekStrip: fn('renderWeekStrip'),
+      renderWeeklyWeight: fn('renderWeeklyWeight'), dataCheckCardHtml: fn('dataCheckCardHtml'), renderSmartNotifs: fn('renderSmartNotifs'),
+    };
+    for (const [k, v] of Object.entries(parts)) {
+      // erlaubt: nur Werte, die erst zur Laufzeit feststehen (z. B. Balkenbreite)
+      const statics = [...v.matchAll(/style="([^"]*)"/g)].map((m) => m[1]).filter((x) => !/'\+|\$\{/.test(x));
+      assert.deepEqual(statics, [], k);
+    }
+  });
 }
