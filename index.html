@@ -23,6 +23,7 @@
   --t1:#F5F5F5;--t2:#AAAAAA;--t3:#8E8E93;
   --accent-fill:#D32F2F;   /* C1: gefüllte rote Knöpfe, weißer Text 4,98:1 */
   --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;
+  --nav-h:64px;
   --f:'Inter',-apple-system,sans-serif;--r:14px;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -38,7 +39,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 .hs-val{font-size:17px;font-weight:700;line-height:1}
 .hs-lbl{font-size:12px;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase;margin-top:4px}
 
-.nav{position:fixed;bottom:0;left:0;right:0;background:rgba(18,18,18,.97);backdrop-filter:blur(24px);border-top:1px solid var(--border);display:flex;z-index:200;padding:8px 2px 16px}
+.nav{position:fixed;bottom:0;left:0;right:0;min-height:var(--nav-h);background:rgba(18,18,18,.97);backdrop-filter:blur(24px);border-top:1px solid var(--border);display:flex;z-index:200;padding:8px 2px 16px}
 .nb{flex:1;background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;padding:5px 2px;opacity:.35;transition:opacity .2s;color:var(--t2)}
 .nb.active{opacity:1;color:var(--accent)}
 .ni{font-size:20px;line-height:1}
@@ -101,7 +102,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 .abort-btn{
   position:relative;z-index:9999!important;pointer-events:auto!important;
   background:var(--accent-fill);color:#fff;border:none;border-radius:8px;
-  padding:8px 14px;font-family:var(--f);font-size:12px;font-weight:700;
+  padding:8px 14px;min-height:44px;font-family:var(--f);font-size:12px;font-weight:700;
   cursor:pointer;touch-action:manipulation;-webkit-user-select:none;user-select:none;
 }
 .abort-btn:active{background:var(--accent-d);transform:scale(.96)}
@@ -161,6 +162,34 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 .voice-btn.listening .voice-dot{display:block}
 
 /* ── Smart banners ── */
+.wo-ex .wo-name{font-size:20px;font-weight:700;line-height:1.25}
+.wo-goal{color:var(--t2);margin-top:var(--s1);font-size:13px}
+.wo-last{color:var(--t2);font-size:13px;margin-top:var(--s1)}
+.wo-sets{width:100%;table-layout:fixed;border-collapse:separate;border-spacing:4px 4px;margin-top:var(--s2)}
+.wo-sets input,.wo-sets button{min-height:44px}
+.wo-add{margin-top:var(--s2);font-size:13px;padding:10px;min-height:44px}
+.coach-1l{margin-top:var(--s2);background:rgba(10,132,255,.10);border-left:3px solid var(--blue);border-radius:6px}
+.coach-1l>summary{list-style:none;cursor:pointer;min-height:44px;display:flex;align-items:center;padding:0 var(--s3);font-size:13px;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.coach-1l>summary::-webkit-details-marker{display:none}
+.coach-1l>summary::after{content:'▾';margin-left:auto;padding-left:var(--s2);color:var(--t3)}
+.coach-1l[open]>summary::after{content:'▴'}
+.coach-1l>div{margin:0 var(--s2) var(--s2)!important}
+.wo-details{margin-top:var(--s2);border-top:1px solid var(--border)}
+.wo-details>summary{list-style:none;cursor:pointer;min-height:44px;display:flex;align-items:center;font-size:13px;font-weight:600;color:var(--t2)}
+.wo-details>summary::-webkit-details-marker{display:none}
+.wo-details>summary::after{content:'▾';margin-left:auto;color:var(--t3)}
+.wo-details[open]>summary::after{content:'▴'}
+.wo-restgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--s1);margin-top:var(--s3)}
+.wo-restgrid .btn{padding:10px 2px;font-size:12px;min-height:44px}
+.wo-restgrid .btn.rec{border-color:var(--blue);color:var(--blue)}
+.workout-active{padding-bottom:84px}
+.wo-bar{position:fixed;left:0;right:0;bottom:calc(var(--nav-h) + env(safe-area-inset-bottom));z-index:190;display:flex;gap:var(--s2);padding:var(--s2) var(--s4);background:rgba(18,18,18,.97);border-top:1px solid var(--border)}
+.wo-bar .btn{margin:0;min-height:48px}
+.wo-bar #nextExBtn{flex:2}
+.wo-bar .wo-rest{flex:1;width:auto;font-size:14px}
+.wo-rest.on{display:flex;align-items:center;gap:var(--s2);background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:0 var(--s2) 0 var(--s3)}
+.wo-rest.on #restTimer{font-size:20px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums}
+.wo-rest.on .btn{flex:1;min-height:40px;padding:6px;font-size:12px}
 .muted{font-size:13px;color:var(--t3);line-height:1.5}
 .chart-empty{display:flex;align-items:center;justify-content:center;height:100%;color:var(--t3);font-size:13px}
 .td-line{display:flex;gap:var(--s2);align-items:baseline;margin-top:var(--s2);font-size:13px;color:var(--t2);line-height:1.5}
@@ -3746,6 +3775,8 @@ function chooseSkipReason(reason){
   return skipCurrent(reason);
 }
 
+// C3: aufgeklappte Bereiche überstehen das Neu-Rendern (Pausen-Timer, Satz-Aktionen)
+var _woDetailsOpen = false, _woCoachOpen = false;
 function renderWorkout(){
   const el_=el('workoutContent'); if(!el_) return;
   const s=AppState.activeSession;
@@ -3810,17 +3841,11 @@ function renderWorkout(){
       </td></tr>`:''}`).join('');
 
     const restLeft=Math.max(0,Math.floor(((s.restEndTs||0)-Date.now())/1000));
-    const restHtml=restLeft>0
-      ?`<div class="c" style="background:var(--card2);text-align:center;padding:14px;margin-top:10px">
-          <div class="sl">⏸ Pause</div>
-          <div class="sv" id="restTimer" style="color:var(--accent)">${restLeft}s</div>
-          <button type="button" id="restSkip" class="btn bo" style="margin-top:8px;max-width:160px;margin-left:auto;margin-right:auto">Überspringen</button>
-        </div>`
-      :`<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-top:10px">
-          ${[60,90,150,180].filter((v,ix,arr)=>arr.indexOf(v)===ix).map(sec=>{
+    const restGridHtml=`<div class="wo-restgrid">
+          ${[60,90,150,180].map(sec=>{
             const rec = sec===restSecondsFor(cur.n,isTimed);
             const lbl = sec>=120 ? (sec/60).toFixed(sec%60?1:0).replace('.',',')+' Min' : sec+'s';
-            return `<button type="button" class="btn bg2" data-rest="${sec}" style="padding:10px 2px;font-size:12px${rec?';border-color:var(--blue);color:var(--blue)':''}">⏸ ${lbl}${rec?' ★':''}</button>`;
+            return `<button type="button" class="btn bg2${rec?' rec':''}" data-rest="${sec}">⏸ ${lbl}${rec?' ★':''}</button>`;
           }).join('')}
         </div>`;
 
@@ -3847,45 +3872,8 @@ function renderWorkout(){
         <span>kg</span>
       </div>`;
 
-    el_.innerHTML=`
-      <div class="workout-active">
-        <div class="wa-head">
-          <div>
-            <div class="wa-title">Workout · ${esc(s.dayName||'')}</div>
-            <div class="wa-timer" id="waTimer">⏱ ${elapsed}</div>
-          </div>
-          <div class="wa-meta">
-            <span style="font-size:12px;color:var(--t3)">${s.currentIdx+1} / ${s.exercises.length}</span>
-            <button type="button" onclick="openGlossar()" style="background:var(--card2);border:1px solid var(--border);color:var(--t3);font-size:12px;font-weight:600;padding:6px 10px;border-radius:8px;cursor:pointer;font-family:var(--f)">📖</button>
-            <button type="button" class="abort-btn" id="abortBtn" data-action="abort">✕ Abbruch</button>
-          </div>
-        </div>
-
-        <!-- Exercise pills -->
-        <div style="display:flex;gap:5px;overflow-x:auto;padding:0 0 10px;scrollbar-width:none;-webkit-overflow-scrolling:touch">
-          ${s.exercises.map((ex,i)=>`<button type="button" data-jump="${i}" style="flex-shrink:0;padding:5px 10px;border-radius:20px;font-size:12px;font-weight:600;border:1.5px solid ${i===s.currentIdx?'var(--accent)':ex.done?'var(--green)':'var(--border2)'};background:${i===s.currentIdx?'var(--accent)':ex.done?'rgba(52,199,89,.1)':'var(--card2)'};color:${i===s.currentIdx?'#000':ex.done?'var(--green)':'var(--t3)'};cursor:pointer;font-family:var(--f)">${ex.done?'✓ ':''} ${esc(ex.n.split(' ')[0])}</button>`).join('')}
-        </div>
-
-        ${primerHtml(s)}
-        ${emptyAskHtml(s)}
-        ${cur.skipped ? skippedCardHtml(cur) : `<div class="c">
-          <div class="sl">Aktuelle Übung</div>
-          <div style="font-size:20px;font-weight:700;margin-top:6px">${esc(cur.n)}</div>
-          <div style="color:var(--t2);margin-top:4px;font-size:13px">Ziel: ${esc(cur.s)}${isTimed?' · <span style="color:var(--blue)">⏱ Zeitübung</span>':' · <span style="color:var(--violet)">'+targetRIRLabel(cur.n)+' · '+mesoLabel()+'</span>'}</div>
-          ${(s.hints||[]).length?`<div style="color:var(--violet);font-size:12px;margin-top:4px">${s.hints.map(esc).join(' · ')}</div>`:''}
-          ${last?`<div style="color:var(--t3);font-size:12px;margin-top:6px">Letztes Mal: ${isBWex?(function(){var la=setAddKg(last);return la>0?'+'+la+' kg Zusatz':'Körpergewicht';})():last.w+' kg'} × ${last.r}${rirOf(last.rpe)!==null?' · '+rirLabel(last.rpe):''}</div>`:''}
-          ${(function(){
-            if(isTimed) return '';
-            var t=liftTrend(cur.n);
-            if(!t.last) return '';
-            var arrow = t.trend==='up'?'<span style="color:var(--green)">▲ +'+t.pct+'%</span>'
-                      : t.trend==='down'?'<span style="color:var(--accent)">▼ '+t.pct+'%</span>'
-                      : t.trend==='plateau'?'<span style="color:var(--orange)">▬ Plateau</span>'
-                      : '<span style="color:var(--t3)">▬</span>';
-            return '<div style="color:var(--t3);font-size:12px;margin-top:2px">E1RM: <b style="color:var(--blue)">'+t.last+' kg</b> '+arrow+'</div>';
-          })()}
-          ${pr?`<div style="color:var(--gold);font-size:12px;margin-top:2px">🏆 Best-E1RM: ${pr} kg</div>`:''}
-          ${(function(){
+    // C3: Coach-Hinweis einzeilig, antippen klappt ihn auf
+    const coachFull=(function(){
             // Prominentes Progressions-Banner wenn Steigerung empfohlen
             var c = cur.coach;
             if(!c) return '';
@@ -3917,16 +3905,45 @@ function renderWorkout(){
             }
             // Standard blauer Coach-Hinweis
             return '<div style="margin-top:10px;padding:8px 10px;background:rgba(10,132,255,.10);border-left:3px solid var(--blue);border-radius:6px;font-size:12px;color:var(--t1)">🧠 <b>Coach:</b> '+wrapTerms(c.hint)+(c.weight!=null?' <span style="color:var(--blue);font-weight:600">→ '+c.weight+' kg × '+c.reps+'</span>':(c.reps?' <span style="color:var(--blue);font-weight:600">→ '+c.reps+' Wdh</span>':''))+'</div>';
-          })()}
-          ${isAmrapEx?`<div style="margin-top:10px;padding:9px 11px;background:rgba(191,90,242,.12);border:1px solid rgba(191,90,242,.35);border-radius:8px;font-size:12px;color:var(--t1)">🎯 <b>AMRAP im letzten Satz:</b> so viele saubere Wdh wie möglich (bis RIR 0). Damit prüft KINETIC, wie gut deine RIR-Angaben passen.</div>`:''}
-          ${isPeakCalib?`<div style="margin-top:10px;padding:9px 11px;background:rgba(191,90,242,.12);border:1px solid rgba(191,90,242,.35);border-radius:8px;font-size:12px;color:var(--t1)">🎯 <b>Peak Week – letzter Satz bis RIR 0:</b> so viele saubere Wdh wie möglich. Der Satz zählt automatisch als RIR-Kalibrierung.</div>`:''}
-          ${tip?`<div style="margin-top:10px;padding:8px 10px;background:rgba(10,132,255,.06);border-left:3px solid rgba(10,132,255,.3);border-radius:6px;font-size:12px;color:var(--t2);line-height:1.5"><b style="color:var(--blue)">Technik:</b> ${esc(tip)}</div>`:''}
-          ${stepHtml}
-          ${varHtml}
+          })();
+    const coachLine=coachFull ? (function(){
+      var c=cur.coach||{}, short='Coach';
+      if(c.weight!=null) short='Coach: '+fmtDe(c.weight)+' kg × '+c.reps;
+      else if(c.reps) short='Coach: '+c.reps+' Wdh';
+      if(c.hint && /Deload/i.test(c.hint)) short='Deload heute'+(c.weight!=null?': '+fmtDe(c.weight)+' kg':'');
+      return '<details class="coach-1l"'+(_woCoachOpen?' open':'')+'><summary>🧠 '+esc(short)+'</summary>'+coachFull+'</details>';
+    })() : '';
+    // C3: feste Leiste unten – Pausen-Timer und "Nächste Übung"
+    const recRest=restSecondsFor(cur.n,isTimed);
+    const restBarHtml=restLeft>0
+      ?`<div class="wo-rest on"><span id="restTimer">${restLeft}s</span><button type="button" id="restSkip" class="btn bg2">Überspringen</button></div>`
+      :`<button type="button" class="btn bg2 wo-rest" data-rest="${recRest}" aria-label="Pause ${recRest} Sekunden starten">⏸ ${recRest>=120?(recRest/60).toFixed(recRest%60?1:0).replace('.',',')+' Min':recRest+'s'}</button>`;
+    el_.innerHTML=`
+      <div class="workout-active">
+        <div class="wa-head">
+          <div>
+            <div class="wa-title">Workout · ${esc(s.dayName||'')}</div>
+            <div class="wa-timer" id="waTimer">⏱ ${elapsed}</div>
+          </div>
+          <div class="wa-meta">
+            <span style="font-size:12px;color:var(--t3)">${s.currentIdx+1} / ${s.exercises.length}</span>
+            <button type="button" onclick="openGlossar()" aria-label="Glossar" style="min-width:44px;min-height:44px;background:var(--card2);border:1px solid var(--border);color:var(--t3);font-size:12px;font-weight:600;padding:6px 10px;border-radius:8px;cursor:pointer;font-family:var(--f)">📖</button>
+            <button type="button" class="abort-btn" id="abortBtn" data-action="abort">✕ Abbruch</button>
+          </div>
         </div>
 
-        <div class="c" style="padding:12px">
-          <table style="width:100%;table-layout:fixed;border-collapse:separate;border-spacing:4px 4px">
+        <!-- Exercise pills -->
+        <div style="display:flex;gap:5px;overflow-x:auto;padding:0 0 10px;scrollbar-width:none;-webkit-overflow-scrolling:touch">
+          ${s.exercises.map((ex,i)=>`<button type="button" data-jump="${i}" style="flex-shrink:0;min-height:44px;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;border:1.5px solid ${i===s.currentIdx?'var(--accent)':ex.done?'var(--green)':'var(--border2)'};background:${i===s.currentIdx?'var(--accent)':ex.done?'rgba(52,199,89,.1)':'var(--card2)'};color:${i===s.currentIdx?'#000':ex.done?'var(--green)':'var(--t3)'};cursor:pointer;font-family:var(--f)">${ex.done?'✓ ':''} ${esc(ex.n.split(' ')[0])}</button>`).join('')}
+        </div>
+
+        ${primerHtml(s)}
+        ${emptyAskHtml(s)}
+        ${cur.skipped ? skippedCardHtml(cur) : `<div class="c wo-ex">
+          <div class="wo-name">${esc(cur.n)}</div>
+          <div class="wo-goal">Ziel: ${esc(cur.s)}${isTimed?' · <span style="color:var(--blue)">⏱ Zeitübung</span>':' · <span style="color:var(--violet)">'+targetRIRLabel(cur.n)+' · '+mesoLabel()+'</span>'}</div>
+          ${last?`<div class="wo-last">Letztes Mal: ${isBWex?(function(){var la=setAddKg(last);return la>0?'+'+la+' kg Zusatz':'Körpergewicht';})():last.w+' kg'} × ${last.r}${rirOf(last.rpe)!==null?' · '+rirLabel(last.rpe):''}</div>`:''}
+          <table class="wo-sets">
             <colgroup><col style="width:24px"><col><col><col style="width:52px"><col style="width:44px"><col style="width:24px"></colgroup>
             <thead><tr>
               <th></th>
@@ -3939,16 +3956,36 @@ function renderWorkout(){
           </table>
           ${adj?`<div style="margin-top:6px;padding:8px 10px;background:rgba(10,132,255,.10);border-left:3px solid var(--blue);border-radius:6px;font-size:12px;color:var(--t1);display:flex;align-items:center;gap:8px"><span style="flex:1">🔧 ${esc(adj.msg)}</span><button type="button" id="adjUndo" class="btn bg2" style="width:auto;padding:6px 10px;font-size:12px;margin:0">Rückgängig</button></div>`:''}
           ${isTimed?'':rpeQuickHtml(cur, rpeIdx)}
-          <button type="button" id="addSetBtn" class="btn bo" style="margin-top:8px;font-size:12px;padding:8px">+ Satz hinzufügen</button>
+          <button type="button" id="addSetBtn" class="btn bo wo-add">+ Satz hinzufügen</button>
+          ${coachLine}
+          ${(s.hints||[]).length?`<div style="color:var(--violet);font-size:12px;margin-top:4px">${s.hints.map(esc).join(' · ')}</div>`:''}
+          ${isAmrapEx?`<div style="margin-top:10px;padding:9px 11px;background:rgba(191,90,242,.12);border:1px solid rgba(191,90,242,.35);border-radius:8px;font-size:12px;color:var(--t1)">🎯 <b>AMRAP im letzten Satz:</b> so viele saubere Wdh wie möglich (bis RIR 0). Damit prüft KINETIC, wie gut deine RIR-Angaben passen.</div>`:''}
+          ${isPeakCalib?`<div style="margin-top:10px;padding:9px 11px;background:rgba(191,90,242,.12);border:1px solid rgba(191,90,242,.35);border-radius:8px;font-size:12px;color:var(--t1)">🎯 <b>Peak Week – letzter Satz bis RIR 0:</b> so viele saubere Wdh wie möglich. Der Satz zählt automatisch als RIR-Kalibrierung.</div>`:''}
+          <details class="wo-details"${_woDetailsOpen?' open':''}>
+            <summary>Details · Technik, Gewichtsschritt, Varianten</summary>
+          ${(function(){
+            if(isTimed) return '';
+            var t=liftTrend(cur.n);
+            if(!t.last) return '';
+            var arrow = t.trend==='up'?'<span style="color:var(--green)">▲ +'+t.pct+'%</span>'
+                      : t.trend==='down'?'<span style="color:var(--accent)">▼ '+t.pct+'%</span>'
+                      : t.trend==='plateau'?'<span style="color:var(--orange)">▬ Plateau</span>'
+                      : '<span style="color:var(--t3)">▬</span>';
+            return '<div style="color:var(--t3);font-size:12px;margin-top:2px">E1RM: <b style="color:var(--blue)">'+t.last+' kg</b> '+arrow+'</div>';
+          })()}
+          ${pr?`<div style="color:var(--gold);font-size:12px;margin-top:2px">🏆 Best-E1RM: ${pr} kg</div>`:''}
+          ${tip?`<div style="margin-top:10px;padding:8px 10px;background:rgba(10,132,255,.06);border-left:3px solid rgba(10,132,255,.3);border-radius:6px;font-size:12px;color:var(--t2);line-height:1.5"><b style="color:var(--blue)">Technik:</b> ${esc(tip)}</div>`:''}
+            ${stepHtml}
+            ${varHtml}
+            ${restGridHtml}
+          </details>
           ${skipBoxHtml(s, cur)}
         </div>`}
         ${(s.skipNotes||[]).length?`<div style="margin-top:10px;padding:8px 10px;background:rgba(10,132,255,.10);border-left:3px solid var(--blue);border-radius:6px;font-size:12px;color:var(--t1);line-height:1.5">${s.skipNotes.map(x=>'⏭ '+esc(x)).join('<br>')}</div>`:''}
-
-        ${restHtml}
-
-        <button class="btn bp" id="nextExBtn" style="margin-top:10px">
-          ${s.currentIdx+1>=s.exercises.length?'✅ Workout beenden':'Nächste Übung →'}
-        </button>
+      </div>
+      <div class="wo-bar">
+        ${restBarHtml}
+        <button class="btn bp" id="nextExBtn">${s.currentIdx+1>=s.exercises.length?'✅ Workout beenden':'Nächste Übung →'}</button>
       </div>`;
 
     // Fokus setzen bzw. über das Re-Render retten (Pausen-Timer rendert neu –
@@ -3967,6 +4004,8 @@ function renderWorkout(){
     }
 
     // Bind events
+    $$('#workoutContent details.wo-details').forEach(d=>d.addEventListener('toggle',()=>{ _woDetailsOpen=d.open; }));
+    $$('#workoutContent details.coach-1l').forEach(d=>d.addEventListener('toggle',()=>{ _woCoachOpen=d.open; }));
     const nextBtn=el('nextExBtn'); if(nextBtn) nextBtn.addEventListener('click', nextExercise);
     const addBtn=el('addSetBtn');
     if(addBtn) addBtn.addEventListener('click',()=>{

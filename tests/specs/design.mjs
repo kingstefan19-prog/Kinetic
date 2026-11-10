@@ -90,4 +90,29 @@ export default function ({ test, assert, loadApp, REPO_ROOT }) {
     assert.match(h, /aria-label="Mittwoch: 19:00 Training"/);
     assert.match(h, /aria-label="Freitag: 19:00 Training"/);
   });
+
+  test('C3 Workout: Satztabelle direkt unter Name/Ziel/Letztes Mal, Coach einzeilig, Details, feste Leiste', () => {
+    const ex = 'Bankdrücken (LH)';
+    const hist = [{ ts: Date.parse('2026-11-03T17:00:00'), dayName: 'Upper A', durationMs: 3e6, volume: 0, sets: [{ ex, w: 100, r: 8, rpe: 8 }] }];
+    const c = loadApp({ history: hist }, { now: '2026-11-10T08:00:00' });
+    c.AppState.activeSession = { dayId: 'x', dayName: 'Upper A', startTs: c.Date.now(), currentIdx: 0, restEndTs: 0,
+      exercises: [{ n: ex, s: '4×5-8', coach: { hint: 'Gleiches Gewicht – +1 Wdh anpeilen.', weight: 100, reps: 9 }, done: false, sets: [{ w: '100', r: '', rpe: '', done: false }] }] };
+    c.renderWorkout();
+    const h = c.document.getElementById('workoutContent').innerHTML;
+    const iName = h.indexOf('class="wo-name"'), iGoal = h.indexOf('class="wo-goal"'), iLast = h.indexOf('class="wo-last"'), iTab = h.indexOf('<table class="wo-sets">');
+    assert.ok(iName > 0 && iName < iGoal && iGoal < iLast && iLast < iTab, 'Reihenfolge Name → Ziel → Letztes Mal → Tabelle');
+    assert.doesNotMatch(h.slice(iLast, iTab), /Coach|Technik|Gewichtsschritt|E1RM/, 'nichts zwischen Kopf und Tabelle');
+    assert.match(h, /<details class="coach-1l"><summary>🧠 Coach: 100 kg × 9<\/summary>/);
+    const det = h.slice(h.indexOf('<details class="wo-details"'));
+    assert.match(det, /Technik:/);
+    assert.match(det, /Gewichtsschritt an deinem Gerät/);
+    assert.match(det, /data-rest="90"/);
+    assert.match(h, /<div class="wo-bar">[\s\S]*data-rest=[\s\S]*id="nextExBtn"/);
+    // Pause läuft: Timer in der Leiste
+    c.AppState.activeSession.restEndTs = c.Date.now() + 60000; c.renderWorkout();
+    assert.match(c.document.getElementById('workoutContent').innerHTML, /<div class="wo-bar">\s*<div class="wo-rest on"><span id="restTimer">60s/);
+    const src = html();
+    assert.match(src, /\.wo-sets input,\.wo-sets button\{min-height:44px\}/);
+    assert.match(src, /\.wo-bar\{position:fixed;[^}]*bottom:calc\(var\(--nav-h\) \+ env\(safe-area-inset-bottom\)\)/);
+  });
 }

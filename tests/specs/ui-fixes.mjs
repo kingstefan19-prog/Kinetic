@@ -58,7 +58,8 @@ export default function ({ test, assert, loadApp, loadFixture, REPO_ROOT }) {
         exercises: [{ coach: { hint: 'x' }, done: false, ...ex }] };
       ctx.renderWorkout();
       const html = ctx.document.getElementById('workoutContent').innerHTML;
-      assert.match(html, /<table style="[^"]*table-layout:fixed/, ex.n);
+      assert.match(html, /<table class="wo-sets">/, ex.n);   // C3/C6: table-layout:fixed über die Klasse
+      assert.match(fs.readFileSync(path.join(REPO_ROOT, 'index.html'), 'utf8'), /\.wo-sets\{[^}]*table-layout:fixed/);
       assert.match(html, /<colgroup><col style="width:24px"><col><col><col style="width:52px"><col style="width:44px"><col style="width:24px"><\/colgroup>/, ex.n);
       const field = ex.isTimed ? 'secs' : (ex.n === 'Klimmzüge' ? 'add' : 'w');
       assert.match(html, new RegExp(`data-set-field="${field}"[^>]*text-align:center`), ex.n);
