@@ -433,6 +433,9 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
     <div id="profPreview" style="padding:10px 12px;background:var(--card2);border-radius:10px;font-size:12px;color:var(--t2);line-height:1.8"></div>
   </div>
 
+  <div class="sh"><div class="sh-t">🎯 Trainingsziel</div></div>
+  <div class="c" id="goalSettings"></div>
+
   <div class="sh"><div class="sh-t">📅 Feste Termine</div></div>
   <div class="c" id="apptSettings"></div>
 
@@ -1582,6 +1585,31 @@ function compactLegDay(day){
       {n:pick(/beinpresse|leg press/i, 'Beinpresse'),  s:'2×10',    note:'Kompakt', rir:3},
       {n:pick(/waden|calf/i, 'Wadenheben stehend'),    s:'3×10-15', note:'Kompakt'}
     ]};
+}
+
+// ── Athleten-Modus (feat/athlete-mode, docs/ATHLETE-SPEC.md) ─────────────
+// A1: user.trainingGoal 'recomp' | 'athlete' (optional). Ohne Feld bleibt
+// alles wie bisher; die Regeln aus Phase A gelten nur bei 'athlete'.
+function trainingGoal(){ var g = AppState.user && AppState.user.trainingGoal; return g==='athlete' ? 'athlete' : 'recomp'; }
+function isAthlete(){ return trainingGoal()==='athlete'; }
+function setTrainingGoal(g){
+  if(g!=='athlete' && g!=='recomp') return false;
+  if(g===trainingGoal()) return true;
+  AppState.user.trainingGoal = g;
+  AppState.save();
+  safeCall(renderGoalSettings); safeCall(refreshDash); safeCall(renderPlan);
+  toast(g==='athlete' ? '🏃 Trainingsziel: Athlet' : '💪 Trainingsziel: Recomp');
+  return true;
+}
+function renderGoalSettings(){
+  var c = el('goalSettings'); if(!c) return;
+  var g = trainingGoal();
+  var btn = function(v, label, sub){ var on = g===v;
+    return '<button type="button" data-goal="'+v+'" onclick="setTrainingGoal(\''+v+'\')" style="flex:1;padding:10px 8px;border-radius:10px;text-align:left;font-family:var(--f);border:1.5px solid '+(on?'var(--accent)':'var(--border2)')+';background:'+(on?'rgba(255,59,48,.12)':'var(--card2)')+';color:var(--t1)">'
+      +'<div style="font-size:14px;font-weight:700">'+label+(on?' ✓':'')+'</div><div style="font-size:12px;color:var(--t2);margin-top:2px">'+sub+'</div></button>'; };
+  c.innerHTML = '<div style="display:flex;gap:8px">'
+    +btn('recomp', 'Recomp', 'Muskelaufbau, KFA senken')
+    +btn('athlete', 'Athlet', 'Maximal-/Schnellkraft, Fußball, Masse halten')+'</div>';
 }
 
 // ── Flexible Planung (feat/flex-planning) ────────────────────────────────
@@ -5879,6 +5907,7 @@ function renderBenchmarks(){
 // ── 25. DATA PAGE ───────────────────────────────────────
 function refreshDataPage(){
   safeCall(loadProfileInputs);
+  safeCall(renderGoalSettings);
   safeCall(renderApptSettings);
   safeCall(renderLoadSettings);
   safeCall(renderBenchmarks);
