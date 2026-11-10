@@ -289,10 +289,6 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
     </div>
   </div>
 
-  <div id="plan-update-banner" style="display:none;background:rgba(52,199,89,.1);border:1px solid rgba(52,199,89,.3);border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:13px;color:var(--t2);line-height:1.5">
-    ✅ <strong style="color:var(--green)">Plan v5 geladen!</strong> Wissenschaftlich optimiert: Sa = Upper B kompakt (70 Min statt 90). Adduktoren, Abduktoren, vollständiges Beintraining. Tippe auf <strong>Legs A</strong> für alle Übungen.
-    <button onclick="this.parentElement.style.display='none'" style="float:right;background:none;border:none;color:var(--t3);cursor:pointer;font-size:16px;padding:0 0 0 8px">✕</button>
-  </div>
 
   <!-- Science info banner -->
   <div style="background:rgba(10,132,255,.07);border:1px solid rgba(10,132,255,.2);border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--t2);line-height:1.7">
@@ -425,9 +421,9 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
     <div class="prof-grid">
       <div><div class="prof-label">Name</div><input id="profName"   class="li" type="text"   placeholder="Dein Name"  style="text-align:left;padding:10px;font-size:14px;font-weight:400" oninput="saveProfile()"></div>
       <div><div class="prof-label">Alter</div><input id="profAge"   class="li" type="number" placeholder="Jahre"      style="padding:10px;font-size:14px" oninput="saveProfile()"></div>
-      <div><div class="prof-label">Gewicht (kg)</div><input id="profWeight" class="li" type="number" step="0.1" placeholder="108" style="padding:10px;font-size:14px" oninput="saveProfile()"></div>
-      <div><div class="prof-label">Größe (cm)</div><input id="profHeight" class="li" type="number" placeholder="190" style="padding:10px;font-size:14px" oninput="saveProfile()"></div>
-      <div><div class="prof-label">Körperfett (%)</div><input id="profKfa" class="li" type="number" step="0.1" placeholder="20.1" style="padding:10px;font-size:14px" oninput="saveProfile()"></div>
+      <div><div class="prof-label">Gewicht (kg)</div><input id="profWeight" class="li" type="number" step="0.1" placeholder="z. B. 80" style="padding:10px;font-size:14px" oninput="saveProfile()"></div>
+      <div><div class="prof-label">Größe (cm)</div><input id="profHeight" class="li" type="number" placeholder="z. B. 180" style="padding:10px;font-size:14px" oninput="saveProfile()"></div>
+      <div><div class="prof-label">Körperfett (%)</div><input id="profKfa" class="li" type="number" step="0.1" placeholder="z. B. 15" style="padding:10px;font-size:14px" oninput="saveProfile()"></div>
       <div><div class="prof-label">Ziel-KFA (%)</div><input id="profKfaGoal" class="li" type="number" step="0.1" placeholder="14" style="padding:10px;font-size:14px" oninput="saveProfile()"></div>
     </div>
     <div id="profPreview" style="padding:10px 12px;background:var(--card2);border-radius:10px;font-size:12px;color:var(--t2);line-height:1.8"></div>
@@ -821,7 +817,7 @@ const WEEKDAYS = ['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag
 const AppState = {
   currentPage: 'dash',
   activeSession: null,
-  user: { name:'', age:31, weight:106.6, height:190, kfa:17.3, kfaGoal:14, ffmi:27.2, kcalTarget:3225 },
+  user: { name:'', age:null, weight:null, height:null, kfa:null, kfaGoal:null, kcalTarget:null }, // B5: keine persönlichen Standardwerte
   streak: 0,
   lastStreakDate: null,
   meals: [],           // [{name,kcal,p,kh,f,time,aiAnalyzed}]
@@ -841,7 +837,8 @@ const AppState = {
 
   load(){
     try {
-      this.user          = Object.assign({name:'',age:31,weight:106.6,height:190,kfa:17.3,kfaGoal:14,ffmi:27.2,kcalTarget:3225}, DB.get('user',{}));
+      this.user          = Object.assign({name:'',age:null,weight:null,height:null,kfa:null,kfaGoal:null,kcalTarget:null}, DB.get('user',{}));
+      delete this.user.ffmi; // B4: FFMI wird nie gespeichert, nur berechnet (ffmiOf)
       this.streak        = DB.get('streak', 0);
       this.lastStreakDate = DB.get('lastStreakDate', null);
       this.meals         = (DB.get('meals', [])||[]).filter(function(m){ return m && m.d === localDateStr(); });
@@ -906,11 +903,23 @@ const AppState = {
           });
         });
         if(migrated){ DB.set('plan', this.plan); log.info('Wdh-Bereiche angepasst (Isolation 12–15)'); }
+        // B6: Notiz "Teilwdh nach Muskelversagen" bei Wadenheben stehend streichen
+        var calfFix = false;
+        this.plan.forEach(function(day){
+          (day.ex||[]).forEach(function(e){
+            if(e && e.n==='Wadenheben stehend' && /teilw|partial/i.test(e.note||'') && /versagen/i.test(e.note||'')){
+              e.note = 'Volle ROM · 1–2 s Pause im tiefen Stretch · mit Reserve beenden, kein Satz bis zum Versagen';
+              calfFix = true;
+            }
+          });
+        });
+        if(calfFix){ DB.set('plan', this.plan); log.info('Wadenheben-Notiz bereinigt'); }
       }
     } catch(e){ log.error('AppState.load',e); this.plan = defaultPlan(); }
   },
   save(){
     try {
+      delete this.user.ffmi; // B4
       DB.set('user', this.user);
       DB.set('streak', this.streak);
       DB.set('lastStreakDate', this.lastStreakDate);
@@ -937,7 +946,7 @@ const AppState = {
 const APP_VERSION = 'Coach v2 (kinetic-v2)';
 // Plan-Version – Erhöhen wenn defaultPlan() sich ändert
 const PLAN_VERSION = 5;
-// Personalisiert: 108kg · 190cm · KFA 20.1% · FFMI 26.6 · Fortgeschritten
+// Standardplan für Fortgeschrittene (ohne persönliche Körperdaten)
 // Quellen: Schoenfeld 2024 · Israetel MAV/MRV · NSCA 2025 · Barca Hub 2026
 // Strategie: 4× Gym (Mo/Mi/Do/Sa) · Di/Fr/So Fußball · Gym ≠ Fußball selber Tag
 // Samstag: Upper B kompakt – Push+Pull 2. Frequenz
@@ -1028,7 +1037,7 @@ function defaultPlan(){
         // ABDUKTOREN (Außenseite – Hüftstabilität)
         {n:'Abduktionsmaschine (sitzend)',  s:'3×12–15', note:'Außenseite & Gesäß · langsam öffnen · wichtig für Kniestabilität im Fußball'},
         // WADE (Sprungkraft für Fußball)
-        {n:'Wadenheben stehend',            s:'4×12–15', note:'Lengthened Partials: 2 Teilwdh unten NACH Muskelversagen anhängen (Kassiano 2023: +7-9% Wachstum) · tiefer Stretch'},
+        {n:'Wadenheben stehend',            s:'4×12–15', note:'Volle ROM · 1–2 s Pause im tiefen Stretch · mit Reserve beenden, kein Satz bis zum Versagen'},
         // CORE
         {n:'Plank',                         s:'3×60s',   note:'Körper gerade wie Brett · Kern aktiv · Gesäß nicht heben · atmen', timed:true}
       ]
@@ -1243,7 +1252,18 @@ function navigate(pageId){
   if(pageId==='data')    safeCall(refreshDataPage);
 }
 
+// B5: neutraler Platzhalter, solange kein eigenes Kalorienziel berechnet ist
+var KCAL_FALLBACK = 2500;
+
 // ── 8. HERO STATS ───────────────────────────────────────
+// B4: FFMI immer aus Gewicht, Größe und KFA berechnet (Magermasse / Größe²).
+// Fehlt einer der drei Werte, gibt es keinen FFMI – kein Standardwert.
+function ffmiOf(u){
+  u = u || AppState.user || {};
+  var w = +u.weight, h = +u.height, k = +u.kfa;
+  if(!(w>0) || !(h>0) || !(k>0) || k>=100) return null;
+  return +((w*(1-k/100))/((h/100)*(h/100))).toFixed(1);
+}
 function renderHeroStats(){
   const row=el('heroStats'); if(!row) return;
   const u=AppState.user;
@@ -1252,13 +1272,13 @@ function renderHeroStats(){
     {v:AppState.streak,          l:'Streak 🔥'},
     {v:u.weight?u.weight+'kg':'—', l:'Gewicht'},
     {v:u.kfa?u.kfa+'%':'—',      l:'KFA'},
-    {v:u.ffmi||'—',              l:'FFMI'},
+    {v:ffmiOf(u)||'—',           l:'FFMI'},
     {v:bmi,                      l:'BMI'}
   ].map(s=>`<div class="hs-pill"><div class="hs-val">${esc(s.v)}</div><div class="hs-lbl">${esc(s.l)}</div></div>`).join('');
 
   const meta=el('heroMeta'); if(!meta) return;
   const nameTag=u.name?' · <strong style="color:var(--accent)">'+esc(u.name)+'</strong>':'';
-  meta.innerHTML=(u.height||'—')+' cm · '+(u.weight||'—')+' kg · KFA '+(u.kfa||'—')+'% · FFMI '+(u.ffmi||'—')+'<br>'
+  meta.innerHTML=(u.height||'—')+' cm · '+(u.weight||'—')+' kg · KFA '+(u.kfa||'—')+'% · FFMI '+(ffmiOf(u)||'—')+'<br>'
     +'🔥 <span id="streakDays">'+AppState.streak+'</span> Tage Streak'+nameTag;
 }
 
@@ -1266,7 +1286,7 @@ function renderHeroStats(){
 function refreshDash(){
   try {
     const u=AppState.user;
-    const dw=el('dashWeight'); if(dw) dw.innerHTML=u.weight+'<span class="su"> kg</span>';
+    const dw=el('dashWeight'); if(dw) dw.innerHTML=(u.weight||'—')+'<span class="su"> kg</span>';
     const ds=el('dashStreak'); if(ds) ds.textContent=AppState.streak;
     // weight delta
     // weightLog: Index 0 = neuester Eintrag. delta<0 = abgenommen.
@@ -1277,8 +1297,8 @@ function refreshDash(){
     pruneMeals();
     const todayKcal=AppState.meals.reduce((a,m)=>a+(m.kcal||0),0);
     const dk=el('dashKcal'); if(dk) dk.textContent=Math.round(todayKcal);
-    const dkt=el('dashKcalTarget'); if(dkt) dkt.textContent=` / ${u.kcalTarget||2870} kcal`;
-    const bar=el('dashKcalBar'); if(bar) bar.style.width=Math.min(100,(todayKcal/(u.kcalTarget||2870))*100)+'%';
+    const dkt=el('dashKcalTarget'); if(dkt) dkt.textContent=` / ${u.kcalTarget||KCAL_FALLBACK} kcal`;
+    const bar=el('dashKcalBar'); if(bar) bar.style.width=Math.min(100,(todayKcal/(u.kcalTarget||KCAL_FALLBACK))*100)+'%';
     renderHeroStats();
     renderCoachCard();
     renderSmartNotifs();
@@ -1293,7 +1313,7 @@ function renderStrengthCard(){
   var wrap=el('strengthCard'); if(!wrap) return;
   // Alle Übungen mit ≥2 E1RM-Datenpunkten sammeln
   var names={};
-  (AppState.history||[]).forEach(function(s){ (s.sets||[]).forEach(function(x){ if(x.ex&&x.w&&x.r) names[x.ex]=true; }); });
+  (AppState.history||[]).forEach(function(s){ (s.sets||[]).forEach(function(x){ if(x.ex&&x.w&&x.r) names[canonicalEx(x.ex)]=true; }); });
   var lifts=Object.keys(names).map(function(ex){
     return {ex:ex, hist:e1rmHistory(ex), trend:liftTrend(ex)};
   }).filter(function(l){ return l.hist.length>=2; });
@@ -1365,15 +1385,15 @@ function renderSmartNotifs(){
     }
   }
 
-  // Adherence (Spec 3.3): Tag fehlt in 2 der letzten 3 Wochen
+  // Adherence (Spec 3.3, B1): Einheit in 3 Wochen höchstens 1× trainiert
   var missedDays = oftenMissedDays();
   if(missedDays.length){
     var md = missedDays[0];
     var others = missedDays.slice(1).map(function(a){ return a.name; });
-    var btns = [{label:'Wochentag verschieben', fn:'moveMissedDay('+md.idx+')'}];
+    var btns = [{label:md.name+' als Nächstes', fn:'preferUnitNext(\''+md.id+'\')'}];
     if(typeof offerPlan3plus1==='function') btns.push({label:'3+1-Plan übernehmen', fn:'offerPlan3plus1()'});
-    notifs.push({icon:'📅', title:md.name+' fällt oft aus',
-      body:'In '+md.missed+' der letzten 3 Wochen nicht trainiert ('+WEEKDAYS[md.idx]+'). Leg ihn auf einen Tag, der zuverlässig klappt'+(others.length?' · ebenfalls oft ausgefallen: '+others.join(', '):'')+'.',
+    notifs.push({icon:'📅', title:md.name+' in 3 Wochen '+(md.count ? 'nur '+md.count+'× trainiert' : 'nicht trainiert'),
+      body:'Damit jeder Muskel etwa 2× pro Woche dran ist, sollte jede Einheit rund 1× pro Woche kommen'+(others.length?' · ebenfalls selten: '+others.join(', '):'')+'.',
       type:'warn', prio:1, buttons:btns});
   }
 
@@ -1517,35 +1537,32 @@ function baseDayName(n){
   do { prev = x; x = x.replace(/\s*\(((KI-)?optimiert|kompakt)\)\s*$/i, '').trim(); } while(x !== prev);
   return x;
 }
-// Pro Pflicht-Gymtag: in welcher der letzten 3 Wochen wurde er absolviert?
-// Bewertet wird erst, wenn die erste Session mindestens 14 Tage zurückliegt.
-function planAdherence(){
-  var h = AppState.history||[], now = Date.now(), W = 7*86400000;
+// B1: Adherence je Einheit statt Wochentag. Wie oft wurde jede Pflicht-Einheit
+// der Rotation in den letzten 21 Tagen trainiert? Bewertet wird erst, wenn die
+// erste Session mindestens 14 Tage zurückliegt.
+function unitAdherence(){
+  var h = AppState.history||[], now = Date.now();
   if(!h.length) return [];
   var first = Math.min.apply(null, h.map(function(e){ return +e.ts||now; }));
   if(now - first < 14*86400000) return [];
-  var out = [];
-  (AppState.plan||[]).forEach(function(day, idx){
-    if(!day || day.type!=='gym' || day.optional || !(day.ex||[]).length) return;
-    var name = baseDayName(day.name), weeks = [false, false, false];
-    h.forEach(function(e){
-      if(baseDayName(e.dayName) !== name) return;
-      var k = Math.floor((now - e.ts)/W);
-      if(k>=0 && k<3) weeks[k] = true;
-    });
-    var missed = weeks.filter(function(x){ return !x; }).length;
-    out.push({idx:idx, name:day.name, weeks:weeks, missed:missed});
+  var since = now - 21*86400000;
+  return rotationUnits().filter(function(d){ return !d.optional; }).map(function(d){
+    var n = h.filter(function(e){ return e.ts>=since && e.ts<=now && unitOfSession(e)===d; }).length
+      + (AppState.activityLog||[]).filter(function(a){ var t = activityTs(a); return a && a.status!=='cancelled' && t>=since && t<=now && unitOfSession(a)===d; }).length;
+    return {id:d.id, idx:(AppState.plan||[]).indexOf(d), name:d.name, count:n};
   });
-  return out;
 }
-// Tage, die in 2 der letzten 3 Wochen ausgefallen sind
+// Einheiten, die in 3 Wochen höchstens 1× dran waren (Name bleibt für Kompatibilität)
 function oftenMissedDays(){
-  return planAdherence().filter(function(a){ return a.missed >= 2; });
+  return unitAdherence().filter(function(a){ return a.count <= 1; });
 }
-// "Wochentag verschieben": Plan öffnen, Tag-Editor mit Tausch-Auswahl
-function moveMissedDay(idx){
-  navigate('plan');
-  safeCall(function(){ openDayEditor(idx); });
+// "Lower als Nächstes": einmalig vor die Rotation ziehen, bis sie trainiert ist
+function preferUnitNext(id){
+  if(!unitById(id)) return false;
+  flexSchedule().nextOverride = {id:id, ts:Date.now()};
+  AppState.save(); safeCall(renderSmartNotifs); safeCall(renderTodayCard); safeCall(renderPlan);
+  toast('✅ '+unitById(id).name+' ist die nächste Einheit');
+  return true;
 }
 
 // ── Kalender-Helfer (ursprünglich feat/week-queue) ──────────────────────
@@ -2133,6 +2150,9 @@ function activityTs(a){ return a && a.ts ? +a.ts : Date.parse(String(a && a.d)+'
 function nextRotationUnit(until){
   var units = rotationUnits(); if(!units.length) return null;
   var last = lastRotationEntry(until);
+  // B1: "… als Nächstes" gilt, bis die Einheit danach trainiert wurde
+  var ov = AppState.schedule && AppState.schedule.nextOverride, t = until==null ? Date.now() : +new Date(until);
+  if(ov && ov.ts <= t && unitById(ov.id) && !(last && last.ts >= ov.ts && last.unit===unitById(ov.id))) return unitById(ov.id);
   var start = last ? units.indexOf(last.unit) + 1 : 0;
   for(var k=0; k<units.length; k++){
     var u = units[(start + k) % units.length];
@@ -2442,7 +2462,9 @@ function manualStartCheck(day, variant, date){
 // Dashboard-Karte "Heute": Vorschlag, Alternative, Erholung, Wochenziel
 function renderTodayCard(){
   var c = el('todayCard'); if(!c) return;
-  if(!rotationUnits().length){ c.innerHTML = ''; return; }
+  var dc = dataCheckCardHtml();
+  if(!dc && _dcBox==='dataCheckToday') _dcBox = 'dataCheckBox';
+  if(!rotationUnits().length){ c.innerHTML = dc; if(dc && _dcBox==='dataCheckToday') renderDataCheck(); return; }
   var r = flexSuggestion(), m = r.main, a = r.alt;
   var icon = m.kind==='unit' ? '🏋️' : m.kind==='done' ? '✅' : m.kind==='appointment' ? '⚽' : m.kind==='mobility' ? '🧘' : '😌';
   var bars = FLEX_GROUPS.map(function(g){
@@ -2454,7 +2476,7 @@ function renderTodayCard(){
   var nextAppt = r.upcoming[0];
   var vo = weekOpenVolume();
   var voTxt = Object.keys(vo).map(function(k){ return satzWort(vo[k])+' '+(MUSCLE_LABEL[k]||k); }).join(', ');
-  c.innerHTML = feedbackHtml()+'<div class="c" style="margin-bottom:10px">'
+  c.innerHTML = dc+feedbackHtml()+'<div class="c" style="margin-bottom:10px">'
     +'<div style="display:flex;align-items:center;gap:10px"><div style="font-size:24px">'+icon+'</div>'
     +'<div style="flex:1"><div style="font-size:15px;font-weight:700">'+esc(m.kind==='unit' ? 'Heute: '+m.label : m.label)+'</div>'
     +(m.reason ? '<div style="font-size:12px;color:var(--t2);margin-top:2px;line-height:1.5">'+esc(m.reason)+'</div>' : '')+'</div></div>'
@@ -2471,6 +2493,7 @@ function renderTodayCard(){
     +'</div>'
     +(r.kind!=='done' ? '<select id="flexOther" onchange="startFlexUnit(this.value)" style="margin-top:8px;width:100%;padding:8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t2);font-size:12px"><option value="">Andere Einheit starten …</option>'+others+'</select>' : '')
     +'</div>';
+  if(dc && _dcBox==='dataCheckToday') renderDataCheck();
 }
 
 // ── Subjektives Feedback (Punkt 5) ──
@@ -2815,7 +2838,7 @@ function logWeight(){
 }
 
 // ── 12. COACH CARD (MEV/MAV/MRV) ───────────────────────
-// Personalisierte MEV/MAV/MRV für 108kg, FFMI 26.6, Fortgeschritten
+// MEV/MAV/MRV für Fortgeschrittene
 // Quellen: Israetel RP Strength, Schoenfeld 2024, Frontiers 2025
 // Wochensätze je Muskel (gewichtete Sätze, siehe MUSCLE_MAP). Was der Plan
 // tatsächlich liefert, zeigt die Volumen-Ampel – hier keine Plan-Zahlen.
@@ -3120,7 +3143,7 @@ function renderLog(){
 // ── Bereinigungs-Assistent (Spec 1.4) ────────────────────────────────────
 // Findet Sätze mit w > 2× Median der Übung, RPE außerhalb 5–10 und
 // Sessions > 4 h. "Ist korrekt" merkt sich den Fund (DB dataIssuesOk).
-var _dcList = [], _dcFixIdx = null;
+var _dcList = [], _dcFixIdx = null, _dcBox = 'dataCheckBox';
 function medianOf(nums){
   var a = nums.slice().sort(function(x, y){ return x - y; }), m = Math.floor(a.length/2);
   return a.length ? (a.length % 2 ? a[m] : (a[m-1] + a[m])/2) : 0;
@@ -3129,14 +3152,14 @@ function dataIssueKey(f){ return [f.kind, f.ts, f.sIdx==null ? '' : f.sIdx, f.ex
 function findDataIssues(includeAccepted){
   var h = AppState.history||[], ws = {}, med = {}, out = [];
   h.forEach(function(s){ (s.sets||[]).forEach(function(x){
-    if(+x.w>0){ (ws[x.ex] = ws[x.ex]||[]).push(+x.w); }
+    if(+x.w>0){ var k = canonicalEx(x.ex); (ws[k] = ws[k]||[]).push(+x.w); }
   }); });
   Object.keys(ws).forEach(function(ex){ med[ex] = medianOf(ws[ex]); });
   h.forEach(function(s, hi){
     (s.sets||[]).forEach(function(x, si){
-      var w = +x.w;
-      if(w>0 && w > 2*med[x.ex]) out.push({kind:'gewicht', hIdx:hi, sIdx:si, ts:s.ts, ex:x.ex, value:w,
-        msg:fmtDe(w)+' kg × '+(x.r||'?')+' – mehr als doppelt so viel wie dein Median ('+fmtDe(med[x.ex])+' kg)'});
+      var w = +x.w, m = med[canonicalEx(x.ex)];
+      if(w>0 && w > 2*m) out.push({kind:'gewicht', hIdx:hi, sIdx:si, ts:s.ts, ex:x.ex, value:w,
+        msg:fmtDe(w)+' kg × '+(x.r||'?')+' – mehr als doppelt so viel wie dein Median ('+fmtDe(m)+' kg)'});
       if(x.rpe!==null && x.rpe!==undefined && x.rpe!=='' && !(+x.rpe>=5 && +x.rpe<=10)) out.push({kind:'rpe', hIdx:hi, sIdx:si, ts:s.ts, ex:x.ex, value:x.rpe,
         msg:'RPE '+x.rpe+' ungültig – erlaubt sind RIR 0–5 (RPE 5–10)'});
     });
@@ -3165,7 +3188,7 @@ function resolveDataIssue(f, action, value){
       if(!(min>=1 && min<=240)) return false;
       sess.durationMs = Math.round(min*60000);
     }
-    AppState.save();
+    logAfterChange(sess);
     return true;
   }
   var st = (sess.sets||[])[f.sIdx]; if(!st) return false;
@@ -3182,14 +3205,15 @@ function resolveDataIssue(f, action, value){
   logAfterChange(sess);
   return true;
 }
-function openDataCheck(){
-  var box = el('dataCheckBox'); if(!box) return;
+function openDataCheck(boxId){
+  _dcBox = boxId || 'dataCheckBox';
+  var box = el(_dcBox); if(!box) return;
   _dcList = findDataIssues(false); _dcFixIdx = null;
   box.style.display = 'block';
   renderDataCheck();
 }
 function renderDataCheck(){
-  var box = el('dataCheckBox'); if(!box) return;
+  var box = el(_dcBox); if(!box) return;
   if(!_dcList.length){
     box.innerHTML = '<div class="c" style="font-size:13px;color:var(--green)">✅ Keine auffälligen Einträge gefunden.</div>';
     return;
@@ -3222,6 +3246,21 @@ function dcAct(i, action, value){
   toast(action==='ok' ? 'Als korrekt markiert' : (action==='delete' ? 'Gelöscht' : 'Korrigiert')+' – PRs neu berechnet');
   _dcList = findDataIssues(false); _dcFixIdx = null;   // Indizes neu, falls ein Satz gelöscht wurde
   renderDataCheck(); safeCall(renderLog); safeCall(refreshDash);
+}
+// B7: Karte "Daten prüfen" auf Heute, solange offene Funde existieren
+// (Satz > 2× Median der Übung, RPE außerhalb 5–10, Session > 4 h).
+// Korrigieren/Löschen berechnet die PRs neu (logAfterChange).
+function dataCheckCardHtml(){
+  var n = findDataIssues(false).length;
+  if(!n) return '';
+  var open = _dcBox==='dataCheckToday';
+  return '<div class="c" id="dataCheckCard" style="margin-bottom:10px;border:1px solid var(--orange)">'
+    +'<div style="display:flex;align-items:center;gap:10px"><div style="font-size:22px">🔍</div>'
+    +'<div style="flex:1"><div style="font-size:15px;font-weight:700">Daten prüfen</div>'
+    +'<div style="font-size:12px;color:var(--t2);margin-top:2px;line-height:1.5">'+n+(n===1?' auffälliger Eintrag':' auffällige Einträge')+' im Log. Ausreißer verfälschen PRs und Startgewichte.</div></div></div>'
+    +(open ? '' : '<button type="button" class="btn bo" onclick="openDataCheck(\'dataCheckToday\')" style="margin:10px 0 0;font-size:13px">Jetzt prüfen</button>')
+    +'<div id="dataCheckToday" style="margin-top:8px"></div>'
+    +'</div>';
 }
 function dcSaveFix(i){ var x = el('dcFixInp'); dcAct(i, 'fix', x ? x.value : ''); }
 
@@ -4504,10 +4543,21 @@ function e1rm(w, r, rpe){
 }
 
 // Bestes (höchstes) E1RM einer Übung innerhalb einer Session
+// B3: Alte Übungsnamen in der Historie beim LESEN dem heutigen Namen zuordnen.
+// Die Historie wird nicht umgeschrieben; PRs, E1RM-Verlauf, Kraft-Karte und
+// Benchmarks nutzen die zusammengeführten Werte.
+var EX_ALIAS = {
+  'Kniebeuge':'Kniebeuge (LH)',
+  'Rudern (LH)':'Rudern (LH Untergriff)',
+  'Schulterdrücken':'Schulterdrücken (KH sitzend)',
+  'Latzug':'Latzug (Untergriff eng)',
+  'Seitheben':'Seitheben (Kabel)'
+};
+function canonicalEx(n){ return EX_ALIAS[n] || n; }
 function sessionBestE1rm(sets, exName){
-  var best = 0;
+  var best = 0, key = canonicalEx(exName);
   (sets||[]).forEach(function(s){
-    if(s.ex!==exName) return;
+    if(canonicalEx(s.ex)!==key) return;
     var e = e1rm(s.w, s.r, s.rpe);
     if(e>best) best = e;
   });
@@ -4520,8 +4570,8 @@ function recomputePRs(history){
   (history||[]).forEach(function(sess){
     (sess.sets||[]).forEach(function(s){
       if(!s.ex || !s.w || !s.r) return;
-      var e = Math.round(e1rm(s.w, s.r, s.rpe)*10)/10;
-      if(e > (prs[s.ex]||0)) prs[s.ex] = e;
+      var e = Math.round(e1rm(s.w, s.r, s.rpe)*10)/10, k = canonicalEx(s.ex);
+      if(e > (prs[k]||0)) prs[k] = e;
     });
   });
   return prs;
@@ -6307,7 +6357,7 @@ const FORM_TIPS={
   'Abduktionsmaschine (sitzend)':  'Oberschenkelaußenseite & Gesäß. Langsam öffnen – kein Schwung! Kontrolliert zurück.',
   'Seitliches Beinheben (Kabel)':  'Stehend, Kabel am Knöchel. Bein seitlich bis Hüfthöhe. Kern stabilisieren.',
   // WADE
-  'Wadenheben stehend':            'Volle ROM + Lengthened Partials: Nach dem letzten vollen Satz 2-3 Teilwdh in der unteren (gedehnten) Hälfte. Forschung 2025: +7-9% mehr Wachstum.',
+  'Wadenheben stehend':            'Volle ROM: ganz hoch auf die Zehen, unten 1–2 s im tiefen Stretch halten. Keine Teilwiederholungen nach dem Versagen – Sätze mit Reserve beenden.',
   // CORE
   'Plank':                         'Körper gerade wie Brett. Gesäß nicht heben oder senken. Kern aktiv anspannen. Atmen!',
 };
@@ -6316,7 +6366,7 @@ const FORM_TIPS={
 function refreshNutrition(){
   try {
     pruneMeals();
-    const u=AppState.user, target=u.kcalTarget||2870;
+    const u=AppState.user, target=u.kcalTarget||KCAL_FALLBACK;
     const total=AppState.meals.reduce((a,m)=>({kcal:a.kcal+(m.kcal||0),p:a.p+(m.p||0),kh:a.kh+(m.kh||0),f:a.f+(m.f||0)}),{kcal:0,p:0,kh:0,f:0});
     const pct=Math.min(100,(total.kcal/target)*100);
     const ek=el('ernKcal'); if(ek) ek.textContent=Math.round(total.kcal);
@@ -6396,7 +6446,6 @@ function saveProfile(){
     // Recalculate derived
     if(u.weight&&u.height){
       var lbm = u.weight*(1-(u.kfa||20)/100);
-      u.ffmi=+(lbm/((u.height/100)**2)).toFixed(1);
       // Katch-McArdle (genauer bei bekanntem Körperfett) statt Mifflin
       var bmr = u.kfa ? Math.round(370 + 21.6*lbm)
                       : Math.round(88.36+13.4*u.weight+4.8*u.height-5.7*(u.age||30));
@@ -6416,12 +6465,12 @@ function updateProfPreview(){
   const fatKg=u.weight&&u.kfa?(u.weight*u.kfa/100).toFixed(1):'—';
   const musKg=u.weight&&u.kfa?(u.weight*(1-u.kfa/100)).toFixed(1):'—';
   const toGoal=u.weight&&u.kfa&&u.kfaGoal?(u.weight*(u.kfa-u.kfaGoal)/100).toFixed(1):'—';
-  pp.innerHTML=`${u.height||190} cm · ${u.weight||108} kg · KFA ${u.kfa||20.1}%<br>BMI: <b>${bmi}</b> · FFMI: <b>${u.ffmi||26.6}</b> · Magermasse: <b>${musKg} kg</b><br>Ziel: KFA ${u.kfaGoal||14}% → noch ca. <b style="color:var(--accent)">${toGoal} kg</b> Fett abbauen`;
+  pp.innerHTML=`${u.height||'—'} cm · ${u.weight||'—'} kg · KFA ${u.kfa||'—'}%<br>BMI: <b>${bmi}</b> · FFMI: <b>${ffmiOf(u)||'—'}</b> · Magermasse: <b>${musKg} kg</b><br>Ziel: KFA ${u.kfaGoal||'—'}% → noch ca. <b style="color:var(--accent)">${toGoal} kg</b> Fett abbauen`;
 }
 
 function loadProfileInputs(){
   const u=AppState.user;
-  const fields={profName:u.name,profAge:u.age||'',profWeight:u.weight,profHeight:u.height,profKfa:u.kfa,profKfaGoal:u.kfaGoal||14};
+  const fields={profName:u.name,profAge:u.age||'',profWeight:u.weight,profHeight:u.height,profKfa:u.kfa,profKfaGoal:u.kfaGoal||''};
   Object.entries(fields).forEach(([id,v])=>{ const e=el(id); if(e&&v) e.value=v; });
   updateProfPreview();
 }
@@ -6440,7 +6489,8 @@ function logSleep(h,btn){
 }
 
 // ── 24. BENCHMARKS ──────────────────────────────────────
-const BENCH_STD={'Bankdrücken (LH)':{inter:100,adv:130,elite:160},'Kniebeuge':{inter:120,adv:160,elite:200},'Rudern (LH)':{inter:90,adv:120,elite:150},'Schulterdrücken':{inter:65,adv:90,elite:115},'Klimmzüge':{inter:0,adv:0,elite:0}};
+// B3: BENCH_STD (absolute Stufen, Namen passten nicht zu den PR-Schlüsseln) entfällt;
+// Benchmarks zeigen für beide Ziele den eigenen Trend (A8).
 // ── A8 Kennzahlen: E1RM pro kg Körpergewicht, eigener Trend (Entscheidung 5) ──
 // Körpergewicht zum Zeitpunkt ts: jüngster weightLog-Eintrag bis dahin, sonst Profil
 function bodyWeightAt(ts){
@@ -6465,25 +6515,15 @@ function relTrend(exName, weeks){
 function fmtRel(v){ return v==null ? '—' : String(v.toFixed(2)).replace('.', ',')+'×KG'; }
 function renderBenchmarks(){
   const c=el('benchmarkList'); if(!c) return;
-  if(isAthlete()){
-    var lifts = mainLiftsWithData();
-    c.innerHTML = '<div style="font-size:11px;color:var(--t3);margin-bottom:6px">Orientierung: dein eigener Trend (E1RM pro kg Körpergewicht, 8 Wochen)</div>'
-      + (lifts.length ? lifts.map(function(n){
-        var t = relTrend(n, 8), d = t.delta;
-        var col = d==null ? 'var(--t2)' : d>0 ? 'var(--green)' : d<0 ? 'var(--accent)' : 'var(--t2)';
-        return '<div class="bench-row"><div style="font-size:14px;font-weight:500;flex:1">'+esc(n)+'</div><div style="text-align:right">'
-          +'<div style="font-size:14px;font-weight:700">'+fmtRel(t.rel)+'</div>'
-          +'<div style="font-size:12px;color:'+col+'">'+t.e1rm+' kg E1RM'+(d!=null ? ' · '+(d>0?'+':'')+String(d.toFixed(2)).replace('.', ',')+' seit 8 Wo' : '')+'</div></div></div>';
-      }).join('') : '<div style="color:var(--t3);font-size:13px">Logge Hauptübungen für deinen Trend.</div>');
-    return;
-  }
-  const rows=Object.entries(BENCH_STD).map(([ex,std])=>{
-    const pr=AppState.prs[ex];
-    if(!pr) return `<div class="bench-row"><div style="font-size:14px;font-weight:500;flex:1">${esc(ex)}</div><span class="bench-pct bench-avg">Noch nicht geloggt</span></div>`;
-    const [cls,lbl]=pr>=std.elite?['bench-elite','🏆 Elite']:pr>=std.adv?['bench-good','⭐ Fortgeschritten']:['bench-avg','📈 Aufbau'];
-    return `<div class="bench-row"><div style="font-size:14px;font-weight:500;flex:1">${esc(ex)}</div><div style="text-align:right"><div style="font-size:12px;color:var(--t2)">${pr} kg E1RM</div><span class="bench-pct ${cls}">${lbl}</span></div></div>`;
-  }).join('');
-  c.innerHTML=rows||'<div style="color:var(--t3);font-size:13px">Logge Workouts für Vergleiche.</div>';
+  var lifts = mainLiftsWithData();
+  c.innerHTML = '<div style="font-size:11px;color:var(--t3);margin-bottom:6px">Orientierung: dein eigener Trend (E1RM pro kg Körpergewicht, 8 Wochen)</div>'
+    + (lifts.length ? lifts.map(function(n){
+      var t = relTrend(n, 8), d = t.delta;
+      var col = d==null ? 'var(--t2)' : d>0 ? 'var(--green)' : d<0 ? 'var(--accent)' : 'var(--t2)';
+      return '<div class="bench-row"><div style="font-size:14px;font-weight:500;flex:1">'+esc(n)+'</div><div style="text-align:right">'
+        +'<div style="font-size:14px;font-weight:700">'+fmtRel(t.rel)+'</div>'
+        +'<div style="font-size:12px;color:'+col+'">'+t.e1rm+' kg E1RM'+(d!=null ? ' · '+(d>0?'+':'')+String(d.toFixed(2)).replace('.', ',')+' seit 8 Wo' : '')+'</div></div></div>';
+    }).join('') : '<div style="color:var(--t3);font-size:13px">Logge Hauptübungen für deinen Trend.</div>');
 }
 
 // ── 25. DATA PAGE ───────────────────────────────────────
@@ -6557,6 +6597,7 @@ function buildBackupObject(){
 function applyBackupState(s){
   if(!s) return false;
   if(s.user) AppState.user=Object.assign(AppState.user,s.user);
+  delete AppState.user.ffmi; // B4: alter gespeicherter FFMI wird verworfen, Anzeige rechnet neu
   if(s.streak!==undefined) AppState.streak=s.streak;
   if(s.lastStreakDate!==undefined) AppState.lastStreakDate=s.lastStreakDate;
   if(Array.isArray(s.plan)&&s.plan.length) AppState.plan=s.plan;
@@ -6879,7 +6920,7 @@ var GLOSSAR = [
     full: 'Fat-Free Mass Index',
     emoji: '💪',
     def: 'Der Body-Mass-Index für Muskeln. Misst Muskelmasse im Verhältnis zur Körpergröße, unabhängig vom Körperfett. Gilt als besserer Indikator für Muskelentwicklung als Körpergewicht allein.',
-    example: 'Dein FFMI 27,2 = Fortgeschritten / Bodybuilding-Level\nUntrainiert: ~18–19 | Fortgeschritten: 22–25 | Elite Natural: 25–28',
+    example: 'Beispiel: 68 kg Magermasse bei 1,80 m → FFMI 21\nUntrainiert: ~18–19 | Fortgeschritten: 22–25 | Elite Natural: 25–28',
     formula: 'FFMI = Magermasse(kg) / Größe(m)²'
   }
 ];
@@ -6973,19 +7014,9 @@ function initApp(){
     // Echter Erststart → Willkommen zeigen
     DB.set('welcomeSeen', true);
     Timers.set(function(){ showWelcomeScreen(); }, 400, 'welcomeDelay');
-  } else {
-    // Bestehender Nutzer: Update-Banner + Legs öffnen (wie bisher)
-    var shownBanner = DB.get('planBannerV'+PLAN_VERSION, false);
-    if(!shownBanner){
-      DB.set('planBannerV'+PLAN_VERSION, true);
-      var banner = el('plan-update-banner');
-      if(banner) banner.style.display = 'block';
-      Timers.set(function(){
-        var c=document.querySelector('[data-day="thu"]'), b=el('wk-b-thu');
-        if(c) c.classList.add('open'); if(b) b.classList.add('open');
-      }, 300, 'autoOpenLegs');
-    }
   }
+  // B2: kein statischer Plan-Update-Banner mehr; das Flag planBannerV* bleibt
+  // nur als Merkmal "bestehender Nutzer" (siehe hasPlanFlag)
 
   if(AppState.activeSession && AppState.activeSession.dayId && !staleSession()) navigate('workout');
   if(window.speechSynthesis) Timers.set(function(){window.speechSynthesis.getVoices();},100,'ttsInit');
@@ -7024,7 +7055,7 @@ if(document.readyState==='loading'){
 // ══════════════════════════════════════════════════════
 //  ONBOARDING & PLAN-GENERATOR
 //  Nur für neue User oder auf Wunsch (Button "Plan erstellen")
-//  Stefan / bestehende User: PLAN_VERSION 5 bleibt unberührt
+//  Bestehende User: PLAN_VERSION 5 bleibt unberührt
 // ══════════════════════════════════════════════════════
 
 var obState = { step:1, goal:'', level:'', gymDays:0, sport:'', equipment:'', split:'' };
@@ -7077,8 +7108,6 @@ function generatePlan(){
     if(v) AppState.user[k]=v;
   });
   if(AppState.user.weight&&AppState.user.height){
-    var kfa=AppState.user.kfa||20;
-    AppState.user.ffmi=+((AppState.user.weight*(1-kfa/100))/((AppState.user.height/100)**2)).toFixed(1);
     var bmr=Math.round(88.36+13.4*AppState.user.weight+4.8*AppState.user.height-5.7*(AppState.user.age||30));
     AppState.user.kcalTarget=Math.round(bmr*1.55-500);
   }

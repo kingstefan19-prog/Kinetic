@@ -41,17 +41,26 @@ export default function ({ test, todo, assert, loadApp, loadFixture }) {
     assert.equal(zwei.smoothedWeeklyMuscleSets().quads, 10);
   });
 
-  test('3.3 skipped-legs: Adherence-Karte "Legs A fällt oft aus"', () => {
+  test('3.3/B1 skipped-legs: Adherence-Karte "Legs A in 3 Wochen nicht trainiert", Einheit statt Wochentag', () => {
     const ctx = loadApp(loadFixture('skipped-legs'));
     ctx.renderSmartNotifs();
     const html = ctx.document.getElementById('smartNotifs').innerHTML;
-    assert.match(html, /Legs A[^<]*fällt oft aus/);
-    assert.match(html, /moveMissedDay\(3\)[^>]*>Wochentag verschieben/);
+    assert.match(html, /Legs A in 3 Wochen nicht trainiert/);
+    assert.match(html, /preferUnitNext\('[^']+'\)[^>]*>Legs A als Nächstes/);
+    assert.doesNotMatch(html, /Wochentag|Montag|Dienstag|Mittwoch|Donnerstag|Freitag|Samstag|Sonntag/);
     assert.match(html, /offerPlan3plus1\(\)[^>]*>3\+1-Plan übernehmen/);
     // nur Legs A – Push/Pull/Upper wurden trotz Namenszusätzen erkannt
     const missed = ctx.oftenMissedDays().map((a) => a.name);
     assert.deepEqual(JSON.parse(JSON.stringify(missed)), ['Legs A']);
     assert.equal(ctx.baseDayName('Upper B (2. Frequenz) (KI-optimiert)'), 'Upper B (2. Frequenz)');
+    // "Legs A als Nächstes": Rotation zieht Legs A vor, bis es trainiert ist
+    const id = ctx.oftenMissedDays()[0].id;
+    assert.notEqual(ctx.nextRotationUnit().name, 'Legs A');
+    ctx.preferUnitNext(id);
+    assert.equal(ctx.nextRotationUnit().name, 'Legs A');
+    ctx.AppState.history.push({ ts: Date.now() + 1, dayName: 'Legs A', durationMs: 3e6, volume: 0, sets: [{ ex: 'Beinstrecker', w: 45, r: 12, rpe: 8 }] });
+    ctx.__harness.setNow(Date.now() + 3600e3);
+    assert.notEqual(ctx.nextRotationUnit().name, 'Legs A', 'nach dem Training wieder normale Rotation');
   });
 
   test('3.3 Optionale Tage zählen nicht; 1 von 3 Wochen fehlt → keine Karte; zu kurze Historie → keine Karte', () => {
