@@ -328,4 +328,37 @@ export default function ({ test, assert, loadApp }) {
     d.renderTodayCard();
     assert.match(d.document.getElementById('todayCard').innerHTML, /✓ So 15:00 Spiel gezählt[^]*value="15" data-appt-min="2026-11-08\|sp"/);
   });
+
+  // ── A10 Pausen ──
+  test('A10 Zeitstempel je Satz; Hauptübung unter 90 s → Hinweis; Ø Pause nach dem Workout und im Log', () => {
+    const c = athleteApp({}, '2026-11-10T10:00:00');
+    const idA = c.AppState.plan.find((d) => d.name === 'Upper A').id;
+    c.startWorkout(idA);
+    const s = c.AppState.activeSession;
+    const cur = s.exercises[0];
+    assert.equal(cur.n, 'Bankdrücken (LH)');
+    const t0 = Date.parse('2026-11-10T10:10:00');
+    const tick = (sec) => c.__harness.setNow(t0 + sec * 1000);
+    s.exercises.forEach((e) => e.sets.forEach((st) => { st.w = '60'; st.r = '5'; st.rpe = '7.5'; }));
+    tick(0); c.toggleSetDone(0);
+    assert.equal(cur.sets[0].ts, t0);
+    tick(60); c.toggleSetDone(1);
+    const toast = c.document.getElementById('toast').textContent;
+    assert.match(toast, /Pause 1:00 – Ziel 2:30 für schwere Sätze/);
+    tick(240); c.toggleSetDone(2);
+    assert.doesNotMatch(c.document.getElementById('toast').textContent, /Pause 3:00/, '≥ 90 s: kein Hinweis');
+    tick(400); c.toggleSetDone(3);
+    // Isolation: kein Hinweis
+    const iso = s.exercises.find((e) => e.n === 'Seitheben (Kabel)');
+    s.currentIdx = s.exercises.indexOf(iso);
+    tick(500); c.toggleSetDone(0); tick(520); c.toggleSetDone(1);
+    assert.doesNotMatch(c.document.getElementById('toast').textContent, /Seitheben|Pause 0:20/);
+    c.finishWorkout();
+    const h = c.AppState.history[c.AppState.history.length - 1];
+    assert.equal(h.sets.find((x) => x.ex === 'Bankdrücken (LH)').ts, t0);
+    assert.deepEqual(plain(c.mainPauseStats(h.sets)), { avg: 133, target: 150 });
+    assert.match(c.document.getElementById('toast').textContent, /Ø Pause Hauptübungen 2:13 \/ Ziel 2:30/);
+    c.renderLog();
+    assert.match(c.document.getElementById('logList').innerHTML, /data-pause="1"[^>]*>⏱ Ø Pause Hauptübungen 2:13 \/ Ziel 2:30/);
+  });
 }

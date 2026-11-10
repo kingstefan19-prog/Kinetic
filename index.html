@@ -1892,6 +1892,36 @@ function primerHtml(s){
     +'</div></div>';
 }
 
+// ── A10 Pausen einhalten ──
+// Hauptübungen: nächster Satz unter 90 s nach dem vorherigen → kurzer Hinweis
+// mit der Zielpause (nicht blockierend). Nach dem Workout und im Log: Ø Pause.
+var PAUSE_HINT_S = 90;
+function fmtMinSec(sec){ sec = Math.max(0, Math.round(sec)); return Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0'); }
+function pauseCheck(cur, i){
+  if(!isAthlete() || !cur || !isMainRole(roleOf(cur.n))) return null;
+  var now = cur.sets[i].ts, prev = 0;
+  cur.sets.forEach(function(x, k){ if(k!==i && x.done && x.ts && x.ts < now && x.ts > prev) prev = x.ts; });
+  if(!prev) return null;
+  var gap = (now - prev)/1000;
+  if(gap >= PAUSE_HINT_S) return null;
+  var msg = 'Pause '+fmtMinSec(gap)+' – Ziel '+fmtMinSec(restSecondsFor(cur.n))+' für schwere Sätze';
+  toast('⏱ '+msg);
+  return msg;
+}
+// Ø Pause der Hauptübungen einer Session (gespeicherte Sätze mit ts) gegen das Ziel
+function mainPauseStats(sets){
+  var gaps = [], targets = [], by = {};
+  (sets||[]).forEach(function(x){ if(x && x.ts && isMainRole(roleOf(x.ex))) (by[x.ex] = by[x.ex] || []).push(x.ts); });
+  Object.keys(by).forEach(function(ex){
+    var ts = by[ex].sort(function(a, b){ return a - b; });
+    for(var k=1; k<ts.length; k++){ gaps.push((ts[k] - ts[k-1])/1000); targets.push(restSecondsFor(ex)); }
+  });
+  if(!gaps.length) return null;
+  var avg = function(a){ return Math.round(a.reduce(function(x, y){ return x + y; }, 0) / a.length); };
+  return {avg:avg(gaps), target:avg(targets)};
+}
+function mainPauseText(ps){ return ps ? 'Ø Pause Hauptübungen '+fmtMinSec(ps.avg)+' / Ziel '+fmtMinSec(ps.target) : ''; }
+
 // Einstiegsgewicht nach der Umstellung: E1RM für die Mitte des neuen Bereichs bei Ziel-RIR, abgerundet
 function athleteEntrySuggestion(exName, targetStr){
   if(!isAthlete()) return null;
@@ -2976,6 +3006,8 @@ function renderLog(){
       +'<div style="width:1px;background:var(--border)"></div>'
       +'<div style="text-align:center;flex:1"><div style="font-size:14px;font-weight:700;color:var(--green)">'+Object.keys(exMap).length+'</div><div style="font-size:9px;color:var(--t3)">ÜBUNGEN</div></div>'
       +'</div>'
+      // A10: Ø Pause der Hauptübungen (nur Athlet, nur Sätze mit Zeitstempel)
+      +(isAthlete() && mainPauseStats(e.sets) ? '<div data-pause="1" style="font-size:12px;color:var(--t2);margin:-4px 0 8px">⏱ '+esc(mainPauseText(mainPauseStats(e.sets)))+'</div>' : '')
       // Exercise details
       +(exRows||'<div style="font-size:12px;color:var(--t3);padding:6px 0">Keine Sätze gespeichert.</div>')
       +'</div>';
@@ -3881,6 +3913,8 @@ function toggleSetDone(i){
   st.done = !st.done;
   _rpeSel = null;
   if(st.done){
+    st.ts = Date.now();                             // A10: Zeitpunkt des Abhakens (optional)
+    pauseCheck(cur, i);
     s.lastSetTs = Date.now();                       // Spec 1.2: Ende der Session = letzter Satz
     s.restEndTs = Date.now() + restSecondsFor(cur.n, isTimed)*1000;
     // direkt in die nächste Satz-Zeile springen (erstes leeres Feld)
@@ -4221,6 +4255,7 @@ function finishWorkout(){
         if(setE1>(AppState.prs[ex.n]||0)){ AppState.prs[ex.n]=setE1; pr=true; }
         const rec={ex:ex.n,w,r,rpe,pr};
         if(isBWex) rec.add=add;
+        if(st.ts) rec.ts=st.ts;                                 // A10 (optional)
         sets.push(rec);
       }
     });
@@ -4238,6 +4273,7 @@ function finishWorkout(){
   const endTs=s.lastSetTs||Date.now();
   const entry={ts:endTs,dayName:s.dayName,durationMs:Math.max(0,endTs-s.startTs),volume,sets};
   if(s.skipped && s.skipped.length) entry.skipped=s.skipped.slice();   // feat/skip-redistribute
+  const pauseStats=isAthlete() ? mainPauseStats(sets) : null;        // A10
   if(s.primer && s.primer.done && s.primer.done.some(Boolean))         // A7: ohne Gewicht, kein Arbeitssatz
     entry.primer={kind:s.primer.kind, sets:s.primer.done.filter(Boolean).length, reps:s.primer.reps};
   if(s.volOpen) entry.volOpen=Object.assign({}, s.volOpen);
@@ -4253,7 +4289,8 @@ function finishWorkout(){
   refreshDash(); renderLog(); navigate('dash');
   // nach navigate(), sonst blendet der Seitenwechsel die Meldung sofort aus
   toast((prs?`💪 Fertig! ${prs} neue PR${prs>1?'s':''}! 🏆`:'💪 Workout abgeschlossen!')+(calib?' · 🎯 RIR-Kalibrierung: '+rpeOffsetText(calib):'')
-    +(skipped?' · '+skipped+' Satz/Sätze mit mehr als 50 Wdh nicht gespeichert':''));
+    +(skipped?' · '+skipped+' Satz/Sätze mit mehr als 50 Wdh nicht gespeichert':'')
+    +(pauseStats?' · '+mainPauseText(pauseStats):''));
 }
 
 // ── Offene Session (Spec 1.2) ───────────────────────────────────────────
