@@ -62,4 +62,20 @@ export default function ({ test, assert, loadApp, REPO_ROOT }) {
     const src = html();
     assert.doesNotMatch(src, /106\.6|kfa:17\.3|ffmi:27\.2|3225|108kg|FFMI 26\.6|Dein FFMI 27/);
   });
+
+  test('B6 Wadenheben stehend: keine Teilwiederholungen nach Muskelversagen', () => {
+    const c = loadApp({}, { now: '2026-11-10T08:00:00Z' });
+    const notes = [];
+    c.defaultPlan().forEach(d => (d.ex || []).forEach(e => { if (e.n === 'Wadenheben stehend') notes.push(e.note || ''); }));
+    assert.ok(notes.length > 0);
+    for (const n of notes) assert.doesNotMatch(n, /Teilw|Partial|Versagen anh/i);
+    // Gespeicherter alter Plan wird beim Laden bereinigt, Übungsname bleibt
+    const old = [{ day: 'Lower', ex: [{ n: 'Wadenheben stehend', s: '4×12-15', note: 'Lengthened Partials: 2 Teilwdh unten NACH Muskelversagen anhängen · tiefer Stretch' }] }];
+    const m = loadApp({ plan: old }, { now: '2026-11-10T08:00:00Z' });
+    const e = m.AppState.plan[0].ex[0];
+    assert.equal(e.n, 'Wadenheben stehend');
+    assert.equal(e.s, '4×12-15');
+    assert.doesNotMatch(e.note, /Teilw|Versagen anh/i);
+    assert.doesNotMatch(html(), /Teilwdh unten NACH Muskelversagen|Teilwdh in der unteren/);
+  });
 }

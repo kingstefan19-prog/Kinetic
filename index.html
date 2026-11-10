@@ -903,6 +903,17 @@ const AppState = {
           });
         });
         if(migrated){ DB.set('plan', this.plan); log.info('Wdh-Bereiche angepasst (Isolation 12–15)'); }
+        // B6: Notiz "Teilwdh nach Muskelversagen" bei Wadenheben stehend streichen
+        var calfFix = false;
+        this.plan.forEach(function(day){
+          (day.ex||[]).forEach(function(e){
+            if(e && e.n==='Wadenheben stehend' && /teilw|partial/i.test(e.note||'') && /versagen/i.test(e.note||'')){
+              e.note = 'Volle ROM · 1–2 s Pause im tiefen Stretch · mit Reserve beenden, kein Satz bis zum Versagen';
+              calfFix = true;
+            }
+          });
+        });
+        if(calfFix){ DB.set('plan', this.plan); log.info('Wadenheben-Notiz bereinigt'); }
       }
     } catch(e){ log.error('AppState.load',e); this.plan = defaultPlan(); }
   },
@@ -1026,7 +1037,7 @@ function defaultPlan(){
         // ABDUKTOREN (Außenseite – Hüftstabilität)
         {n:'Abduktionsmaschine (sitzend)',  s:'3×12–15', note:'Außenseite & Gesäß · langsam öffnen · wichtig für Kniestabilität im Fußball'},
         // WADE (Sprungkraft für Fußball)
-        {n:'Wadenheben stehend',            s:'4×12–15', note:'Lengthened Partials: 2 Teilwdh unten NACH Muskelversagen anhängen (Kassiano 2023: +7-9% Wachstum) · tiefer Stretch'},
+        {n:'Wadenheben stehend',            s:'4×12–15', note:'Volle ROM · 1–2 s Pause im tiefen Stretch · mit Reserve beenden, kein Satz bis zum Versagen'},
         // CORE
         {n:'Plank',                         s:'3×60s',   note:'Körper gerade wie Brett · Kern aktiv · Gesäß nicht heben · atmen', timed:true}
       ]
@@ -6327,7 +6338,7 @@ const FORM_TIPS={
   'Abduktionsmaschine (sitzend)':  'Oberschenkelaußenseite & Gesäß. Langsam öffnen – kein Schwung! Kontrolliert zurück.',
   'Seitliches Beinheben (Kabel)':  'Stehend, Kabel am Knöchel. Bein seitlich bis Hüfthöhe. Kern stabilisieren.',
   // WADE
-  'Wadenheben stehend':            'Volle ROM + Lengthened Partials: Nach dem letzten vollen Satz 2-3 Teilwdh in der unteren (gedehnten) Hälfte. Forschung 2025: +7-9% mehr Wachstum.',
+  'Wadenheben stehend':            'Volle ROM: ganz hoch auf die Zehen, unten 1–2 s im tiefen Stretch halten. Keine Teilwiederholungen nach dem Versagen – Sätze mit Reserve beenden.',
   // CORE
   'Plank':                         'Körper gerade wie Brett. Gesäß nicht heben oder senken. Kern aktiv anspannen. Atmen!',
 };
