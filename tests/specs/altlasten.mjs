@@ -49,4 +49,17 @@ export default function ({ test, assert, loadApp, REPO_ROOT }) {
     c.AppState.save();
     assert.equal(c.DB.get('user', {}).ffmi, undefined, 'nicht gespeichert');
   });
+
+  test('B5 Keine persönlichen Standardwerte; gespeicherte Nutzerdaten bleiben', () => {
+    const fresh = loadApp({}, { now: '2026-11-10T08:00:00Z' });
+    const u = fresh.AppState.user;
+    for (const k of ['age', 'weight', 'height', 'kfa', 'kfaGoal', 'kcalTarget']) assert.ok(u[k] == null, k + ' ohne Standardwert');
+    fresh.renderHeroStats(); fresh.updateProfPreview();
+    assert.doesNotMatch(fresh.document.getElementById('profPreview').innerHTML, /190|108|20\.1/);
+    const kept = loadApp({ user: { name: 'T', age: 40, weight: 77, height: 175, kfa: 18, kfaGoal: 12, kcalTarget: 2400 } }, { now: '2026-11-10T08:00:00Z' });
+    assert.equal(kept.AppState.user.weight, 77);
+    assert.equal(kept.AppState.user.kcalTarget, 2400);
+    const src = html();
+    assert.doesNotMatch(src, /106\.6|kfa:17\.3|ffmi:27\.2|3225|108kg|FFMI 26\.6|Dein FFMI 27/);
+  });
 }

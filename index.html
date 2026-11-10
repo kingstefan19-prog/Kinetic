@@ -421,9 +421,9 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
     <div class="prof-grid">
       <div><div class="prof-label">Name</div><input id="profName"   class="li" type="text"   placeholder="Dein Name"  style="text-align:left;padding:10px;font-size:14px;font-weight:400" oninput="saveProfile()"></div>
       <div><div class="prof-label">Alter</div><input id="profAge"   class="li" type="number" placeholder="Jahre"      style="padding:10px;font-size:14px" oninput="saveProfile()"></div>
-      <div><div class="prof-label">Gewicht (kg)</div><input id="profWeight" class="li" type="number" step="0.1" placeholder="108" style="padding:10px;font-size:14px" oninput="saveProfile()"></div>
-      <div><div class="prof-label">Größe (cm)</div><input id="profHeight" class="li" type="number" placeholder="190" style="padding:10px;font-size:14px" oninput="saveProfile()"></div>
-      <div><div class="prof-label">Körperfett (%)</div><input id="profKfa" class="li" type="number" step="0.1" placeholder="20.1" style="padding:10px;font-size:14px" oninput="saveProfile()"></div>
+      <div><div class="prof-label">Gewicht (kg)</div><input id="profWeight" class="li" type="number" step="0.1" placeholder="z. B. 80" style="padding:10px;font-size:14px" oninput="saveProfile()"></div>
+      <div><div class="prof-label">Größe (cm)</div><input id="profHeight" class="li" type="number" placeholder="z. B. 180" style="padding:10px;font-size:14px" oninput="saveProfile()"></div>
+      <div><div class="prof-label">Körperfett (%)</div><input id="profKfa" class="li" type="number" step="0.1" placeholder="z. B. 15" style="padding:10px;font-size:14px" oninput="saveProfile()"></div>
       <div><div class="prof-label">Ziel-KFA (%)</div><input id="profKfaGoal" class="li" type="number" step="0.1" placeholder="14" style="padding:10px;font-size:14px" oninput="saveProfile()"></div>
     </div>
     <div id="profPreview" style="padding:10px 12px;background:var(--card2);border-radius:10px;font-size:12px;color:var(--t2);line-height:1.8"></div>
@@ -817,7 +817,7 @@ const WEEKDAYS = ['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag
 const AppState = {
   currentPage: 'dash',
   activeSession: null,
-  user: { name:'', age:31, weight:106.6, height:190, kfa:17.3, kfaGoal:14, kcalTarget:3225 },
+  user: { name:'', age:null, weight:null, height:null, kfa:null, kfaGoal:null, kcalTarget:null }, // B5: keine persönlichen Standardwerte
   streak: 0,
   lastStreakDate: null,
   meals: [],           // [{name,kcal,p,kh,f,time,aiAnalyzed}]
@@ -837,7 +837,7 @@ const AppState = {
 
   load(){
     try {
-      this.user          = Object.assign({name:'',age:31,weight:106.6,height:190,kfa:17.3,kfaGoal:14,kcalTarget:3225}, DB.get('user',{}));
+      this.user          = Object.assign({name:'',age:null,weight:null,height:null,kfa:null,kfaGoal:null,kcalTarget:null}, DB.get('user',{}));
       delete this.user.ffmi; // B4: FFMI wird nie gespeichert, nur berechnet (ffmiOf)
       this.streak        = DB.get('streak', 0);
       this.lastStreakDate = DB.get('lastStreakDate', null);
@@ -935,7 +935,7 @@ const AppState = {
 const APP_VERSION = 'Coach v2 (kinetic-v2)';
 // Plan-Version – Erhöhen wenn defaultPlan() sich ändert
 const PLAN_VERSION = 5;
-// Personalisiert: 108kg · 190cm · KFA 20.1% · FFMI 26.6 · Fortgeschritten
+// Standardplan für Fortgeschrittene (ohne persönliche Körperdaten)
 // Quellen: Schoenfeld 2024 · Israetel MAV/MRV · NSCA 2025 · Barca Hub 2026
 // Strategie: 4× Gym (Mo/Mi/Do/Sa) · Di/Fr/So Fußball · Gym ≠ Fußball selber Tag
 // Samstag: Upper B kompakt – Push+Pull 2. Frequenz
@@ -1241,6 +1241,9 @@ function navigate(pageId){
   if(pageId==='data')    safeCall(refreshDataPage);
 }
 
+// B5: neutraler Platzhalter, solange kein eigenes Kalorienziel berechnet ist
+var KCAL_FALLBACK = 2500;
+
 // ── 8. HERO STATS ───────────────────────────────────────
 // B4: FFMI immer aus Gewicht, Größe und KFA berechnet (Magermasse / Größe²).
 // Fehlt einer der drei Werte, gibt es keinen FFMI – kein Standardwert.
@@ -1272,7 +1275,7 @@ function renderHeroStats(){
 function refreshDash(){
   try {
     const u=AppState.user;
-    const dw=el('dashWeight'); if(dw) dw.innerHTML=u.weight+'<span class="su"> kg</span>';
+    const dw=el('dashWeight'); if(dw) dw.innerHTML=(u.weight||'—')+'<span class="su"> kg</span>';
     const ds=el('dashStreak'); if(ds) ds.textContent=AppState.streak;
     // weight delta
     // weightLog: Index 0 = neuester Eintrag. delta<0 = abgenommen.
@@ -1283,8 +1286,8 @@ function refreshDash(){
     pruneMeals();
     const todayKcal=AppState.meals.reduce((a,m)=>a+(m.kcal||0),0);
     const dk=el('dashKcal'); if(dk) dk.textContent=Math.round(todayKcal);
-    const dkt=el('dashKcalTarget'); if(dkt) dkt.textContent=` / ${u.kcalTarget||2870} kcal`;
-    const bar=el('dashKcalBar'); if(bar) bar.style.width=Math.min(100,(todayKcal/(u.kcalTarget||2870))*100)+'%';
+    const dkt=el('dashKcalTarget'); if(dkt) dkt.textContent=` / ${u.kcalTarget||KCAL_FALLBACK} kcal`;
+    const bar=el('dashKcalBar'); if(bar) bar.style.width=Math.min(100,(todayKcal/(u.kcalTarget||KCAL_FALLBACK))*100)+'%';
     renderHeroStats();
     renderCoachCard();
     renderSmartNotifs();
@@ -2821,7 +2824,7 @@ function logWeight(){
 }
 
 // ── 12. COACH CARD (MEV/MAV/MRV) ───────────────────────
-// Personalisierte MEV/MAV/MRV für 108kg, FFMI 26.6, Fortgeschritten
+// MEV/MAV/MRV für Fortgeschrittene
 // Quellen: Israetel RP Strength, Schoenfeld 2024, Frontiers 2025
 // Wochensätze je Muskel (gewichtete Sätze, siehe MUSCLE_MAP). Was der Plan
 // tatsächlich liefert, zeigt die Volumen-Ampel – hier keine Plan-Zahlen.
@@ -6333,7 +6336,7 @@ const FORM_TIPS={
 function refreshNutrition(){
   try {
     pruneMeals();
-    const u=AppState.user, target=u.kcalTarget||2870;
+    const u=AppState.user, target=u.kcalTarget||KCAL_FALLBACK;
     const total=AppState.meals.reduce((a,m)=>({kcal:a.kcal+(m.kcal||0),p:a.p+(m.p||0),kh:a.kh+(m.kh||0),f:a.f+(m.f||0)}),{kcal:0,p:0,kh:0,f:0});
     const pct=Math.min(100,(total.kcal/target)*100);
     const ek=el('ernKcal'); if(ek) ek.textContent=Math.round(total.kcal);
@@ -6432,12 +6435,12 @@ function updateProfPreview(){
   const fatKg=u.weight&&u.kfa?(u.weight*u.kfa/100).toFixed(1):'—';
   const musKg=u.weight&&u.kfa?(u.weight*(1-u.kfa/100)).toFixed(1):'—';
   const toGoal=u.weight&&u.kfa&&u.kfaGoal?(u.weight*(u.kfa-u.kfaGoal)/100).toFixed(1):'—';
-  pp.innerHTML=`${u.height||190} cm · ${u.weight||108} kg · KFA ${u.kfa||20.1}%<br>BMI: <b>${bmi}</b> · FFMI: <b>${ffmiOf(u)||'—'}</b> · Magermasse: <b>${musKg} kg</b><br>Ziel: KFA ${u.kfaGoal||14}% → noch ca. <b style="color:var(--accent)">${toGoal} kg</b> Fett abbauen`;
+  pp.innerHTML=`${u.height||'—'} cm · ${u.weight||'—'} kg · KFA ${u.kfa||'—'}%<br>BMI: <b>${bmi}</b> · FFMI: <b>${ffmiOf(u)||'—'}</b> · Magermasse: <b>${musKg} kg</b><br>Ziel: KFA ${u.kfaGoal||'—'}% → noch ca. <b style="color:var(--accent)">${toGoal} kg</b> Fett abbauen`;
 }
 
 function loadProfileInputs(){
   const u=AppState.user;
-  const fields={profName:u.name,profAge:u.age||'',profWeight:u.weight,profHeight:u.height,profKfa:u.kfa,profKfaGoal:u.kfaGoal||14};
+  const fields={profName:u.name,profAge:u.age||'',profWeight:u.weight,profHeight:u.height,profKfa:u.kfa,profKfaGoal:u.kfaGoal||''};
   Object.entries(fields).forEach(([id,v])=>{ const e=el(id); if(e&&v) e.value=v; });
   updateProfPreview();
 }
@@ -6887,7 +6890,7 @@ var GLOSSAR = [
     full: 'Fat-Free Mass Index',
     emoji: '💪',
     def: 'Der Body-Mass-Index für Muskeln. Misst Muskelmasse im Verhältnis zur Körpergröße, unabhängig vom Körperfett. Gilt als besserer Indikator für Muskelentwicklung als Körpergewicht allein.',
-    example: 'Dein FFMI 27,2 = Fortgeschritten / Bodybuilding-Level\nUntrainiert: ~18–19 | Fortgeschritten: 22–25 | Elite Natural: 25–28',
+    example: 'Beispiel: 68 kg Magermasse bei 1,80 m → FFMI 21\nUntrainiert: ~18–19 | Fortgeschritten: 22–25 | Elite Natural: 25–28',
     formula: 'FFMI = Magermasse(kg) / Größe(m)²'
   }
 ];
@@ -7022,7 +7025,7 @@ if(document.readyState==='loading'){
 // ══════════════════════════════════════════════════════
 //  ONBOARDING & PLAN-GENERATOR
 //  Nur für neue User oder auf Wunsch (Button "Plan erstellen")
-//  Stefan / bestehende User: PLAN_VERSION 5 bleibt unberührt
+//  Bestehende User: PLAN_VERSION 5 bleibt unberührt
 // ══════════════════════════════════════════════════════
 
 var obState = { step:1, goal:'', level:'', gymDays:0, sport:'', equipment:'', split:'' };
