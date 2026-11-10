@@ -1370,6 +1370,16 @@ function renderSmartNotifs(){
       type:'warn', prio:1, buttons:btns});
   }
 
+  // A6: Prävention fehlt im Plan bzw. pausiert
+  missingPrevent().forEach(function(n){
+    notifs.push({icon:'🛡️', title:exShortName(n)+' einplanen?', body:'Mit Fußball senkt '+n+' das Verletzungsrisiko (Beinbizeps/Leiste). Mindestens 1× pro Woche, nie bis zum Versagen.',
+      type:'warn', prio:1, buttons:[{label:'Einplanen', fn:'addPreventEx(\''+n+'\')'}]});
+  });
+  Object.keys(pausedEx()).forEach(function(n){
+    notifs.push({icon:'⏸️', title:exShortName(n)+' pausiert (Schmerz)', body:'Bei wiederkehrenden Schmerzen abklären lassen. Wieder aufnehmen, wenn es schmerzfrei geht.',
+      type:'sleep', prio:1, buttons:[{label:'Wieder aufnehmen', fn:'resumePreventEx(\''+n+'\')'}]});
+  });
+
   // Zweimal "Mag ich nicht" → dauerhaft ersetzen? (feat/skip-redistribute, Punkt 5)
   var prs_ = permanentReplaceSuggestion();
   if(prs_){
@@ -1783,6 +1793,65 @@ function restoreRecompPlan(){
   (AppState.plan||[]).forEach(function(d){ (d && d.ex || []).forEach(function(e){ if(e.prevS!=null){ e.s = e.prevS; delete e.prevS; } }); });
   AppState.save(); safeCall(renderPlan);
 }
+// ── A6 Prävention schützen (Nordic Curl, Copenhagen Adduction) ──
+// Mit Fußballterminen mindestens 1× pro Woche, nicht in den 48 h vor einem
+// Spiel und nicht in den 24 h vor einem Training (Entscheidung 1).
+var PREVENT_RE = /nordic|copenhagen/i;
+function isPreventEx(n){ return PREVENT_RE.test(String(n||'')); }
+function hasFootballAppts(){ return flexSchedule().appointments.some(function(a){ return a && (a.activity==='soccer' || a.activity==='match') && (a.weekdays||[]).length; }); }
+// Termin, der Prävention heute verbietet (oder null)
+function preventBlocker(date){
+  var now = date==null ? Date.now() : +new Date(date);
+  return appointmentOccurrences(now, 3).filter(function(o){
+    if(o.cancelled || o.ts <= now) return false;
+    var h = (o.ts - now)/3600000;
+    return (o.appt.activity==='match' && h < 48) || (o.appt.activity==='soccer' && h < 24);
+  })[0] || null;
+}
+function pausedEx(){ var p = flexSchedule().paused; return (p && typeof p==='object') ? p : {}; }
+function resumePreventEx(name){
+  var p = flexSchedule().paused || {}; delete p[name]; flexSchedule().paused = p;
+  AppState.save(); safeCall(renderSmartNotifs);
+  toast('✅ '+name+' wieder im Plan');
+}
+// Diese Woche schon Prävention trainiert?
+function preventDoneThisWeek(date){
+  var now = date==null ? Date.now() : +new Date(date), wk = weekKeyOf(now);
+  return (AppState.history||[]).some(function(e){ return e && weekKeyOf(e.ts)===wk && e.ts<=now && (e.sets||[]).some(function(x){ return isPreventEx(x.ex); }); });
+}
+// Session-Aufbau: Prävention bei Fußball in Kürze oder Schmerzpause herausnehmen
+function filterPreventForToday(day, date){
+  if(!isAthlete() || !day) return {day:day, hints:[]};
+  var block = hasFootballAppts() ? preventBlocker(date) : null, paused = pausedEx(), hints = [];
+  var ex = (day.ex||[]).filter(function(e){
+    if(!isPreventEx(e.n)) return true;
+    if(paused[e.n]){ hints.push(exShortName(e.n)+' pausiert wegen Schmerz – bei wiederkehrenden Schmerzen abklären lassen.'); return false; }
+    if(block){ hints.push(exShortName(e.n)+' heute nicht: '+block.appt.name+' in < '+(block.appt.activity==='match' ? 48 : 24)+' h.'); return false; }
+    return true;
+  });
+  return {day:Object.assign({}, day, {ex:ex}), hints:hints};
+}
+// Fehlt Prävention im Plan? → Karte mit Vorschlag (fügt erst nach Bestätigung ein)
+var PREVENT_DEFAULT = {'Nordic Curl (Beinbizeps)':{s:'2×4-8'}, 'Copenhagen Adduction':{s:'2×20-30s', timed:true}};
+function missingPrevent(){
+  if(!isAthlete() || !hasFootballAppts()) return [];
+  var names = {};
+  (AppState.plan||[]).forEach(function(d){ (d && d.ex || []).forEach(function(e){ names[e.n] = 1; }); });
+  return Object.keys(PREVENT_DEFAULT).filter(function(n){ return !names[n]; });
+}
+function addPreventEx(name){
+  if(!PREVENT_DEFAULT[name]) return;
+  var legs = rotationUnits().filter(function(d){ return isLegPlanDay(d); });
+  if(!legs.length) return toast('Keine Bein-Einheit im Plan');
+  var target = legs.slice().sort(function(a, b){ return planDayStats(a).sets - planDayStats(b).sets; })[0];
+  showConfirmDialog({title:exShortName(name)+' einplanen?', bodyHtml:esc(name)+' '+PREVENT_DEFAULT[name].s+' kommt in '+esc(target.name)+' – Verletzungsprävention für Fußball, nie bis zum Versagen.',
+    okLabel:'Einplanen', onOk:function(){
+      target.ex.push(Object.assign({n:name, note:'Prävention'}, PREVENT_DEFAULT[name]));
+      AppState.save(); safeCall(renderPlan); safeCall(renderSmartNotifs);
+      toast('✅ '+name+' in '+target.name);
+    }});
+}
+
 // Einstiegsgewicht nach der Umstellung: E1RM für die Mitte des neuen Bereichs bei Ziel-RIR, abgerundet
 function athleteEntrySuggestion(exName, targetStr){
   if(!isAthlete()) return null;
@@ -2123,6 +2192,9 @@ function flexSuggestion(date){
     // Bonus für Gruppen mit weniger als 2 Einheiten diese Woche
     c.score = 50 - 15*dist + 0.3*c.avgRec - (c.light ? 40 : 0) - (day.optional ? 15 : 0)
       + Math.min(20, 10*focus.filter(function(g){ return (exposure[g]||0) < 2; }).length);
+    // A6: Einheit mit Prävention bevorzugen, solange sie diese Woche fehlt und heute erlaubt ist
+    if(isAthlete() && hasFootballAppts() && (day.ex||[]).some(function(e){ return isPreventEx(e.n) && !pausedEx()[e.n]; })
+       && !preventDoneThisWeek(now) && !preventBlocker(now)){ c.score += 15; c.preventBonus = true; }
     return c;
   }).filter(Boolean);
   cands.sort(function(a, b){ return (a.noMain - b.noMain) || (b.score - a.score); });
@@ -3204,6 +3276,11 @@ function showPreWorkoutDialog(dayId, day, analysis, opts){
 
 function proceedWithWorkout(dayId, day, applyAdjustments, suggestions, opts){
   opts = opts || {};
+  // A6: Prävention bei Fußball in Kürze bzw. Schmerzpause herausnehmen
+  if(isAthlete() && day && day.type==='gym'){
+    var pf = filterPreventForToday(day);
+    if(pf.hints.length){ day = pf.day; opts = Object.assign({}, opts, {hints:(opts.hints||[]).concat(pf.hints)}); }
+  }
   // A4: Athlet – Dauer und Satzzahl begrenzen; bei niedriger Readiness 4 Sätze weniger
   if(isAthlete() && day && day.type==='gym'){
     var rdA = readinessScore(), low = rdA && rdA.hasData && rdA.score < 65;
@@ -5849,6 +5926,7 @@ function permanentReplaceSuggestion(){
   (AppState.plan||[]).some(function(day, dIdx){
     return (day && day.type==='gym' ? day.ex||[] : []).some(function(e){
       var n = dislikeSkips(e.n);
+      if(isAthlete() && isPreventEx(e.n)) return false;   // A6: Prävention nie dauerhaft ersetzen
       if(n < REPLACE_AFTER_DISLIKES || (declined[e.n] && n <= declined[e.n])) return false;
       var names = day.ex.map(function(x){ return x.n; });
       var options = familyAlternatives(e.n, names).slice(0, 4);
@@ -5946,6 +6024,11 @@ function skipExercise(idx, reason){
   if((reason==='dislike' || reason==='busy') && open>0) note = redistributeSkipped(s, idx, open).note;
   // Schmerz (Punkt 4): nichts umverteilen, schon gar nicht auf dieselbe Bewegung
   if(reason==='pain') note = exShortName(ex.n)+' übersprungen (Schmerz/Unwohlsein) – keine Umverteilung. Bei wiederkehrenden Schmerzen abklären lassen.';
+  // A6: Prävention bei Schmerz pausieren, bis "wieder aufnehmen"
+  if(reason==='pain' && isAthlete() && isPreventEx(ex.n)){
+    var sch_ = flexSchedule(); sch_.paused = Object.assign({}, sch_.paused||{}); sch_.paused[ex.n] = Date.now();
+    note += ' '+exShortName(ex.n)+' pausiert, bis du sie wieder aufnimmst.';
+  }
   s.skipNotes = (s.skipNotes||[]).concat([note]);
   _skipAsk = null;
   if(idx===s.currentIdx){

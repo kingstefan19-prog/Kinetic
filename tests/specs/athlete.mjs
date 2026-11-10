@@ -176,4 +176,69 @@ export default function ({ test, assert, loadApp }) {
     c.renderLog();
     assert.match(c.document.getElementById('activityLogCard').innerHTML, /Spiel · 70 Min/);
   });
+
+  // ── A6 Prävention ──
+  const WINTER = { appointments: [
+    { id: 'fb', name: 'Fußballtraining', activity: 'soccer', weekdays: [2, 4], time: '19:00' },
+    { id: 'sp', name: 'Spiel', activity: 'match', weekdays: [6], time: '15:00' }] };
+  const athleteApp = (state, now) => {
+    const c = loadApp({ plan: PLAN(), schedule: plain(WINTER), ...state }, { now });
+    c.applyAthletePlan();
+    return c;
+  };
+
+  test('A6 Nicht 48 h vor Spiel und nicht 24 h vor Training: Nordic/Copenhagen heute herausgenommen', () => {
+    const lower = (c) => c.AppState.plan.find((d) => d.name === 'Lower').id;
+    // Di 10:00: Training Mi 19:00 in 33 h → erlaubt
+    let c = athleteApp({}, '2026-11-10T10:00:00');
+    c.startWorkout(lower(c));
+    assert.ok(c.AppState.activeSession.exercises.some((e) => /Nordic/.test(e.n)), 'Di erlaubt');
+    // Mi 08:00: Training heute 19:00 → nicht
+    c = athleteApp({}, '2026-11-11T08:00:00');
+    c.startWorkout(lower(c));
+    const s = c.AppState.activeSession;
+    assert.ok(!s.exercises.some((e) => /Nordic|Copenhagen/.test(e.n)));
+    assert.ok(s.hints.some((h) => /Nordic Curl heute nicht: Fußballtraining in < 24 h/.test(h)), JSON.stringify(s.hints));
+    // Fr 22:00 (nach dem Training): Spiel So 15:00 in 41 h → nicht
+    c = athleteApp({}, '2026-11-13T22:00:00');
+    assert.equal(c.preventBlocker().appt.name, 'Spiel');
+    // So 20:00 nach dem Spiel: Training Mi → erlaubt
+    c = athleteApp({}, '2026-11-15T20:00:00');
+    assert.equal(c.preventBlocker(), null);
+    // Recomp: nichts wird herausgenommen
+    const r = loadApp({ plan: PLAN(), schedule: plain(WINTER) }, { now: '2026-11-11T08:00:00' });
+    r.startWorkout(lower(r));
+    assert.ok(r.AppState.activeSession.exercises.some((e) => /Nordic/.test(e.n)));
+  });
+
+  test('A6 Schmerz pausiert, "Mag ich nicht" ersetzt nicht dauerhaft, fehlende Prävention per Karte', () => {
+    const N = 'Nordic Curl (Beinbizeps)';
+    const c = athleteApp({}, '2026-11-10T10:00:00');
+    const lowerId = c.AppState.plan.find((d) => d.name === 'Lower').id;
+    c.startWorkout(lowerId);
+    c.skipExercise(c.AppState.activeSession.exercises.findIndex((e) => e.n === N), 'pain');
+    assert.ok(c.pausedEx()[N]);
+    c.finishWorkout();
+    c.startWorkout(lowerId);
+    assert.ok(!c.AppState.activeSession.exercises.some((e) => e.n === N), 'pausiert');
+    c.abortWorkout(); c.abortWorkout();
+    c.renderSmartNotifs();
+    assert.match(c.document.getElementById('smartNotifs').innerHTML, /resumePreventEx\('Nordic Curl \(Beinbizeps\)'\)[^>]*>Wieder aufnehmen/);
+    c.resumePreventEx(N);
+    assert.equal(c.pausedEx()[N], undefined);
+    // zweimal "Mag ich nicht": keine Ersatz-Karte
+    for (const d of ['2026-10-27', '2026-11-03']) c.AppState.history.push({ ts: Date.parse(`${d}T17:00:00Z`), dayName: 'Lower', durationMs: 1, volume: 0, sets: [], skipped: [{ ex: N, reason: 'dislike', sets: 2 }] });
+    assert.equal(c.permanentReplaceSuggestion(), null);
+    // fehlt Copenhagen: Karte, Einfügen erst nach Bestätigung (frischer Stand, wenig andere Karten)
+    const f = athleteApp({}, '2026-11-10T10:00:00');
+    const lower = f.AppState.plan.find((d) => d.name === 'Lower');
+    lower.ex = lower.ex.filter((e) => !/Copenhagen/.test(e.n));
+    assert.deepEqual(plain(f.missingPrevent()), ['Copenhagen Adduction']);
+    f.renderSmartNotifs();
+    assert.match(f.document.getElementById('smartNotifs').innerHTML, /Copenhagen Adduction einplanen\?/);
+    f.addPreventEx('Copenhagen Adduction');
+    assert.ok(!lower.ex.some((e) => /Copenhagen/.test(e.n)));
+    f.confirmDialogOk();
+    assert.ok(lower.ex.some((e) => e.n === 'Copenhagen Adduction' && e.s === '2×20-30s'));
+  });
 }
