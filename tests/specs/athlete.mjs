@@ -277,4 +277,31 @@ export default function ({ test, assert, loadApp }) {
     const r = loadApp({ plan: PLAN() }, { now: '2026-11-10T10:00:00' });
     assert.equal(r.primerFor(r.AppState.plan.find((d) => d.name === 'Lower')), null);
   });
+
+  // ── A8 Kennzahlen ──
+  test('A8 Kraft-Karte: Hauptübungen zuerst mit E1RM/kg; Benchmarks nur eigener Trend', () => {
+    const hist = [];
+    for (const [d, k] of [['2026-09-14', 0], ['2026-10-12', 1], ['2026-11-09', 2]]) {
+      hist.push(S(`${d}T17:00:00Z`, 'Kniebeuge (LH)', [[120 + 5 * k, 5, 8]], 'Lower'));
+      hist.push(S(`${d}T17:00:00Z`, 'Beinpresse', [[250, 10, 8]], 'Lower'));
+      hist.push(S(`${d}T18:00:00Z`, 'Bankdrücken (LH)', [[90 + 2.5 * k, 5, 8]], 'Upper A'));
+    }
+    const c = loadApp({ plan: PLAN(), history: hist, weightLog: [{ w: 90, d: '2026-09-01' }, { w: 88, d: '2026-11-01' }] }, { now: '2026-11-10T08:00:00Z' });
+    c.applyAthletePlan();
+    assert.equal(c.bodyWeightAt(Date.parse('2026-10-12T12:00:00Z')), 90);
+    assert.equal(c.bodyWeightAt(Date.parse('2026-11-09T12:00:00Z')), 88);
+    const t = c.relTrend('Kniebeuge (LH)', 8);
+    const e1 = c.currentE1rm('Kniebeuge (LH)');
+    assert.equal(t.rel, Math.round(e1 / 88 * 100) / 100);
+    assert.ok(t.delta > 0);
+    c.renderStrengthCard();
+    const card = c.document.getElementById('strengthCard').innerHTML;
+    assert.ok(card.indexOf('Bankdrücken (LH)') < card.indexOf('Beinpresse') && card.indexOf('Kniebeuge (LH)') < card.indexOf('Beinpresse'), 'Hauptübungen vor Beinpresse (höherer Absolutwert)');
+    assert.match(card, /data-rel="1"[^>]*>\d,\d\d×KG/);
+    c.renderBenchmarks();
+    const b = c.document.getElementById('benchmarkList').innerHTML;
+    assert.match(b, /Orientierung: dein eigener Trend/);
+    assert.match(b, /Kniebeuge \(LH\)[^]*×KG[^]*seit 8 Wo/);
+    assert.doesNotMatch(b, /Elite|Fortgeschritten/);
+  });
 }
