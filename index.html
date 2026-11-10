@@ -1595,7 +1595,13 @@ function isAthlete(){ return trainingGoal()==='athlete'; }
 function setTrainingGoal(g){
   if(g!=='athlete' && g!=='recomp') return false;
   if(g===trainingGoal()) return true;
+  // Athlet: Plan-Vorschau, angewendet wird erst nach Bestätigung (A3)
+  if(g==='athlete' && (AppState.plan||[]).some(function(d){ return d && d.type==='gym' && (d.ex||[]).length; })){ offerAthletePlan(); return true; }
   AppState.user.trainingGoal = g;
+  if(g==='recomp' && (AppState.plan||[]).some(function(d){ return (d && d.ex || []).some(function(e){ return e.prevS!=null; }); })){
+    showConfirmDialog({title:'Alte Wdh-Bereiche wiederherstellen?', bodyHtml:'Der Plan bekommt die Sätze und Wdh von vor der Umstellung zurück. Historie und PRs bleiben.',
+      okLabel:'Wiederherstellen', cancelLabel:'So lassen', onOk:restoreRecompPlan});
+  }
   AppState.save();
   safeCall(renderGoalSettings); safeCall(refreshDash); safeCall(renderPlan);
   toast(g==='athlete' ? '🏃 Trainingsziel: Athlet' : '💪 Trainingsziel: Recomp');
@@ -1627,6 +1633,130 @@ function exerciseRole(exName, entry){
   return isCompoundLift(n) ? 'assist' : 'iso';
 }
 function isMainRole(r){ return r==='main' || r==='main-heavy'; }
+// Plan-Eintrag einer Übung (für den role-Override)
+function planEntryOf(exName){
+  var hit = null;
+  (AppState.plan||[]).some(function(d){ return (d && d.ex || []).some(function(e){ if(e.n===exName){ hit = e; return true; } return false; }); });
+  return hit;
+}
+function roleOf(exName){ return exerciseRole(exName, planEntryOf(exName)); }
+
+// A3: Vorgaben je Rolle (Pausen kurz, Entscheidung 3: höchstens 60 Min)
+var ROLE_SPEC = {
+  'main-heavy':{sets:[4,4], lo:3,  hi:6,  rest:150},
+  'main':      {sets:[3,4], lo:5,  hi:8,  rest:120},
+  'assist':    {sets:[2,3], lo:6,  hi:10, rest:90},
+  'iso':       {sets:[2,2], lo:10, hi:15, rest:60}
+};
+function preventSpec(exName){
+  var n = String(exName||'');
+  if(/nordic/i.test(n)) return {sets:[2,3], lo:4, hi:8, rest:90};
+  if(/copenhagen/i.test(n)) return {sets:[2,2], secs:'20-30s', rest:60, perSide:true};
+  return {sets:[3,3], lo:8, hi:12, rest:60};   // Wadenheben stehend
+}
+function roleSpec(exName, role){
+  role = role || roleOf(exName);
+  if(role==='prevent') return preventSpec(exName);
+  return ROLE_SPEC[role] || null;
+}
+// Ziel-RIR im Athleten-Modus: Hauptübungen RIR 2–3 (Wo 1–3) bzw. 1–2 (Wo 4–5),
+// der Coach rechnet mit der Mitte; Assistenz 2; Isolation 1–2; Prävention ≥ 2
+function athleteRIR(exName){
+  var r = roleOf(exName), w = mesoWeek();
+  if(isMainRole(r)) return w <= 3 ? 2.5 : 1.5;
+  if(r==='assist' || r==='prevent') return 2;
+  if(r==='iso') return 1.5;
+  return null;
+}
+function athleteRIRLabel(exName){
+  var r = roleOf(exName), w = mesoWeek();
+  if(isMainRole(r)) return w <= 3 ? 'RIR 2–3' : 'RIR 1–2';
+  if(r==='assist') return 'RIR 2';
+  if(r==='prevent') return 'RIR ≥ 2';
+  if(r==='iso') return 'RIR 1–2';
+  return null;
+}
+// Neuer Plan-String einer Übung: Satzzahl auf den Bereich der Rolle begrenzt
+function athletePlanString(e){
+  var role = exerciseRole(e.n, e), sp = role ? roleSpec(e.n, role) : null;
+  if(!sp) return e.s;
+  var rng = parseRepRange(e.s), n = rng ? rng.sets : sp.sets[0];
+  n = Math.max(sp.sets[0], Math.min(sp.sets[1], n));
+  return sp.secs ? n+'×'+sp.secs : n+'×'+sp.lo+'-'+sp.hi;
+}
+// Vorschau alt → neu je Übung (nur Gym-Tage)
+function athletePlanPreview(){
+  var rows = [];
+  (AppState.plan||[]).forEach(function(d, di){
+    if(!d || d.type!=='gym') return;
+    (d.ex||[]).forEach(function(e, ei){
+      var role = exerciseRole(e.n, e);
+      rows.push({day:d.name, di:di, ei:ei, n:e.n, role:role, old:e.prevS || e.s, neu:athletePlanString(Object.assign({}, e, {s:e.prevS || e.s}))});
+    });
+  });
+  return rows;
+}
+function applyAthletePlan(rows){
+  rows = rows || athletePlanPreview();
+  if(typeof snapshotState==='function') snapshotState('pre-athlete');
+  rows.forEach(function(r){
+    var e = AppState.plan[r.di] && AppState.plan[r.di].ex[r.ei]; if(!e || e.n!==r.n) return;
+    if(e.prevS==null) e.prevS = e.s;
+    e.s = r.neu;
+  });
+  AppState.user.trainingGoal = 'athlete';
+  DB.set('athleteSwitch', {ts:Date.now(), from:'recomp'});
+  AppState.save();
+  safeCall(renderGoalSettings); safeCall(renderPlan); safeCall(refreshDash);
+  toast('🏃 Plan auf Athlet umgestellt – Sicherung angelegt');
+  return true;
+}
+function athletePreviewHtml(rows){
+  var byDay = {};
+  rows.forEach(function(r){ (byDay[r.day] = byDay[r.day] || []).push(r); });
+  return Object.keys(byDay).map(function(day){
+    return '<div style="margin:10px 0 4px;font-weight:700;color:var(--t1)">'+esc(day)+'</div>'
+      +byDay[day].map(function(r){
+        return '<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:3px 0;border-bottom:1px solid var(--border)">'
+          +'<span style="flex:1;min-width:0">'+esc(r.n)+(r.role?' <span style="color:var(--t3)">· '+esc(ROLE_LABEL[r.role])+'</span>':'')+'</span>'
+          +'<span style="white-space:nowrap">'+esc(r.old)+' → <b>'+esc(r.neu)+'</b></span></div>';
+      }).join('');
+  }).join('');
+}
+// Umschalten auf Athlet: Vorschau, erst nach Bestätigung anwenden
+function offerAthletePlan(){
+  var rows = athletePlanPreview();
+  showConfirmDialog({title:'Plan auf Athlet umstellen?',
+    bodyHtml:'Hauptübungen schwerer mit weniger Wdh, Assistenz und Isolation kürzer. Startgewichte rechnet der Coach aus deinem E1RM (lieber zu leicht). Vorher wird eine Sicherung angelegt. <b>Historie und PRs bleiben.</b>'+athletePreviewHtml(rows),
+    okLabel:'Übernehmen', onOk:function(){ applyAthletePlan(rows); }});
+}
+// Zurück auf Recomp: alte Plan-Strings wiederherstellen (nach Bestätigung)
+function restoreRecompPlan(){
+  if(typeof snapshotState==='function') snapshotState('pre-recomp');
+  (AppState.plan||[]).forEach(function(d){ (d && d.ex || []).forEach(function(e){ if(e.prevS!=null){ e.s = e.prevS; delete e.prevS; } }); });
+  AppState.save(); safeCall(renderPlan);
+}
+// Einstiegsgewicht nach der Umstellung: E1RM für die Mitte des neuen Bereichs bei Ziel-RIR, abgerundet
+function athleteEntrySuggestion(exName, targetStr){
+  if(!isAthlete()) return null;
+  var sw = DB.get('athleteSwitch', null); if(!sw || !sw.ts) return null;
+  var h = AppState.history||[];
+  if(!h.some(function(e){ return e.ts < sw.ts && (e.sets||[]).some(function(x){ return x.ex===exName; }); })) return null;
+  if(h.some(function(e){ return e.ts >= sw.ts && (e.sets||[]).some(function(x){ return x.ex===exName; }); })) return null;
+  var rng = parseRepRange(targetStr); if(!rng) return null;
+  var reps = Math.floor((rng.lo + rng.hi)/2), rir = targetRIR(exName);
+  var hint = 'Einstiegsgewicht, lieber zu leicht.';
+  if(isLoadableBodyweight(exName)){
+    var last = recentSessionSets(exName, 1)[0] || [];
+    var add = last.reduce(function(a, x){ return Math.max(a, setAddKg(x)); }, 0);
+    return bodyweightResult(bodyWeightKg(), add, reps, hint);
+  }
+  var e1 = currentE1rm(exName); if(!(e1>0)) return null;
+  var eff = Math.min(12, reps + rir), w = e1/(1 + eff/30), st = plateStep(exName, w);
+  w = Math.max(st, Math.floor(w/st + 1e-9)*st);
+  if(dbGridApplies(exName)) w = Math.max(2, Math.floor(w/2)*2);
+  return {weight:w, reps:reps, hint:hint, entry:true};
+}
 
 // ── Flexible Planung (feat/flex-planning) ────────────────────────────────
 // Gym-Einheiten sind nicht mehr an Wochentage gebunden. Grundlage ist, was
@@ -4274,6 +4404,7 @@ function isIsolationLift(exName){
   return !isCompoundLift(exName) && equipmentType(exName)!=='bodyweight' && !/plank|\d+s\b/i.test(String(exName||''));
 }
 function restSecondsFor(exName, isTimed){
+  if(isAthlete()){ var sp = roleSpec(exName); if(sp) return sp.rest; }
   if(isTimed) return 60;
   return isCompoundLift(exName) ? 150 : 90;
 }
@@ -4485,6 +4616,11 @@ function isUpperIsolation(exName){
 // lastSet: Ziel für den letzten Satz der Übung (Peak Week: Oberkörper-Isolation RIR 0)
 function baseTargetRIR(exName, lastSet){
   if(deloadActive()) return 4;
+  // Athleten-Modus (A3): Ziel-RIR je Rolle; RIR 0 nur letzter Satz Oberkörper-Isolation in der Peak Week
+  if(exName && isAthlete() && athleteRIR(exName)!=null){
+    if(mesoWeek()===5 && lastSet && isUpperIsolation(exName) && roleOf(exName)==='iso') return 0;
+    return athleteRIR(exName);
+  }
   var w = mesoWeek();
   var rir = w <= 3 ? 2 : 1;
   if(w===5 && exName && lastSet && isUpperIsolation(exName)) return 0;
@@ -4516,6 +4652,8 @@ function targetRIR(exName, lastSet){
 // Anzeige: "RIR 1 · letzter Satz RIR 0" (Peak Week) bzw. "RIR 2"
 function targetRIRLabel(exName){
   var r = targetRIR(exName), last = targetRIR(exName, true);
+  if(isAthlete() && !deloadActive() && athleteRIR(exName)===r && athleteRIRLabel(exName))
+    return athleteRIRLabel(exName)+(last!==r ? ' · letzter Satz RIR '+last : '');
   return 'RIR '+r+(last!==r ? ' · letzter Satz RIR '+last : '');
 }
 // Plan-Notizen: feste "RIR x"-Angaben ausblenden – die Ziel-RIR kommt aus
@@ -4848,7 +4986,7 @@ function joinHint(){
 // Einstiegspunkt: Kern-Empfehlung plus Vor-Pausen-Hinweis in den Sessions
 // 2–4 nach einer Pause (Spec 2.6), falls die Kernlogik ihn nicht schon setzt
 function coachSuggestion(exName, targetStr){
-  var res = coachSuggestionCore(exName, targetStr);
+  var res = athleteEntrySuggestion(exName, targetStr) || coachSuggestionCore(exName, targetStr);
   if(res && typeof res.hint==='string' && res.hint.indexOf('Vor der Pause')<0 && !isLoadableBodyweight(exName)){
     var ref = preLayoffRef(exName);
     if(ref && belowPreLayoff(ref, recentSessionSets(exName, 1)[0])) res.hint = joinHint(res.hint, 'Vor der Pause: '+ref.w+' kg × '+ref.r);
