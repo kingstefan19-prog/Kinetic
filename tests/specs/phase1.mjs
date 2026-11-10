@@ -126,7 +126,7 @@ export default function ({ test, todo, assert, loadApp, loadFixture, fixtureName
     assert.equal(ctx.sessionTimeValid({ durationMs: 70 * 60e3 }), true);
     ctx.renderLog();
     const log = ctx.document.getElementById('logList').innerHTML;
-    assert.match(log, />–<\/div><div style="font-size:9px;color:var\(--t3\)">DAUER/);
+    assert.match(log, />–<\/div><div style="font-size:12px;color:var\(--t3\)">DAUER/);
     assert.doesNotMatch(log, /2880:00/);
   });
   test('1.3 Satz bearbeiten (w, r, rpe) berechnet PRs und Volumen neu und speichert', () => {

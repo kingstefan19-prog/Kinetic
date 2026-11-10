@@ -20,7 +20,9 @@
   --border:#2A2A2A;--border2:#383838;
   --accent:#E63939;--accent-d:#c02e2e;
   --green:#34C759;--blue:#0A84FF;--orange:#FF9500;--violet:#BF5AF2;--gold:#FFD60A;
-  --t1:#F5F5F5;--t2:#AAAAAA;--t3:#666666;
+  --t1:#F5F5F5;--t2:#AAAAAA;--t3:#8E8E93;
+  --accent-fill:#D32F2F;   /* C1: gefüllte rote Knöpfe, weißer Text 4,98:1 */
+  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;
   --f:'Inter',-apple-system,sans-serif;--r:14px;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -29,7 +31,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 
 .hero{padding:52px 20px 20px;position:relative;overflow:hidden}
 .hero::after{content:'';position:absolute;top:-60px;right:-80px;width:280px;height:280px;background:radial-gradient(circle,rgba(230,57,57,.06),transparent 70%);pointer-events:none}
-.hero-label{font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:10px}
+.hero-label{font-size:12px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:10px}
 .hero-title{font-size:clamp(28px,8vw,48px);font-weight:700;line-height:1.05;letter-spacing:-.5px}
 .hero-title strong{color:var(--accent)}
 .hero-meta{font-size:13px;color:var(--t2);margin-top:8px;line-height:1.6}
@@ -37,13 +39,13 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 .hs-row::-webkit-scrollbar{display:none}
 .hs-pill{flex-shrink:0;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 14px;text-align:center;min-width:68px}
 .hs-val{font-size:17px;font-weight:700;line-height:1}
-.hs-lbl{font-size:9px;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase;margin-top:4px}
+.hs-lbl{font-size:12px;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase;margin-top:4px}
 
 .nav{position:fixed;bottom:0;left:0;right:0;background:rgba(18,18,18,.97);backdrop-filter:blur(24px);border-top:1px solid var(--border);display:flex;z-index:200;padding:8px 2px 16px}
 .nb{flex:1;background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;padding:5px 2px;opacity:.35;transition:opacity .2s;color:var(--t2)}
 .nb.active{opacity:1;color:var(--accent)}
 .ni{font-size:20px;line-height:1}
-.nl{font-size:8px;font-weight:600;letter-spacing:.3px;text-transform:uppercase}
+.nl{font-size:11px;font-weight:600;letter-spacing:.3px;text-transform:uppercase}
 
 .page{display:none;padding:0 16px;animation:fi .2s ease}
 .page.active{display:block}
@@ -54,13 +56,13 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 
 .c{background:var(--card);border-radius:var(--r);padding:16px;margin-bottom:10px;border:1px solid var(--border)}
 .c-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
-.sl{font-size:10px;font-weight:500;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-bottom:5px}
+.sl{font-size:12px;font-weight:500;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-bottom:5px}
 .sv{font-size:28px;font-weight:700;line-height:1;letter-spacing:-.5px}
 .su{font-size:13px;font-weight:400;color:var(--t2)}
 
 .btn{display:block;width:100%;padding:14px;border-radius:12px;font-family:var(--f);font-size:14px;font-weight:600;cursor:pointer;border:none;transition:all .15s;text-align:center}
-.bp{background:var(--accent);color:#fff}
-.bp:active{background:var(--accent-d);transform:scale(.98)}
+.bp{background:var(--accent-fill);color:#fff}
+.bp:active{background:#B71C1C;transform:scale(.98)}
 .bo{background:transparent;border:1.5px solid var(--border2);color:var(--t1)}
 .bo:active{background:var(--card2)}
 .bg2{background:var(--card2);color:var(--t1);border:1px solid var(--border)}
@@ -71,8 +73,8 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 .wk-h{display:flex;align-items:center;gap:12px;padding:15px 16px;cursor:pointer;user-select:none}
 .wk-d{flex:1}
 .wk-n{font-size:15px;font-weight:600}
-.wk-s{font-size:11px;color:var(--t3);margin-top:2px}
-.wk-c{color:var(--t3);font-size:11px;transition:transform .22s}
+.wk-s{font-size:12px;color:var(--t3);margin-top:2px}
+.wk-c{color:var(--t3);font-size:12px;transition:transform .22s}
 .wk.open .wk-c{transform:rotate(180deg)}
 .wk-b{display:none;border-top:1px solid var(--border);padding:12px 16px}
 .wk-b.open{display:block}
@@ -82,7 +84,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 .en{font-size:14px;font-weight:500;line-height:1.3}
 .es{font-size:13px;font-weight:600;color:var(--accent);white-space:nowrap}
 
-.bd{display:inline-flex;align-items:center;font-size:10px;font-weight:600;letter-spacing:.5px;padding:3px 9px;border-radius:20px}
+.bd{display:inline-flex;align-items:center;font-size:12px;font-weight:600;letter-spacing:.5px;padding:3px 9px;border-radius:20px}
 .r{background:rgba(230,57,57,.15);color:var(--accent)}
 .g{background:rgba(52,199,89,.15);color:var(--green)}
 .b{background:rgba(10,132,255,.15);color:var(--blue)}
@@ -94,14 +96,14 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 /* ── Workout active layout ── */
 .workout-active{padding:16px}
 .wa-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
-.wa-title{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--t3);font-weight:600}
+.wa-title{font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:var(--t3);font-weight:600}
 .wa-timer{font-size:13px;color:var(--t2);margin-top:2px}
 .wa-meta{display:flex;align-items:center;gap:10px}
 
 /* CRITICAL: abort button always on top */
 .abort-btn{
   position:relative;z-index:9999!important;pointer-events:auto!important;
-  background:var(--accent);color:#fff;border:none;border-radius:8px;
+  background:var(--accent-fill);color:#fff;border:none;border-radius:8px;
   padding:8px 14px;font-family:var(--f);font-size:12px;font-weight:700;
   cursor:pointer;touch-action:manipulation;-webkit-user-select:none;user-select:none;
 }
@@ -129,17 +131,17 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 /* ── Suggestion pill ── */
 .sug-pill{display:flex;align-items:center;gap:10px;background:rgba(52,199,89,.07);border:1px solid rgba(52,199,89,.25);border-radius:10px;padding:10px 12px;margin-top:8px;font-size:12px;color:var(--t2)}
 .sug-pill strong{color:var(--green);display:block;font-size:13px}
-.sug-apply{background:var(--green);color:#000;border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:var(--f);white-space:nowrap}
+.sug-apply{background:var(--green);color:#000;border:none;border-radius:6px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--f);white-space:nowrap}
 
 /* ── Coach card ── */
 .coach-bar{margin-bottom:8px}
-.coach-bar-label{display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px}
+.coach-bar-label{display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px}
 .coach-bar-track{height:4px;background:var(--card3);border-radius:2px;overflow:hidden}
 .coach-bar-fill{height:100%;border-radius:2px}
 
 /* ── Profile inputs ── */
 .prof-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
-.prof-label{font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-bottom:5px}
+.prof-label{font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-bottom:5px}
 
 /* ── Sleep buttons ── */
 .sleep-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:8px}
@@ -149,7 +151,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 /* ── Benchmark ── */
 .bench-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)}
 .bench-row:last-child{border-bottom:none}
-.bench-pct{font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px}
+.bench-pct{font-size:12px;font-weight:700;padding:2px 8px;border-radius:8px}
 .bench-elite{background:rgba(52,199,89,.15);color:var(--green)}
 .bench-good{background:rgba(10,132,255,.15);color:var(--blue)}
 .bench-avg{background:rgba(255,149,0,.15);color:var(--orange)}
@@ -205,7 +207,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 /* ── Glossar / Tooltips ── */
 .term{display:inline-flex;align-items:center;gap:3px;cursor:pointer;border-bottom:1px dashed var(--accent);color:inherit;font-family:var(--f);background:none;border-top:none;border-left:none;border-right:none;padding:0;font-size:inherit}
 .term:active{opacity:.7}
-.gl-chip{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;letter-spacing:.5px;padding:2px 7px;border-radius:10px;background:rgba(230,57,57,.12);color:var(--accent);cursor:pointer;vertical-align:middle;margin-left:2px;border:none;font-family:var(--f)}
+.gl-chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;letter-spacing:.5px;padding:2px 7px;border-radius:10px;background:rgba(230,57,57,.12);color:var(--accent);cursor:pointer;vertical-align:middle;margin-left:2px;border:none;font-family:var(--f)}
 .gl-chip:active{background:rgba(230,57,57,.22)}
 #glossarModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:700;backdrop-filter:blur(4px)}
 #glossarModal .gm-sheet{background:var(--card);border-radius:20px 20px 0 0;position:fixed;bottom:0;left:0;right:0;max-height:80vh;overflow-y:auto;padding:20px 20px 48px}
@@ -215,7 +217,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 .gm-entry{border-bottom:1px solid var(--border);padding:14px 0}
 .gm-entry:last-child{border-bottom:none}
 .gm-term{font-size:15px;font-weight:700;color:var(--accent);margin-bottom:6px;display:flex;align-items:center;gap:8px}
-.gm-abbr{font-size:10px;font-weight:600;background:rgba(230,57,57,.12);color:var(--accent);padding:2px 7px;border-radius:8px;letter-spacing:.5px}
+.gm-abbr{font-size:12px;font-weight:600;background:rgba(230,57,57,.12);color:var(--accent);padding:2px 7px;border-radius:8px;letter-spacing:.5px}
 .gm-def{font-size:13px;color:var(--t2);line-height:1.65;margin-bottom:6px}
 .gm-example{font-size:12px;color:var(--t3);background:var(--card2);border-radius:8px;padding:8px 10px;line-height:1.5}
 .gm-example strong{color:var(--t2)}
@@ -245,12 +247,12 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
     <div class="c">
       <div class="sl">Gewicht</div>
       <div class="sv" id="dashWeight">—<span class="su"> kg</span></div>
-      <div style="font-size:11px;color:var(--t3);margin-top:6px" id="dashWeightDelta"></div>
+      <div style="font-size:12px;color:var(--t3);margin-top:6px" id="dashWeightDelta"></div>
     </div>
     <div class="c">
       <div class="sl">Streak</div>
       <div class="sv"><span id="dashStreak">0</span><span class="su"> 🔥</span></div>
-      <div style="font-size:11px;color:var(--t3);margin-top:6px" id="dashStreakInfo"></div>
+      <div style="font-size:12px;color:var(--t3);margin-top:6px" id="dashStreakInfo"></div>
     </div>
   </div>
   <div class="c">
@@ -265,7 +267,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
   <div class="c">
     <div style="display:flex;gap:8px;margin-bottom:10px">
       <input id="newWeightInput" class="li" type="number" step="0.1" placeholder="z.B. 107.5 kg" style="flex:1;text-align:left;padding:10px 14px">
-      <button onclick="logWeight()" style="flex-shrink:0;padding:10px 16px;background:var(--accent);color:#fff;border:none;border-radius:10px;font-family:var(--f);font-size:14px;font-weight:600;cursor:pointer">+ Eintragen</button>
+      <button onclick="logWeight()" style="flex-shrink:0;padding:10px 16px;background:var(--accent-fill);color:#fff;border:none;border-radius:10px;font-family:var(--f);font-size:14px;font-weight:600;cursor:pointer">+ Eintragen</button>
     </div>
     <div class="chart-wrap" id="weightChart"><div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--t3);font-size:13px">Noch keine Einträge</div></div>
   </div>
@@ -282,10 +284,10 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
   <div class="sh" style="justify-content:space-between;align-items:center">
     <span class="sh-t">Rotation</span>
     <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
-      <button id="editDaysBtn" class="btn bg2" style="width:auto;padding:6px 10px;font-size:11px;margin:0">✏️ Anpassen</button>
-      <button onclick="resetToDefaultPlan()" class="btn bg2" style="width:auto;padding:6px 10px;font-size:11px;margin:0;color:var(--orange)">↺ Reset</button>
-      <button onclick="openOnboarding()" class="btn bg2" style="width:auto;padding:6px 10px;font-size:11px;margin:0;color:var(--blue)">🎯 Plan erstellen</button>
-      <button onclick="offerPlan3plus1()" class="btn bg2" style="width:auto;padding:6px 10px;font-size:11px;margin:0;color:var(--green)">📋 Vorlage übernehmen</button>
+      <button id="editDaysBtn" class="btn bg2" style="width:auto;padding:6px 10px;font-size:12px;margin:0">✏️ Anpassen</button>
+      <button onclick="resetToDefaultPlan()" class="btn bg2" style="width:auto;padding:6px 10px;font-size:12px;margin:0;color:var(--orange)">↺ Reset</button>
+      <button onclick="openOnboarding()" class="btn bg2" style="width:auto;padding:6px 10px;font-size:12px;margin:0;color:var(--blue)">🎯 Plan erstellen</button>
+      <button onclick="offerPlan3plus1()" class="btn bg2" style="width:auto;padding:6px 10px;font-size:12px;margin:0;color:var(--green)">📋 Vorlage übernehmen</button>
     </div>
   </div>
 
@@ -293,7 +295,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
   <!-- Science info banner -->
   <div style="background:rgba(10,132,255,.07);border:1px solid rgba(10,132,255,.2);border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--t2);line-height:1.7">
     <span id="planInfo">📊 <strong style="color:var(--blue)">Dein Plan</strong></span><br>
-    <button onclick="openGlossar()" style="display:inline-flex;align-items:center;gap:4px;margin-top:8px;background:rgba(10,132,255,.12);border:1px solid rgba(10,132,255,.25);color:var(--blue);font-size:11px;font-weight:600;padding:5px 10px;border-radius:8px;cursor:pointer;font-family:var(--f)">📖 Begriffe erklären (E1RM, RPE, Deload…)</button>
+    <button onclick="openGlossar()" style="display:inline-flex;align-items:center;gap:4px;margin-top:8px;background:rgba(10,132,255,.12);border:1px solid rgba(10,132,255,.25);color:var(--blue);font-size:12px;font-weight:600;padding:5px 10px;border-radius:8px;cursor:pointer;font-family:var(--f)">📖 Begriffe erklären (E1RM, RPE, Deload…)</button>
   </div>
 
   <div id="planList"></div>
@@ -358,7 +360,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
         <div class="sl">Kalorien</div>
         <div class="sv"><span id="ernKcal">0</span><span class="su"> / <span id="ernTarget">2870</span> kcal</span></div>
       </div>
-      <span id="ernBadge" style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;background:rgba(52,199,89,.15);color:var(--green)">Gut</span>
+      <span id="ernBadge" style="font-size:12px;font-weight:700;padding:3px 9px;border-radius:20px;background:rgba(52,199,89,.15);color:var(--green)">Gut</span>
     </div>
     <div style="height:5px;background:var(--card3);border-radius:3px;overflow:hidden;margin-bottom:14px">
       <div id="ernBar" style="height:100%;background:var(--green);border-radius:3px;width:0;transition:width .6s ease"></div>
@@ -366,15 +368,15 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
       <div style="text-align:center;padding:10px;background:var(--card2);border-radius:10px">
         <div style="font-size:22px;font-weight:700;color:var(--accent)" id="ernP">0</div>
-        <div style="font-size:9px;color:var(--t3);margin-top:3px;letter-spacing:1px;text-transform:uppercase" id="ernPLbl">Protein g</div>
+        <div style="font-size:12px;color:var(--t3);margin-top:3px;letter-spacing:1px;text-transform:uppercase" id="ernPLbl">Protein g</div>
       </div>
       <div style="text-align:center;padding:10px;background:var(--card2);border-radius:10px">
         <div style="font-size:22px;font-weight:700;color:var(--blue)" id="ernKH">0</div>
-        <div style="font-size:9px;color:var(--t3);margin-top:3px;letter-spacing:1px;text-transform:uppercase">Kohlenh. g</div>
+        <div style="font-size:12px;color:var(--t3);margin-top:3px;letter-spacing:1px;text-transform:uppercase">Kohlenh. g</div>
       </div>
       <div style="text-align:center;padding:10px;background:var(--card2);border-radius:10px">
         <div style="font-size:22px;font-weight:700;color:var(--orange)" id="ernF">0</div>
-        <div style="font-size:9px;color:var(--t3);margin-top:3px;letter-spacing:1px;text-transform:uppercase">Fett g</div>
+        <div style="font-size:12px;color:var(--t3);margin-top:3px;letter-spacing:1px;text-transform:uppercase">Fett g</div>
       </div>
     </div>
   </div>
@@ -442,11 +444,11 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
   <div class="c">
     <div style="font-size:12px;color:var(--t2);margin-bottom:10px">Wie viele Stunden hast du heute geschlafen?</div>
     <div class="sleep-grid" id="sleepGrid">
-      <button class="sleep-btn" onclick="logSleep(4,this)">4h<span style="display:block;font-size:9px;color:var(--t3);margin-top:2px">Wenig</span></button>
+      <button class="sleep-btn" onclick="logSleep(4,this)">4h<span style="display:block;font-size:12px;color:var(--t3);margin-top:2px">Wenig</span></button>
       <button class="sleep-btn" onclick="logSleep(5,this)">5h</button>
       <button class="sleep-btn" onclick="logSleep(6,this)">6h</button>
-      <button class="sleep-btn" onclick="logSleep(7,this)">7h<span style="display:block;font-size:9px;color:var(--green);margin-top:2px">Gut</span></button>
-      <button class="sleep-btn" onclick="logSleep(8,this)">8h+<span style="display:block;font-size:9px;color:var(--green);margin-top:2px">Top</span></button>
+      <button class="sleep-btn" onclick="logSleep(7,this)">7h<span style="display:block;font-size:12px;color:var(--green);margin-top:2px">Gut</span></button>
+      <button class="sleep-btn" onclick="logSleep(8,this)">8h+<span style="display:block;font-size:12px;color:var(--green);margin-top:2px">Top</span></button>
     </div>
     <div id="sleepFeedback" style="font-size:12px;color:var(--t2);min-height:16px;line-height:1.5;margin-top:6px"></div>
 
@@ -456,25 +458,25 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
         <span style="font-size:16px">⌚</span>
         <div>
           <div style="font-size:13px;font-weight:600">Luna Band · Wearable-Daten</div>
-          <div style="font-size:11px;color:var(--t3)">Morgens HRV, Ruhepuls &amp; Schlaf → Coach passt dein Training an</div>
+          <div style="font-size:12px;color:var(--t3)">Morgens HRV, Ruhepuls &amp; Schlaf → Coach passt dein Training an</div>
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;align-items:end">
         <div>
-          <div style="font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-bottom:4px">HRV (ms)</div>
+          <div style="font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-bottom:4px">HRV (ms)</div>
           <input id="wb-hrv" class="li" type="number" placeholder="55" style="width:100%;padding:10px;font-size:14px">
         </div>
         <div>
-          <div style="font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-bottom:4px">Ruhepuls</div>
+          <div style="font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-bottom:4px">Ruhepuls</div>
           <input id="wb-rhr" class="li" type="number" placeholder="52" style="width:100%;padding:10px;font-size:14px">
         </div>
         <div>
-          <div style="font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-bottom:4px">Schlaf (h)</div>
+          <div style="font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-bottom:4px">Schlaf (h)</div>
           <input id="wb-sleep" class="li" type="number" step="0.5" placeholder="7.5" style="width:100%;padding:10px;font-size:14px">
         </div>
         <button onclick="logWearable()" class="btn bp" style="width:auto;padding:10px 14px;margin:0;font-size:13px">✓</button>
       </div>
-      <div id="hrvFeedback" style="font-size:11px;color:var(--t2);margin-top:8px;line-height:1.5"></div>
+      <div id="hrvFeedback" style="font-size:12px;color:var(--t2);margin-top:8px;line-height:1.5"></div>
 
       <!-- Kurzbefehl-Anleitung (auto-offen bis erste Daten da sind) -->
       <button onclick="toggleLunaSetup()" style="display:flex;align-items:center;gap:6px;background:none;border:none;color:var(--blue);font-family:var(--f);font-size:12px;font-weight:600;cursor:pointer;padding:10px 0 4px">
@@ -485,12 +487,12 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
         1. App „Kurzbefehle" → neuer Kurzbefehl<br>
         2. Aktion „Gesundheitsdaten suchen" (HRV, Ruhepuls, Schlaf von heute)<br>
         3. Aktion „URL öffnen" mit deiner App-Adresse plus<br>
-        <code style="color:var(--blue);font-size:11px">?hrv=[HRV]&amp;rhr=[Puls]&amp;sleep=[Schlaf]</code><br>
+        <code style="color:var(--blue);font-size:12px">?hrv=[HRV]&amp;rhr=[Puls]&amp;sleep=[Schlaf]</code><br>
         4. In der Automation „Zur Tageszeit" morgens ausführen lassen – die Werte landen automatisch hier.<br>
         <div style="border-top:1px solid var(--border);margin:10px 0;padding-top:10px">
           <b style="color:var(--t1)">📄 Bulk-Import (Baseline sofort aufbauen):</b><br>
-          Eine Zeile pro Tag: <code style="font-size:11px">JJJJ-MM-TT, HRV, Puls, Schlaf</code>
-          <textarea id="wb-bulk" placeholder="2026-09-10, 58, 51, 7.5&#10;2026-09-11, 55, 52, 6.5" style="width:100%;height:74px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;padding:8px;color:var(--t1);font-family:monospace;font-size:11px;margin-top:6px"></textarea>
+          Eine Zeile pro Tag: <code style="font-size:12px">JJJJ-MM-TT, HRV, Puls, Schlaf</code>
+          <textarea id="wb-bulk" placeholder="2026-09-10, 58, 51, 7.5&#10;2026-09-11, 55, 52, 6.5" style="width:100%;height:74px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;padding:8px;color:var(--t1);font-family:monospace;font-size:12px;margin-top:6px"></textarea>
           <button onclick="importWearableBulk()" class="btn bo" style="margin-top:6px;padding:8px;font-size:12px">📥 Zeilen importieren</button>
         </div>
       </div>
@@ -517,9 +519,9 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
   </div>
   <div id="dataCheckBox" style="display:none;margin-top:10px"></div>
   <input type="file" id="importInput" accept=".json" style="display:none" onchange="importData(this)">
-  <div id="dataSafetyInfo" style="margin-top:12px;padding:10px 12px;background:var(--card2);border-radius:10px;font-size:11px;color:var(--t3);line-height:1.7"></div>
+  <div id="dataSafetyInfo" style="margin-top:12px;padding:10px 12px;background:var(--card2);border-radius:10px;font-size:12px;color:var(--t3);line-height:1.7"></div>
   <button onclick="restoreFromSnapshot()" class="btn bg2" style="margin-top:8px;padding:9px;font-size:12px;color:var(--blue)">🛟 Letzte Schattenkopie wiederherstellen</button>
-  <div id="appVersion" style="margin-top:14px;text-align:center;font-size:10px;color:var(--t3)">KINETIC Coach v2</div>
+  <div id="appVersion" style="margin-top:14px;text-align:center;font-size:12px;color:var(--t3)">KINETIC Coach v2</div>
 </section>
 
 </main>
@@ -534,7 +536,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
     <!-- Header -->
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
       <div>
-        <div style="font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:4px">⚡ KINETIC · Plan-Generator</div>
+        <div style="font-size:12px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:4px">⚡ KINETIC · Plan-Generator</div>
         <div style="font-size:20px;font-weight:700">Dein perfekter Plan</div>
       </div>
       <button onclick="closeOnboarding()" style="background:var(--card2);border:1px solid var(--border);color:var(--t2);width:36px;height:36px;border-radius:50%;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button>
@@ -577,12 +579,12 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
         <div style="font-size:16px;font-weight:700;margin-bottom:6px">Wie viele Gym-Tage pro Woche?</div>
         <div style="font-size:13px;color:var(--t2);margin-bottom:18px">Wähle realistisch – Konsistenz schlägt Idealplan.</div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
-          <button class="ob-option ob-num" data-val="2" onclick="selectOpt(this,'gymDays')">2× / Wo<span style="display:block;font-size:10px;color:var(--t3);margin-top:3px">Ganzkörper</span></button>
-          <button class="ob-option ob-num" data-val="3" onclick="selectOpt(this,'gymDays')">3× / Wo<span style="display:block;font-size:10px;color:var(--t3);margin-top:3px">PPL / ABC</span></button>
-          <button class="ob-option ob-num" data-val="4" onclick="selectOpt(this,'gymDays')">4× / Wo<span style="display:block;font-size:10px;color:var(--t3);margin-top:3px">Upper/Lower</span></button>
-          <button class="ob-option ob-num" data-val="5" onclick="selectOpt(this,'gymDays')">5× / Wo<span style="display:block;font-size:10px;color:var(--t3);margin-top:3px">PPL+</span></button>
-          <button class="ob-option ob-num" data-val="6" onclick="selectOpt(this,'gymDays')">6× / Wo<span style="display:block;font-size:10px;color:var(--t3);margin-top:3px">PPL×2</span></button>
-          <button class="ob-option ob-num" data-val="7" onclick="selectOpt(this,'gymDays')">7× / Wo<span style="display:block;font-size:10px;color:var(--t3);margin-top:3px">Täglich</span></button>
+          <button class="ob-option ob-num" data-val="2" onclick="selectOpt(this,'gymDays')">2× / Wo<span style="display:block;font-size:12px;color:var(--t3);margin-top:3px">Ganzkörper</span></button>
+          <button class="ob-option ob-num" data-val="3" onclick="selectOpt(this,'gymDays')">3× / Wo<span style="display:block;font-size:12px;color:var(--t3);margin-top:3px">PPL / ABC</span></button>
+          <button class="ob-option ob-num" data-val="4" onclick="selectOpt(this,'gymDays')">4× / Wo<span style="display:block;font-size:12px;color:var(--t3);margin-top:3px">Upper/Lower</span></button>
+          <button class="ob-option ob-num" data-val="5" onclick="selectOpt(this,'gymDays')">5× / Wo<span style="display:block;font-size:12px;color:var(--t3);margin-top:3px">PPL+</span></button>
+          <button class="ob-option ob-num" data-val="6" onclick="selectOpt(this,'gymDays')">6× / Wo<span style="display:block;font-size:12px;color:var(--t3);margin-top:3px">PPL×2</span></button>
+          <button class="ob-option ob-num" data-val="7" onclick="selectOpt(this,'gymDays')">7× / Wo<span style="display:block;font-size:12px;color:var(--t3);margin-top:3px">Täglich</span></button>
         </div>
       </div>
 
@@ -615,11 +617,11 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
         <div style="font-size:16px;font-weight:700;margin-bottom:6px">Welchen Split bevorzugst du?</div>
         <div style="font-size:13px;color:var(--t2);margin-bottom:18px">"Automatisch" wählt die wissenschaftlich beste Aufteilung für deine Trainingstage.</div>
         <div style="display:flex;flex-direction:column;gap:10px">
-          <button class="ob-option" data-val="auto" onclick="selectOpt(this,'split')">🤖 Automatisch <span style="display:block;font-size:11px;color:var(--t3);margin-top:3px;font-weight:400">Empfohlen · KI wählt optimal für 2× Frequenz pro Muskel</span></button>
-          <button class="ob-option" data-val="ppl" onclick="selectOpt(this,'split')">Push / Pull / Legs <span style="display:block;font-size:11px;color:var(--t3);margin-top:3px;font-weight:400">Ideal für 6 Tage · jede Muskelgruppe 2×</span></button>
-          <button class="ob-option" data-val="upperlower" onclick="selectOpt(this,'split')">Upper / Lower <span style="display:block;font-size:11px;color:var(--t3);margin-top:3px;font-weight:400">Ideal für 4 Tage · beste Balance Frequenz/Erholung</span></button>
-          <button class="ob-option" data-val="fullbody" onclick="selectOpt(this,'split')">Ganzkörper <span style="display:block;font-size:11px;color:var(--t3);margin-top:3px;font-weight:400">Ideal für 2–3 Tage · jeder Muskel jede Session</span></button>
-          <button class="ob-option" data-val="brosplit" onclick="selectOpt(this,'split')">Bro-Split <span style="display:block;font-size:11px;color:var(--t3);margin-top:3px;font-weight:400">1 Muskelgruppe pro Tag · nur 1× Frequenz</span></button>
+          <button class="ob-option" data-val="auto" onclick="selectOpt(this,'split')">🤖 Automatisch <span style="display:block;font-size:12px;color:var(--t3);margin-top:3px;font-weight:400">Empfohlen · KI wählt optimal für 2× Frequenz pro Muskel</span></button>
+          <button class="ob-option" data-val="ppl" onclick="selectOpt(this,'split')">Push / Pull / Legs <span style="display:block;font-size:12px;color:var(--t3);margin-top:3px;font-weight:400">Ideal für 6 Tage · jede Muskelgruppe 2×</span></button>
+          <button class="ob-option" data-val="upperlower" onclick="selectOpt(this,'split')">Upper / Lower <span style="display:block;font-size:12px;color:var(--t3);margin-top:3px;font-weight:400">Ideal für 4 Tage · beste Balance Frequenz/Erholung</span></button>
+          <button class="ob-option" data-val="fullbody" onclick="selectOpt(this,'split')">Ganzkörper <span style="display:block;font-size:12px;color:var(--t3);margin-top:3px;font-weight:400">Ideal für 2–3 Tage · jeder Muskel jede Session</span></button>
+          <button class="ob-option" data-val="brosplit" onclick="selectOpt(this,'split')">Bro-Split <span style="display:block;font-size:12px;color:var(--t3);margin-top:3px;font-weight:400">1 Muskelgruppe pro Tag · nur 1× Frequenz</span></button>
         </div>
       </div>
 
@@ -629,27 +631,27 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
         <div style="font-size:13px;color:var(--t2);margin-bottom:18px">Für präzisere Kalorienziele und Benchmark-Vergleiche.</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
           <div>
-            <div style="font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-bottom:5px">Name</div>
+            <div style="font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-bottom:5px">Name</div>
             <input id="ob-name"   class="li" type="text"   placeholder="Dein Name"  style="width:100%;text-align:left;padding:10px;font-size:14px;font-weight:400">
           </div>
           <div>
-            <div style="font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-bottom:5px">Alter</div>
+            <div style="font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-bottom:5px">Alter</div>
             <input id="ob-age"    class="li" type="number" placeholder="Jahre"       style="width:100%;padding:10px;font-size:14px">
           </div>
           <div>
-            <div style="font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-bottom:5px">Gewicht (kg)</div>
+            <div style="font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-bottom:5px">Gewicht (kg)</div>
             <input id="ob-weight" class="li" type="number" placeholder="z.B. 80"    style="width:100%;padding:10px;font-size:14px">
           </div>
           <div>
-            <div style="font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-bottom:5px">Größe (cm)</div>
+            <div style="font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-bottom:5px">Größe (cm)</div>
             <input id="ob-height" class="li" type="number" placeholder="z.B. 180"   style="width:100%;padding:10px;font-size:14px">
           </div>
           <div>
-            <div style="font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-bottom:5px">Körperfett (%)</div>
+            <div style="font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-bottom:5px">Körperfett (%)</div>
             <input id="ob-kfa"    class="li" type="number" step="0.1" placeholder="z.B. 18" style="width:100%;padding:10px;font-size:14px">
           </div>
           <div>
-            <div style="font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-bottom:5px">Ziel-KFA (%)</div>
+            <div style="font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-bottom:5px">Ziel-KFA (%)</div>
             <input id="ob-kfagoal" class="li" type="number" step="0.1" placeholder="z.B. 14" style="width:100%;padding:10px;font-size:14px">
           </div>
         </div>
@@ -1111,7 +1113,7 @@ function showConfirmDialog(o){
     +'<div style="font-size:13px;color:var(--t2);line-height:1.6">'+(o.bodyHtml||'')+'</div>'
     +'<div style="display:flex;gap:10px;margin-top:20px">'
     +'<button type="button" class="btn bo" onclick="closeConfirmDialog()" style="flex:1">'+esc(o.cancelLabel||'Abbrechen')+'</button>'
-    +'<button type="button" class="btn bp" onclick="confirmDialogOk()" style="flex:2'+(o.danger?';background:var(--accent)':'')+'">'+esc(o.okLabel||'OK')+'</button>'
+    +'<button type="button" class="btn bp" onclick="confirmDialogOk()" style="flex:2'+(o.danger?';background:var(--accent-fill)':'')+'">'+esc(o.okLabel||'OK')+'</button>'
     +'</div></div>';
   d.style.display = 'flex';
 }
@@ -1192,7 +1194,7 @@ function offerPlan3plus1(){
     return '<div style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid var(--border)">'
       +'<span style="color:var(--t3);width:28px">'+WEEKDAYS[i].slice(0,2)+'</span>'
       +'<span style="flex:1;color:var(--t1)">'+esc(d.name)+(d.optional?' <span style="color:var(--t3)">(optional)</span>':'')+'</span>'
-      +'<span style="color:var(--t3);font-size:11px">'+(d.type==='gym'?planDayStats(d).sets+' Sätze':'')+'</span></div>';
+      +'<span style="color:var(--t3);font-size:12px">'+(d.type==='gym'?planDayStats(d).sets+' Sätze':'')+'</span></div>';
   }).join('');
   showConfirmDialog({
     title:'Vorlage "3+1 Fußball" übernehmen?',
@@ -1342,14 +1344,14 @@ function renderStrengthCard(){
     var arrow=t.trend==='up'?'▲ +'+t.pct+'%':t.trend==='down'?'▼ '+t.pct+'%':t.trend==='plateau'?'▬ Plateau':'▬';
     return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">'
       +'<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(l.ex)+'</div>'
-      +'<div style="font-size:11px;color:'+col+';font-weight:600;margin-top:2px">'+arrow+'</div></div>'
+      +'<div style="font-size:12px;color:'+col+';font-weight:600;margin-top:2px">'+arrow+'</div></div>'
       +'<svg viewBox="0 0 '+W+' '+H+'" style="width:80px;height:24px;flex-shrink:0"><polyline points="'+pts+'" fill="none" stroke="'+col+'" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
       +'<div style="text-align:right;flex-shrink:0;width:64px"><div style="font-size:15px;font-weight:700;color:var(--blue)">'+t.last+'</div>'
-      +'<div style="font-size:9px;color:var(--t3)">kg E1RM</div>'
+      +'<div style="font-size:12px;color:var(--t3)">kg E1RM</div>'
       +(isAthlete() && relE1rm(t.last) ? '<div data-rel="1" style="font-size:12px;color:var(--t2)">'+fmtRel(relE1rm(t.last))+'</div>' : '')+'</div>'
       +'</div>';
   }).join('')
-  +'<div style="margin-top:8px;font-size:10px;color:var(--t3);line-height:1.5">E1RM = geschätztes 1-Wdh-Maximum (Epley). Bester Satz je Session · Quelle: deine geloggten Workouts</div>';
+  +'<div style="margin-top:8px;font-size:12px;color:var(--t3);line-height:1.5">E1RM = geschätztes 1-Wdh-Maximum (Epley). Bester Satz je Session · Quelle: deine geloggten Workouts</div>';
 }
 
 // ── 10. SMART NOTIFICATIONS ─────────────────────────────
@@ -2469,7 +2471,7 @@ function renderTodayCard(){
   var icon = m.kind==='unit' ? '🏋️' : m.kind==='done' ? '✅' : m.kind==='appointment' ? '⚽' : m.kind==='mobility' ? '🧘' : '😌';
   var bars = FLEX_GROUPS.map(function(g){
     var v = r.rec[g], col = v>=80 ? 'var(--green)' : v>=60 ? 'var(--orange)' : 'var(--accent)';
-    return '<div style="flex:1;min-width:0"><div style="font-size:10px;color:var(--t3)">'+FLEX_GROUP_LABEL[g]+' '+v+' %</div>'
+    return '<div style="min-width:0"><div style="font-size:12px;color:var(--t3);white-space:nowrap">'+FLEX_GROUP_LABEL[g]+' '+v+' %</div>'
       +'<div style="height:4px;background:var(--card3);border-radius:2px;overflow:hidden;margin-top:3px"><div style="height:100%;width:'+v+'%;background:'+col+'"></div></div></div>';
   }).join('');
   var others = rotationUnits().map(function(d){ return '<option value="'+esc(d.id)+'">'+esc(d.name)+'</option>'; }).join('');
@@ -2481,11 +2483,11 @@ function renderTodayCard(){
     +'<div style="flex:1"><div style="font-size:15px;font-weight:700">'+esc(m.kind==='unit' ? 'Heute: '+m.label : m.label)+'</div>'
     +(m.reason ? '<div style="font-size:12px;color:var(--t2);margin-top:2px;line-height:1.5">'+esc(m.reason)+'</div>' : '')+'</div></div>'
     +(a ? '<div style="margin-top:8px;font-size:12px;color:var(--t2);line-height:1.5">Alternative: <b style="color:var(--t1)">'+esc(a.label)+'</b>'+(a.reason ? ', '+esc(a.reason) : '')+'</div>' : '')
-    +'<div style="display:flex;gap:8px;margin-top:10px">'+bars+'</div>'
-    +'<div style="margin-top:8px;font-size:11px;color:var(--t3)">Gym diese Woche: '+r.weekGym+' · Ziel '+r.goal.min+'–'+r.goal.max+'×'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;margin-top:10px">'+bars+'</div>'
+    +'<div style="margin-top:8px;font-size:12px;color:var(--t3)">Gym diese Woche: '+r.weekGym+' · Ziel '+r.goal.min+'–'+r.goal.max+'×'
     +(r.next ? ' · Nächste Einheit: '+esc(r.next.name) : '')
     +(nextAppt ? ' · Nächster Termin: '+WEEKDAYS[dayIdxOf(nextAppt.ts)].slice(0,2)+' '+esc(nextAppt.appt.time||'')+' '+esc(nextAppt.appt.name) : '')+'</div>'
-    +(voTxt ? '<div style="margin-top:4px;font-size:11px;color:var(--t3)">Volumen offen: '+esc(voTxt)+' (bis +2 Sätze im nächsten passenden Training)</div>' : '')
+    +(voTxt ? '<div style="margin-top:4px;font-size:12px;color:var(--t3)">Volumen offen: '+esc(voTxt)+' (bis +2 Sätze im nächsten passenden Training)</div>' : '')
     +apptConfirmHtml(countedAppointments(1))
     +'<div style="display:flex;gap:8px;margin-top:10px">'
     +(m.kind==='unit' ? '<button type="button" class="btn bp" id="flexStartMain" onclick="startRecommended()" style="flex:2;margin:0">Workout starten →</button>' : '')
@@ -2540,7 +2542,7 @@ function feedbackHtml(){
   var groups = FLEX_GROUPS.filter(function(g){ return (p.ev.load[g]||0) > 0; });
   return '<div class="c" style="margin-bottom:10px">'
     +'<div style="font-size:14px;font-weight:700">Wie fühlst du dich nach '+esc(p.ev.label)+'?</div>'
-    +'<div style="font-size:11px;color:var(--t3);margin:2px 0 6px">Optional · 1 = starker Muskelkater, 5 = frisch</div>'
+    +'<div style="font-size:12px;color:var(--t3);margin:2px 0 6px">Optional · 1 = starker Muskelkater, 5 = frisch</div>'
     +groups.map(function(g){
       return '<div style="display:flex;align-items:center;gap:4px;margin-top:5px"><span style="width:52px;font-size:12px;color:var(--t2)">'+FLEX_GROUP_LABEL[g]+'</span>'
         +[1,2,3,4,5].map(function(v){ var on = draft[g]===v;
@@ -2614,7 +2616,7 @@ function apptConfirmHtml(list){
     return '<div style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:var(--t1)">'
       +'<span style="flex:1">✓ '+WEEKDAYS[dayIdxOf(o.ts)].slice(0,2)+' '+esc(o.appt.time||'')+' '+esc(o.appt.name)+' gezählt</span>'
       +(o.appt.activity==='match' ? '<input type="number" class="li" min="0" max="150" placeholder="Min" value="'+(mins[o.key]!=null?mins[o.key]:'')+'" data-appt-min="'+k+'" onchange="setApptMinutes(\''+k+'\',this.value)" style="width:56px;padding:4px;font-size:12px">' : '')
-      +'<button type="button" class="btn bg2" data-appt-no="'+k+'" onclick="confirmAppointment(\''+k+'\',false)" style="width:auto;padding:5px 9px;font-size:11px;margin:0">✕ fiel aus</button></div>';
+      +'<button type="button" class="btn bg2" data-appt-no="'+k+'" onclick="confirmAppointment(\''+k+'\',false)" style="width:auto;padding:5px 9px;font-size:12px;margin:0">✕ fiel aus</button></div>';
   }).join('');
 }
 function renderActivityLog(){
@@ -2642,8 +2644,8 @@ function renderActivityLog(){
     +'<select id="actKind" style="flex:1;min-width:0;padding:8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-size:12px">'+opts+'</select></div>'
     +'<div style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:var(--t2)">Spielminuten (optional, nur Spiel)<input id="actMin" class="li" type="number" min="0" max="150" placeholder="90" style="width:70px;padding:6px;font-size:13px"></div>'
     +'<button type="button" class="btn bp" onclick="logActivityFromForm()" style="margin-top:8px;font-size:13px;padding:10px">+ Eintragen</button>'
-    +(pend.length ? '<div style="margin-top:12px;font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3)">Termine (zählen automatisch)</div>'+apptConfirmHtml(pend) : '')
-    +(list ? '<div style="margin-top:12px;font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3)">Eingetragen (14 Tage)</div>'+list : '');
+    +(pend.length ? '<div style="margin-top:12px;font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3)">Termine (zählen automatisch)</div>'+apptConfirmHtml(pend) : '')
+    +(list ? '<div style="margin-top:12px;font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3)">Eingetragen (14 Tage)</div>'+list : '');
 }
 
 // ── Einstellungen: Belastung (0–3) je Aktivität und Gruppe, Erholungszeiten, Wochenziel ──
@@ -2695,8 +2697,8 @@ function renderLoadSettings(){
   var rows = rotationUnits().map(function(u){
     var custom = !!sch.activities['gym:'+u.id];
     return row('gym:'+u.id, u.name, unitLoad(u), custom
-      ? ' <button type="button" onclick="resetUnitLoad(\''+esc(u.id)+'\')" style="background:none;border:none;color:var(--blue);font-size:11px;padding:0;cursor:pointer">auto</button>'
-      : ' <span style="font-size:10px;color:var(--t3)">auto</span>');
+      ? ' <button type="button" onclick="resetUnitLoad(\''+esc(u.id)+'\')" style="background:none;border:none;color:var(--blue);font-size:12px;padding:0;cursor:pointer">auto</button>'
+      : ' <span style="font-size:12px;color:var(--t3)">auto</span>');
   }).join('') + Object.keys(sch.activities).filter(function(k){ return k.indexOf('gym:')!==0; }).map(function(k){
     return row(k, sch.activities[k].name||k, Object.assign(zeroLoad(), sch.activities[k].load));
   }).join('');
@@ -2704,14 +2706,14 @@ function renderLoadSettings(){
   var num = function(attrs, val, fn){ return '<input class="li" type="number" '+attrs+' value="'+val+'" onchange="'+fn+'" style="width:64px;padding:6px;font-size:13px">'; };
   c.innerHTML = '<div style="font-size:12px;color:var(--t2);margin-bottom:8px;line-height:1.5">Belastung pro Muskelgruppe (0 = keine, 3 = hoch). Gym-Einheiten rechnet die App aus den Sätzen (auto), du kannst sie überschreiben.</div>'
     +'<table style="width:100%;table-layout:fixed;border-collapse:collapse"><colgroup><col><col style="width:48px"><col style="width:48px"><col style="width:48px"><col style="width:48px"></colgroup>'
-    +'<thead><tr><th></th>'+FLEX_GROUPS.map(function(g){ return '<th style="font-size:10px;color:var(--t3);font-weight:500">'+FLEX_GROUP_LABEL[g]+'</th>'; }).join('')+'</tr></thead>'
+    +'<thead><tr><th></th>'+FLEX_GROUPS.map(function(g){ return '<th style="font-size:12px;color:var(--t3);font-weight:500">'+FLEX_GROUP_LABEL[g]+'</th>'; }).join('')+'</tr></thead>'
     +'<tbody>'+rows+'</tbody></table>'
     +'<div style="display:flex;gap:6px;margin-top:8px"><input class="li" id="newActName" type="text" placeholder="Neue Aktivität (z. B. Laufen)" style="flex:1;text-align:left;padding:8px;font-size:12px;font-weight:400">'
     +'<button type="button" class="btn bo" onclick="addActivity((el(\'newActName\')||{}).value)" style="width:auto;padding:8px 12px;font-size:12px;margin:0">+ Aktivität</button></div>'
-    +'<div style="font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin:14px 0 6px">Erholungszeit</div>'
+    +'<div style="font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin:14px 0 6px">Erholungszeit</div>'
     +'<div style="display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--t2);align-items:center">'
     +[1,2,3].map(function(L){ return '<span>Stufe '+L+' '+num('min="6" max="240" data-rh="'+L+'"', rh[L], 'setRecoveryHours('+L+',this.value)')+' h</span>'; }).join('')+'</div>'
-    +'<div style="font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin:14px 0 6px">Wochenziel Gym</div>'
+    +'<div style="font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin:14px 0 6px">Wochenziel Gym</div>'
     +'<div style="display:flex;gap:10px;font-size:12px;color:var(--t2);align-items:center">'
     +num('min="1" max="7"', wg.min, "setWeekGoal('min',this.value)")+' bis '+num('min="1" max="7"', wg.max, "setWeekGoal('max',this.value)")+' × pro Woche</div>';
 }
@@ -2781,13 +2783,13 @@ function renderApptSettings(){
     var dt = new Date(o.ts);
     return '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:12px;'+(o.cancelled?'color:var(--t3);text-decoration:line-through':'color:var(--t2)')+'">'
       +'<span>'+WEEKDAYS[dayIdxOf(o.ts)].slice(0,2)+' '+dt.getDate()+'.'+(dt.getMonth()+1)+'. '+esc(o.appt.time||'')+' · '+esc(o.appt.name)+'</span>'
-      +'<button type="button" class="btn bg2" data-appt-cancel="'+esc(o.key)+'" onclick="toggleApptCancelled(\''+esc(o.key)+'\')" style="width:auto;padding:4px 8px;font-size:11px;margin:0">'+(o.cancelled?'findet statt':'fällt aus')+'</button></div>';
+      +'<button type="button" class="btn bg2" data-appt-cancel="'+esc(o.key)+'" onclick="toggleApptCancelled(\''+esc(o.key)+'\')" style="width:auto;padding:4px 8px;font-size:12px;margin:0">'+(o.cancelled?'findet statt':'fällt aus')+'</button></div>';
   }).join('') : '<div style="font-size:12px;color:var(--t3)">Keine Termine in den nächsten 14 Tagen.</div>';
   c.innerHTML = (rows || '<div style="font-size:12px;color:var(--t3)">Noch keine festen Termine.</div>')
     +'<button type="button" class="btn bo" onclick="addAppointment()" style="margin-top:10px;font-size:12px;padding:8px">+ Termin</button>'
-    +'<div style="font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin:14px 0 4px">Nächste 14 Tage</div>'
+    +'<div style="font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin:14px 0 4px">Nächste 14 Tage</div>'
     +occHtml
-    +'<div style="font-size:11px;color:var(--t3);margin-top:8px;line-height:1.5">Termine planen nur voraus. Für die Erholung zählt, was du im Log einträgst.</div>';
+    +'<div style="font-size:12px;color:var(--t3);margin-top:8px;line-height:1.5">Termine planen nur voraus. Für die Erholung zählt, was du im Log einträgst.</div>';
 }
 
 // ── Datenerfassung (Spec 6) ──────────────────────────────────────────────
@@ -2877,7 +2879,7 @@ function renderCoachCard(){
     warnHtml = '<div style="background:rgba(230,57,57,.1);border:1px solid rgba(230,57,57,.3);border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:var(--t2);line-height:1.5">'
       +'⚠️ <strong style="color:var(--accent)">Übertraining-Risiko</strong><br>'
       + overMRV.map(function(x){return '<strong style="color:var(--t1)">'+x.m+'</strong> mit '+x.sets+' Sätzen über MRV ('+x.mrv+').';}).join('<br>')
-      +'<br><span style="color:var(--t3);font-size:11px">Tipp: Reduziere die Anzahl der Sessions oder Sätze diese Woche.</span>'
+      +'<br><span style="color:var(--t3);font-size:12px">Tipp: Reduziere die Anzahl der Sessions oder Sätze diese Woche.</span>'
       +'</div>';
   }
 
@@ -2894,7 +2896,7 @@ function renderCoachCard(){
     else { status='> MRV'; color='var(--accent)'; }
     var pct=Math.min(100,(sets/lm.mrv)*100);
     return '<div class="coach-bar">'
-      +'<div class="coach-bar-label"><span style="text-transform:uppercase;letter-spacing:1px;color:var(--t2);font-size:11px">'+m+'</span><span style="color:'+color+';font-weight:600;font-size:11px">'+sets+' Sätze · '+status+'</span></div>'
+      +'<div class="coach-bar-label"><span style="text-transform:uppercase;letter-spacing:1px;color:var(--t2);font-size:12px">'+m+'</span><span style="color:'+color+';font-weight:600;font-size:12px">'+sets+' Sätze · '+status+'</span></div>'
       +'<div class="coach-bar-track"><div class="coach-bar-fill" style="width:'+pct+'%;background:'+color+'"></div></div>'
       +'</div>';
   }).join('');
@@ -2906,13 +2908,13 @@ function renderCoachCard(){
     var addList = advice.filter(function(a){return a.action==='add';}).slice(0,3);
     var redList = advice.filter(function(a){return a.action==='reduce';}).slice(0,3);
     adviceHtml = '<div style="margin-top:12px;padding:10px 12px;background:var(--card2);border-radius:10px;font-size:12px;color:var(--t2);line-height:1.6">'
-      +'<strong style="color:var(--t1);font-size:11px;letter-spacing:.5px">📈 Volumen-Progression</strong><br>'
+      +'<strong style="color:var(--t1);font-size:12px;letter-spacing:.5px">📈 Volumen-Progression</strong><br>'
       + addList.map(function(a){return '➕ '+esc(a.msg);}).join('<br>')
       + (addList.length&&redList.length?'<br>':'')
       + redList.map(function(a){return '➖ '+esc(a.msg);}).join('<br>')
       +'</div>';
   }
-  el_.innerHTML=warnHtml+rows+adviceHtml+'<div style="margin-top:10px;font-size:10px;color:var(--t3);line-height:1.5">Sätze = Ø pro Woche der letzten 14 Tage · Israetel MEV/MAV/MRV-Modell · Ziel: MEV–MAV für Hypertrophie</div>';
+  el_.innerHTML=warnHtml+rows+adviceHtml+'<div style="margin-top:10px;font-size:12px;color:var(--t3);line-height:1.5">Sätze = Ø pro Woche der letzten 14 Tage · Israetel MEV/MAV/MRV-Modell · Ziel: MEV–MAV für Hypertrophie</div>';
 }
 
 // ── 13. PLAN RENDER ─────────────────────────────────────
@@ -2942,10 +2944,10 @@ function renderPlan(){
             return '<div class="er">'
               +'<div style="flex:1">'
               +'<div class="en">'+esc(e.n)+'</div>'
-              +(note?'<div style="font-size:11px;color:var(--t3);margin-top:2px">'+esc(note)+'</div>':'')
+              +(note?'<div style="font-size:12px;color:var(--t3);margin-top:2px">'+esc(note)+'</div>':'')
               +'</div>'
               +'<div class="es" style="flex-shrink:0;text-align:right">'+esc(e.s)
-              +(day.type==='gym' && !timed ? '<div style="font-size:10px;color:var(--violet);margin-top:2px">'+esc(targetRIRLabel(e.n))+'</div>' : '')
+              +(day.type==='gym' && !timed ? '<div style="font-size:12px;color:var(--violet);margin-top:2px">'+esc(targetRIRLabel(e.n))+'</div>' : '')
               +'</div>'
               +'</div>';
           }).join('')
@@ -2960,7 +2962,7 @@ function renderPlan(){
         ?'<div style="display:flex;gap:5px;align-items:center;margin-right:6px">'
           +'<button type="button" class="btn bg2" data-move-up="'+idx+'" '+(units[0]===day?'disabled':'')+' style="width:30px;padding:6px 0;font-size:13px;margin:0">↑</button>'
           +'<button type="button" class="btn bg2" data-move-down="'+idx+'" '+(units[units.length-1]===day?'disabled':'')+' style="width:30px;padding:6px 0;font-size:13px;margin:0">↓</button>'
-          +'<button type="button" class="btn bg2" data-edit-day="'+idx+'" style="width:auto;padding:6px 10px;font-size:11px;margin:0">✏️</button>'
+          +'<button type="button" class="btn bg2" data-edit-day="'+idx+'" style="width:auto;padding:6px 10px;font-size:12px;margin:0">✏️</button>'
           +'</div>'
         :'';
 
@@ -2969,7 +2971,7 @@ function renderPlan(){
         +'<div class="wk-d">'
         +'<div class="wk-n">'+(units.indexOf(day)+1)+' · '+esc(day.name||'')+'</div>'
         +'<div class="wk-s">'+esc(planDaySub(day))+'</div>'
-        +(day===nextU?'<div class="wk-ov" style="font-size:11px;color:var(--violet);font-weight:600;margin-top:3px">▶ Nächste Einheit</div>':'')
+        +(day===nextU?'<div class="wk-ov" style="font-size:12px;color:var(--violet);font-weight:600;margin-top:3px">▶ Nächste Einheit</div>':'')
         +'</div>'
         +editCtrl+badge+(em?'':'<div class="wk-c">▼</div>')
         +'</div>'
@@ -3045,13 +3047,13 @@ function renderLog(){
   var statsHtml='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">'
     +'<div style="background:var(--card2);border-radius:10px;padding:10px;text-align:center">'
     +'<div style="font-size:20px;font-weight:700;color:var(--accent)">'+wkSessions.length+'</div>'
-    +'<div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-top:3px">Sessions 7T</div></div>'
+    +'<div style="font-size:12px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-top:3px">Sessions 7T</div></div>'
     +'<div style="background:var(--card2);border-radius:10px;padding:10px;text-align:center">'
     +'<div style="font-size:20px;font-weight:700;color:var(--blue)">'+Math.round(wkVol/1000*10)/10+'t</div>'
-    +'<div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-top:3px">Volumen 7T</div></div>'
+    +'<div style="font-size:12px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-top:3px">Volumen 7T</div></div>'
     +'<div style="background:var(--card2);border-radius:10px;padding:10px;text-align:center">'
     +'<div style="font-size:20px;font-weight:700;color:var(--gold)">'+prCount+'</div>'
-    +'<div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-top:3px">PRs gesamt 🏆</div></div>'
+    +'<div style="font-size:12px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-top:3px">PRs gesamt 🏆</div></div>'
     +'</div>';
 
   // PR list
@@ -3060,7 +3062,7 @@ function renderLog(){
   var prKeys=Object.keys(prs);
   if(prKeys.length){
     prHtml='<div style="margin-bottom:16px;padding:12px;background:rgba(255,214,10,.06);border:1px solid rgba(255,214,10,.2);border-radius:12px">'
-      +'<div style="font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--gold);margin-bottom:10px">🏆 Persönliche Rekorde</div>'
+      +'<div style="font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--gold);margin-bottom:10px">🏆 Persönliche Rekorde</div>'
       +prKeys.map(function(ex){
         return '<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px">'
           +'<span style="color:var(--t2)">'+esc(ex)+'</span>'
@@ -3101,10 +3103,10 @@ function renderLog(){
       var e1Html=bestE>0?'<span style="color:var(--blue);font-weight:600">E1RM '+(Math.round(bestE*10)/10)+'</span>':(sets.length+' Sätze');
       return '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)">'
         +'<div>'
-        +'<div style="font-size:13px;font-weight:500">'+esc(exName)+(hasPR?' <span style="color:var(--gold);font-size:10px">PR 🏆</span>':'')+'</div>'
-        +'<div style="font-size:11px;color:var(--t3);margin-top:2px">'+setsStr+'</div>'
+        +'<div style="font-size:13px;font-weight:500">'+esc(exName)+(hasPR?' <span style="color:var(--gold);font-size:12px">PR 🏆</span>':'')+'</div>'
+        +'<div style="font-size:12px;color:var(--t3);margin-top:2px">'+setsStr+'</div>'
         +'</div>'
-        +'<div style="font-size:11px;color:var(--t3);text-align:right">'+e1Html+'</div>'
+        +'<div style="font-size:12px;color:var(--t3);text-align:right">'+e1Html+'</div>'
         +'</div>';
     }).join('');
 
@@ -3113,20 +3115,20 @@ function renderLog(){
       +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">'
       +'<div>'
       +'<div style="font-size:15px;font-weight:700">'+esc(e.dayName||'Workout')+'</div>'
-      +'<div style="font-size:11px;color:var(--t3);margin-top:2px">'+dateStr+' · '+timeStr+'</div>'
+      +'<div style="font-size:12px;color:var(--t3);margin-top:2px">'+dateStr+' · '+timeStr+'</div>'
       +'</div>'
       +'<div style="display:flex;gap:6px;align-items:center">'
-      +(prInSession?'<span style="background:rgba(255,214,10,.15);color:var(--gold);font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px">'+prInSession+' PR</span>':'')
-      +'<button type="button" onclick="logStartEdit('+hIdx+')" aria-label="Session bearbeiten" style="background:var(--card2);border:1px solid var(--border);color:var(--t2);font-size:11px;padding:4px 9px;border-radius:8px;cursor:pointer;font-family:var(--f)">✎ Bearbeiten</button>'
+      +(prInSession?'<span style="background:rgba(255,214,10,.15);color:var(--gold);font-size:12px;font-weight:700;padding:3px 8px;border-radius:10px">'+prInSession+' PR</span>':'')
+      +'<button type="button" onclick="logStartEdit('+hIdx+')" aria-label="Session bearbeiten" style="background:var(--card2);border:1px solid var(--border);color:var(--t2);font-size:12px;padding:4px 9px;border-radius:8px;cursor:pointer;font-family:var(--f)">✎ Bearbeiten</button>'
       +'</div>'
       +'</div>'
       // Stats row
       +'<div style="display:flex;gap:12px;margin-bottom:10px;padding:8px;background:var(--card2);border-radius:8px">'
-      +'<div style="text-align:center;flex:1"><div style="font-size:14px;font-weight:700;color:var(--accent)">'+dur+'</div><div style="font-size:9px;color:var(--t3)">DAUER</div></div>'
+      +'<div style="text-align:center;flex:1"><div style="font-size:14px;font-weight:700;color:var(--accent)">'+dur+'</div><div style="font-size:12px;color:var(--t3)">DAUER</div></div>'
       +'<div style="width:1px;background:var(--border)"></div>'
-      +'<div style="text-align:center;flex:1"><div style="font-size:14px;font-weight:700;color:var(--blue)">'+vol+'</div><div style="font-size:9px;color:var(--t3)">KG VOLUMEN</div></div>'
+      +'<div style="text-align:center;flex:1"><div style="font-size:14px;font-weight:700;color:var(--blue)">'+vol+'</div><div style="font-size:12px;color:var(--t3)">KG VOLUMEN</div></div>'
       +'<div style="width:1px;background:var(--border)"></div>'
-      +'<div style="text-align:center;flex:1"><div style="font-size:14px;font-weight:700;color:var(--green)">'+Object.keys(exMap).length+'</div><div style="font-size:9px;color:var(--t3)">ÜBUNGEN</div></div>'
+      +'<div style="text-align:center;flex:1"><div style="font-size:14px;font-weight:700;color:var(--green)">'+Object.keys(exMap).length+'</div><div style="font-size:12px;color:var(--t3)">ÜBUNGEN</div></div>'
       +'</div>'
       // A10: Ø Pause der Hauptübungen (nur Athlet, nur Sätze mit Zeitstempel)
       +(isAthlete() && mainPauseStats(e.sets) ? '<div data-pause="1" style="font-size:12px;color:var(--t2);margin:-4px 0 8px">⏱ '+esc(mainPauseText(mainPauseStats(e.sets)))+'</div>' : '')
@@ -3356,7 +3358,7 @@ function logEditCardHtml(e, hIdx){
   var rows = (e.sets||[]).map(function(st, i){
     var id = function(f){ return 'lg-'+f+'-'+hIdx+'-'+i; };
     var fields = st.secs
-      ? '<input id="'+id('secs')+'" type="number" inputmode="numeric" value="'+esc(st.secs)+'" style="'+inp+'"><span style="font-size:11px;color:var(--t3)">s</span>'
+      ? '<input id="'+id('secs')+'" type="number" inputmode="numeric" value="'+esc(st.secs)+'" style="'+inp+'"><span style="font-size:12px;color:var(--t3)">s</span>'
       : (st.add!=null
           ? '<input id="'+id('add')+'" type="number" inputmode="decimal" step="0.25" min="0" value="'+esc(st.add)+'" aria-label="Zusatz kg" style="'+inp+'">'
           : '<input id="'+id('w')+'" type="number" inputmode="decimal" step="0.25" value="'+esc(st.w)+'" aria-label="kg" style="'+inp+'">')
@@ -3371,7 +3373,7 @@ function logEditCardHtml(e, hIdx){
   var armed = _logDelArm === hIdx;
   return '<div style="background:var(--card);border:1px solid var(--blue);border-radius:14px;padding:14px;margin-bottom:10px">'
     +'<div style="font-size:15px;font-weight:700">'+esc(e.dayName||'Workout')+' · bearbeiten</div>'
-    +'<div style="font-size:11px;color:var(--t3);margin:2px 0 8px">'+new Date(e.ts).toLocaleDateString('de',{weekday:'long',day:'2-digit',month:'2-digit',year:'2-digit'})+' · kg / Wdh / RIR</div>'
+    +'<div style="font-size:12px;color:var(--t3);margin:2px 0 8px">'+new Date(e.ts).toLocaleDateString('de',{weekday:'long',day:'2-digit',month:'2-digit',year:'2-digit'})+' · kg / Wdh / RIR</div>'
     +(rows || '<div style="font-size:12px;color:var(--t3);padding:6px 0">Keine Sätze.</div>')
     +'<div style="display:flex;gap:8px;margin-top:10px">'
     +'<button type="button" class="btn bg2" onclick="logCancelEdit()" style="flex:1;margin:0;font-size:13px">Abbrechen</button>'
@@ -3485,7 +3487,7 @@ function showPreWorkoutDialog(dayId, day, analysis, opts){
     +'<div style="font-size:20px;font-weight:700;margin-bottom:4px">🧠 Smart Coach Empfehlung</div>'
     +'<div style="font-size:13px;color:var(--t2);margin-bottom:18px">Dein Wochenvolumen würde nach dieser Session über dem optimalen Bereich liegen.</div>'
     + overflowHtml
-    +'<div style="font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin:18px 0 10px">Vorschlag der KI</div>'
+    +'<div style="font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin:18px 0 10px">Vorschlag der KI</div>'
     + suggestionsHtml
     +'<div style="display:flex;gap:10px;margin-top:20px">'
     +'<button id="pw-skip"  class="btn bo" style="flex:1">Trotzdem voll trainieren</button>'
@@ -3767,7 +3769,7 @@ function renderWorkout(){
     const stepVal=customEquipStep(cur.n);
     const stepDefault=loadIncrement(lastWorkWeight(cur.n) || (last?+last.w:0), cur.n, true);
     const stepHtml=(isTimed||isBWex)?'':`<div style="margin-top:10px;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--t2)">
-        <span style="flex:1">Gewichtsschritt an deinem Gerät<br><span id="equipStepDefault" style="font-size:11px;color:var(--t3)">Standard: ${fmtDe(stepDefault)} kg</span></span>
+        <span style="flex:1">Gewichtsschritt an deinem Gerät<br><span id="equipStepDefault" style="font-size:12px;color:var(--t3)">Standard: ${fmtDe(stepDefault)} kg</span></span>
         <input id="equipStepInp" type="number" inputmode="decimal" step="0.25" min="0" placeholder="${stepDefault}" value="${stepVal||''}" style="width:84px;padding:6px 8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-size:13px">
         <span>kg</span>
       </div>`;
@@ -3781,14 +3783,14 @@ function renderWorkout(){
           </div>
           <div class="wa-meta">
             <span style="font-size:12px;color:var(--t3)">${s.currentIdx+1} / ${s.exercises.length}</span>
-            <button type="button" onclick="openGlossar()" style="background:var(--card2);border:1px solid var(--border);color:var(--t3);font-size:11px;font-weight:600;padding:6px 10px;border-radius:8px;cursor:pointer;font-family:var(--f)">📖</button>
+            <button type="button" onclick="openGlossar()" style="background:var(--card2);border:1px solid var(--border);color:var(--t3);font-size:12px;font-weight:600;padding:6px 10px;border-radius:8px;cursor:pointer;font-family:var(--f)">📖</button>
             <button type="button" class="abort-btn" id="abortBtn" data-action="abort">✕ Abbruch</button>
           </div>
         </div>
 
         <!-- Exercise pills -->
         <div style="display:flex;gap:5px;overflow-x:auto;padding:0 0 10px;scrollbar-width:none;-webkit-overflow-scrolling:touch">
-          ${s.exercises.map((ex,i)=>`<button type="button" data-jump="${i}" style="flex-shrink:0;padding:5px 10px;border-radius:20px;font-size:11px;font-weight:600;border:1.5px solid ${i===s.currentIdx?'var(--accent)':ex.done?'var(--green)':'var(--border2)'};background:${i===s.currentIdx?'var(--accent)':ex.done?'rgba(52,199,89,.1)':'var(--card2)'};color:${i===s.currentIdx?'#000':ex.done?'var(--green)':'var(--t3)'};cursor:pointer;font-family:var(--f)">${ex.done?'✓ ':''} ${esc(ex.n.split(' ')[0])}</button>`).join('')}
+          ${s.exercises.map((ex,i)=>`<button type="button" data-jump="${i}" style="flex-shrink:0;padding:5px 10px;border-radius:20px;font-size:12px;font-weight:600;border:1.5px solid ${i===s.currentIdx?'var(--accent)':ex.done?'var(--green)':'var(--border2)'};background:${i===s.currentIdx?'var(--accent)':ex.done?'rgba(52,199,89,.1)':'var(--card2)'};color:${i===s.currentIdx?'#000':ex.done?'var(--green)':'var(--t3)'};cursor:pointer;font-family:var(--f)">${ex.done?'✓ ':''} ${esc(ex.n.split(' ')[0])}</button>`).join('')}
         </div>
 
         ${primerHtml(s)}
@@ -3797,8 +3799,8 @@ function renderWorkout(){
           <div class="sl">Aktuelle Übung</div>
           <div style="font-size:20px;font-weight:700;margin-top:6px">${esc(cur.n)}</div>
           <div style="color:var(--t2);margin-top:4px;font-size:13px">Ziel: ${esc(cur.s)}${isTimed?' · <span style="color:var(--blue)">⏱ Zeitübung</span>':' · <span style="color:var(--violet)">'+targetRIRLabel(cur.n)+' · '+mesoLabel()+'</span>'}</div>
-          ${(s.hints||[]).length?`<div style="color:var(--violet);font-size:11px;margin-top:4px">${s.hints.map(esc).join(' · ')}</div>`:''}
-          ${last?`<div style="color:var(--t3);font-size:11px;margin-top:6px">Letztes Mal: ${isBWex?(function(){var la=setAddKg(last);return la>0?'+'+la+' kg Zusatz':'Körpergewicht';})():last.w+' kg'} × ${last.r}${rirOf(last.rpe)!==null?' · '+rirLabel(last.rpe):''}</div>`:''}
+          ${(s.hints||[]).length?`<div style="color:var(--violet);font-size:12px;margin-top:4px">${s.hints.map(esc).join(' · ')}</div>`:''}
+          ${last?`<div style="color:var(--t3);font-size:12px;margin-top:6px">Letztes Mal: ${isBWex?(function(){var la=setAddKg(last);return la>0?'+'+la+' kg Zusatz':'Körpergewicht';})():last.w+' kg'} × ${last.r}${rirOf(last.rpe)!==null?' · '+rirLabel(last.rpe):''}</div>`:''}
           ${(function(){
             if(isTimed) return '';
             var t=liftTrend(cur.n);
@@ -3807,9 +3809,9 @@ function renderWorkout(){
                       : t.trend==='down'?'<span style="color:var(--accent)">▼ '+t.pct+'%</span>'
                       : t.trend==='plateau'?'<span style="color:var(--orange)">▬ Plateau</span>'
                       : '<span style="color:var(--t3)">▬</span>';
-            return '<div style="color:var(--t3);font-size:11px;margin-top:2px">E1RM: <b style="color:var(--blue)">'+t.last+' kg</b> '+arrow+'</div>';
+            return '<div style="color:var(--t3);font-size:12px;margin-top:2px">E1RM: <b style="color:var(--blue)">'+t.last+' kg</b> '+arrow+'</div>';
           })()}
-          ${pr?`<div style="color:var(--gold);font-size:11px;margin-top:2px">🏆 Best-E1RM: ${pr} kg</div>`:''}
+          ${pr?`<div style="color:var(--gold);font-size:12px;margin-top:2px">🏆 Best-E1RM: ${pr} kg</div>`:''}
           ${(function(){
             // Prominentes Progressions-Banner wenn Steigerung empfohlen
             var c = cur.coach;
@@ -3824,21 +3826,21 @@ function renderWorkout(){
 
             if(addWeightHint){
               return '<div style="margin-top:10px;padding:11px 13px;background:rgba(52,199,89,.14);border:1px solid rgba(52,199,89,.4);border-radius:10px;font-size:13px;color:var(--t1);font-weight:600">'
-                +'🎖️ <b style="color:var(--green)">Zusatzgewicht-Zeit!</b><div style="font-size:11px;color:var(--t2);font-weight:400;margin-top:4px">'+wrapTerms(c.hint)+'</div></div>';
+                +'🎖️ <b style="color:var(--green)">Zusatzgewicht-Zeit!</b><div style="font-size:12px;color:var(--t2);font-weight:400;margin-top:4px">'+wrapTerms(c.hint)+'</div></div>';
             }
             if(isRepIncrease){
               return '<div style="margin-top:10px;padding:11px 13px;background:rgba(52,199,89,.14);border:1px solid rgba(52,199,89,.4);border-radius:10px;font-size:13px;color:var(--t1);font-weight:600">'
                 +'🔼 <b style="color:var(--green)">Mehr Wiederholungen!</b> '+lastR+' → <b style="color:var(--green)">'+c.reps+' Wdh</b> anpeilen'
-                +'<div style="font-size:11px;color:var(--t2);font-weight:400;margin-top:4px">'+wrapTerms(c.hint)+'</div></div>';
+                +'<div style="font-size:12px;color:var(--t2);font-weight:400;margin-top:4px">'+wrapTerms(c.hint)+'</div></div>';
             }
             if(isWeightIncrease){
               return '<div style="margin-top:10px;padding:11px 13px;background:rgba(52,199,89,.14);border:1px solid rgba(52,199,89,.4);border-radius:10px;font-size:13px;color:var(--t1);font-weight:600">'
                 +'🔼 <b style="color:var(--green)">Heute steigern!</b> '+lastW+' → <b style="color:var(--green)">'+c.weight+' kg</b> × '+c.reps+' Wdh anpeilen'
-                +'<div style="font-size:11px;color:var(--t2);font-weight:400;margin-top:4px">'+wrapTerms(c.hint)+'</div></div>';
+                +'<div style="font-size:12px;color:var(--t2);font-weight:400;margin-top:4px">'+wrapTerms(c.hint)+'</div></div>';
             }
             if(isDeload){
               return '<div style="margin-top:10px;padding:11px 13px;background:rgba(255,159,10,.12);border:1px solid rgba(255,159,10,.35);border-radius:10px;font-size:13px;color:var(--t1)">'
-                +'🔽 <b style="color:var(--orange)">Deload heute:</b> '+(c.weight!=null?c.weight+' kg × ':'')+c.reps+'<div style="font-size:11px;color:var(--t2);margin-top:4px">'+wrapTerms(c.hint)+'</div></div>';
+                +'🔽 <b style="color:var(--orange)">Deload heute:</b> '+(c.weight!=null?c.weight+' kg × ':'')+c.reps+'<div style="font-size:12px;color:var(--t2);margin-top:4px">'+wrapTerms(c.hint)+'</div></div>';
             }
             // Standard blauer Coach-Hinweis
             return '<div style="margin-top:10px;padding:8px 10px;background:rgba(10,132,255,.10);border-left:3px solid var(--blue);border-radius:6px;font-size:12px;color:var(--t1)">🧠 <b>Coach:</b> '+wrapTerms(c.hint)+(c.weight!=null?' <span style="color:var(--blue);font-weight:600">→ '+c.weight+' kg × '+c.reps+'</span>':(c.reps?' <span style="color:var(--blue);font-weight:600">→ '+c.reps+' Wdh</span>':''))+'</div>';
@@ -3855,8 +3857,8 @@ function renderWorkout(){
             <colgroup><col style="width:24px"><col><col><col style="width:52px"><col style="width:44px"><col style="width:24px"></colgroup>
             <thead><tr>
               <th></th>
-              ${isTimed?'<th colspan="2" style="font-size:10px;color:var(--t3);font-weight:500;text-align:center">SEKUNDEN</th>':'<th style="font-size:10px;color:var(--t3);font-weight:500;text-align:center;line-height:1.15">'+(isBWex?'ZUSATZ (KG)':'KG')+'</th><th style="font-size:10px;color:var(--t3);font-weight:500;text-align:center">WDH</th>'}
-              <th style="font-size:10px;color:var(--t3);font-weight:500;text-align:center">${isTimed?'':'RIR'}</th>
+              ${isTimed?'<th colspan="2" style="font-size:12px;color:var(--t3);font-weight:500;text-align:center">SEKUNDEN</th>':'<th style="font-size:12px;color:var(--t3);font-weight:500;text-align:center;line-height:1.15">'+(isBWex?'ZUSATZ (KG)':'KG')+'</th><th style="font-size:12px;color:var(--t3);font-weight:500;text-align:center">WDH</th>'}
+              <th style="font-size:12px;color:var(--t3);font-weight:500;text-align:center">${isTimed?'':'RIR'}</th>
               <th></th>
               <th></th>
             </tr></thead>
@@ -4233,14 +4235,14 @@ function rpeQuickHtml(cur, idx){
     return '<button type="button" data-rir-val="'+v+'" style="padding:8px 0 6px;border-radius:8px;font-size:15px;font-weight:700;font-family:var(--f);cursor:pointer;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation;line-height:1.15;'
       +'border:1.5px solid '+(on?'var(--violet)':(isT?'rgba(191,90,242,.55)':'var(--border2)'))+';background:'+(on?'var(--violet)':'var(--card2)')+';color:'+(on?'#fff':'var(--t1)')+'">'
       +(on && curR%1 ? rpeFmt(curR) : (v===4 ? '4+' : v))
-      +'<span style="display:block;font-size:9px;font-weight:600;opacity:.75">'+(isT?'Ziel':'&nbsp;')+'</span></button>';
+      +'<span style="display:block;font-size:12px;font-weight:600;opacity:.75">'+(isT?'Ziel':'&nbsp;')+'</span></button>';
   }).join('');
   var info = curR!==null ? rirText(st.rpe) : 'Antippen: '+rirText(8);
   return '<div style="margin-top:10px">'
-    +'<div style="font-size:10px;color:var(--t3);margin-bottom:5px">RIR für Satz '+(idx+1)+' · Ziel RIR '+rpeFmt(tgt)+' · lange drücken = ,5</div>'
+    +'<div style="font-size:12px;color:var(--t3);margin-bottom:5px">RIR für Satz '+(idx+1)+' · Ziel RIR '+rpeFmt(tgt)+' · lange drücken = ,5</div>'
     +'<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:5px">'+btns+'</div>'
-    +'<div id="rirInfo" style="font-size:11px;color:var(--t2);margin-top:6px">'+esc(info)+'</div>'
-    +(AppState.rpeCalib ? '<div style="font-size:10px;color:var(--t3);margin-top:3px">🎯 Kalibrierung ('+new Date(AppState.rpeCalib.ts).toLocaleDateString('de',{day:'2-digit',month:'2-digit'})+'): '+esc(rpeOffsetText(AppState.rpeCalib))+'</div>' : '')
+    +'<div id="rirInfo" style="font-size:12px;color:var(--t2);margin-top:6px">'+esc(info)+'</div>'
+    +(AppState.rpeCalib ? '<div style="font-size:12px;color:var(--t3);margin-top:3px">🎯 Kalibrierung ('+new Date(AppState.rpeCalib.ts).toLocaleDateString('de',{day:'2-digit',month:'2-digit'})+'): '+esc(rpeOffsetText(AppState.rpeCalib))+'</div>' : '')
     +'</div>';
 }
 
@@ -6401,7 +6403,7 @@ function renderMealList(){
     return '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">'
       +'<div style="font-size:20px">'+(m.aiAnalyzed?'🤖':'🍽️')+'</div>'
       +'<div style="flex:1"><div style="font-size:14px;font-weight:500">'+esc(m.name)+'</div>'
-      +'<div style="font-size:11px;color:var(--t3)">'+(m.time||'')+(m.p?' · P:'+m.p+'g':'')+' · KH:'+(m.kh||0)+'g · F:'+(m.f||0)+'g</div></div>'
+      +'<div style="font-size:12px;color:var(--t3)">'+(m.time||'')+(m.p?' · P:'+m.p+'g':'')+' · KH:'+(m.kh||0)+'g · F:'+(m.f||0)+'g</div></div>'
       +'<div style="font-size:14px;font-weight:600">'+(m.kcal||0)+'</div>'
       +'<button data-del-meal="'+i+'" style="background:none;border:none;color:var(--t3);font-size:16px;cursor:pointer;padding:4px">✕</button>'
       +'</div>';
@@ -6516,7 +6518,7 @@ function fmtRel(v){ return v==null ? '—' : String(v.toFixed(2)).replace('.', '
 function renderBenchmarks(){
   const c=el('benchmarkList'); if(!c) return;
   var lifts = mainLiftsWithData();
-  c.innerHTML = '<div style="font-size:11px;color:var(--t3);margin-bottom:6px">Orientierung: dein eigener Trend (E1RM pro kg Körpergewicht, 8 Wochen)</div>'
+  c.innerHTML = '<div style="font-size:12px;color:var(--t3);margin-bottom:6px">Orientierung: dein eigener Trend (E1RM pro kg Körpergewicht, 8 Wochen)</div>'
     + (lifts.length ? lifts.map(function(n){
       var t = relTrend(n, 8), d = t.delta;
       var col = d==null ? 'var(--t2)' : d>0 ? 'var(--green)' : d<0 ? 'var(--accent)' : 'var(--t2)';
@@ -6731,7 +6733,7 @@ function showTextFallback(text, filename){
     +'<div style="width:36px;height:4px;background:var(--border2);border-radius:2px;margin:0 auto 16px"></div>'
     +'<div style="font-size:18px;font-weight:700;margin-bottom:6px">📋 Backup manuell sichern</div>'
     +'<div style="font-size:12px;color:var(--t2);line-height:1.6;margin-bottom:12px">Der automatische Download hat nicht funktioniert. Kopiere den Text und sichere ihn (Notizen, E-Mail an dich selbst, Cloud). Zum Wiederherstellen als <b>'+esc(filename)+'</b> speichern und importieren.</div>'
-    +'<textarea id="tfText" readonly style="width:100%;height:180px;background:var(--card2);border:1px solid var(--border2);border-radius:10px;padding:10px;color:var(--t1);font-family:monospace;font-size:11px;line-height:1.4"></textarea>'
+    +'<textarea id="tfText" readonly style="width:100%;height:180px;background:var(--card2);border:1px solid var(--border2);border-radius:10px;padding:10px;color:var(--t1);font-family:monospace;font-size:12px;line-height:1.4"></textarea>'
     +'<button id="tfCopy" class="btn bp" style="margin-top:10px">📋 In Zwischenablage kopieren</button>'
     +'<button id="tfClose" class="btn bo" style="margin-top:8px">Schließen</button>'
     +'</div>';
@@ -6939,7 +6941,7 @@ function openGlossar(termKey){
     +'<div class="gm-sub">Tippe auf einen Begriff im Workout um ihn hier nachzuschlagen.</div>'
     + entries.map(function(g){
       var formulaHtml = g.formula
-        ? '<div style="margin-top:8px;font-size:11px;font-family:monospace;color:var(--accent);background:rgba(230,57,57,.08);padding:6px 10px;border-radius:6px">'+esc(g.formula)+'</div>'
+        ? '<div style="margin-top:8px;font-size:12px;font-family:monospace;color:var(--accent);background:rgba(230,57,57,.08);padding:6px 10px;border-radius:6px">'+esc(g.formula)+'</div>'
         : '';
       return '<div class="gm-entry">'
         +'<div class="gm-term">'+g.emoji+' '+esc(g.term)+' <span class="gm-abbr">'+esc(g.full)+'</span></div>'
@@ -6969,7 +6971,7 @@ function renderGlossarPreview(){
       +'<span style="font-size:20px;flex-shrink:0">'+g.emoji+'</span>'
       +'<div style="flex:1">'
       +'<div style="font-size:14px;font-weight:600">'+esc(g.term)+'</div>'
-      +'<div style="font-size:11px;color:var(--t3);margin-top:1px">'+esc(g.full)+'</div>'
+      +'<div style="font-size:12px;color:var(--t3);margin-top:1px">'+esc(g.full)+'</div>'
       +'</div>'
       +'<span style="color:var(--t3);font-size:16px">›</span>'
       +'</div>';
@@ -7035,9 +7037,9 @@ function showWelcomeScreen(){
     +'<div style="font-size:32px;font-weight:800;line-height:1.15;margin-bottom:16px;max-width:320px">Dein wissenschaftlicher Trainings-Coach</div>'
     +'<div style="font-size:15px;color:var(--t2);line-height:1.6;margin-bottom:8px;max-width:300px">In unter 1 Minute erstellen wir deinen perfekten Plan – abgestimmt auf deine Ziele, Erfahrung und Trainingstage.</div>'
     +'<div style="display:flex;gap:24px;margin:28px 0;flex-wrap:wrap;justify-content:center">'
-      +'<div style="text-align:center"><div style="font-size:24px;margin-bottom:4px">🎯</div><div style="font-size:11px;color:var(--t3)">Adaptiver<br>Algorithmus</div></div>'
-      +'<div style="text-align:center"><div style="font-size:24px;margin-bottom:4px">📊</div><div style="font-size:11px;color:var(--t3)">Volumen-<br>Tracking</div></div>'
-      +'<div style="text-align:center"><div style="font-size:24px;margin-bottom:4px">🧠</div><div style="font-size:11px;color:var(--t3)">Smart<br>Coach</div></div>'
+      +'<div style="text-align:center"><div style="font-size:24px;margin-bottom:4px">🎯</div><div style="font-size:12px;color:var(--t3)">Adaptiver<br>Algorithmus</div></div>'
+      +'<div style="text-align:center"><div style="font-size:24px;margin-bottom:4px">📊</div><div style="font-size:12px;color:var(--t3)">Volumen-<br>Tracking</div></div>'
+      +'<div style="text-align:center"><div style="font-size:24px;margin-bottom:4px">🧠</div><div style="font-size:12px;color:var(--t3)">Smart<br>Coach</div></div>'
     +'</div>'
     +'<button id="welcome-start" class="btn bp" style="max-width:300px;font-size:16px;padding:16px">Plan erstellen →</button>'
     +'<button id="welcome-skip" style="margin-top:14px;background:none;border:none;color:var(--t3);font-size:13px;cursor:pointer;font-family:var(--f)">Erstmal umschauen</button>';
@@ -7129,7 +7131,7 @@ function generatePlan(){
     +'Frequenz: <strong style="color:var(--t1)">2× pro Muskel</strong> · RIR 1–3 · E1RM-Tracking'
     +'</div>'
     +'<div style="background:var(--card2);border-radius:10px;padding:12px;margin-bottom:14px">'
-    +'<div style="font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-bottom:8px">Dein Wochenplan</div>'
+    +'<div style="font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-bottom:8px">Dein Wochenplan</div>'
     +plan.map(function(day,i){
       var icon={gym:'💪',soccer:'⚽',match:'🏟️',flex:'😌'}[day.type]||'📅';
       var col={gym:'var(--accent)',soccer:'var(--blue)',match:'var(--orange)',flex:'var(--t3)'}[day.type]||'var(--t3)';
@@ -7137,7 +7139,7 @@ function generatePlan(){
       return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">'
         +'<span style="font-weight:600;width:88px">'+(WEEKDAYS[i]||'Tag '+(i+1))+'</span>'
         +'<span style="flex:1;color:var(--t2)">'+icon+' '+esc(day.name)+'</span>'
-        +'<span style="color:'+col+';font-weight:600;font-size:11px">'+info+'</span></div>';
+        +'<span style="color:'+col+';font-weight:600;font-size:12px">'+info+'</span></div>';
     }).join('')
     +'</div>'
     +'<button class="btn bp" onclick="applyGeneratedPlan()" style="margin-bottom:10px">✅ Plan übernehmen</button>'
@@ -7267,7 +7269,7 @@ if('serviceWorker' in navigator && (location.protocol==='https:' || location.hos
     e.preventDefault(); dp=e;
     var btn=document.createElement('button');
     btn.textContent='⬇ App installieren';
-    btn.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:84px;z-index:300;background:var(--accent);color:#fff;border:none;border-radius:24px;padding:10px 18px;font:600 13px Inter,sans-serif;cursor:pointer';
+    btn.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:84px;z-index:300;background:var(--accent-fill);color:#fff;border:none;border-radius:24px;padding:10px 18px;font:600 13px Inter,sans-serif;cursor:pointer';
     btn.addEventListener('click',function(){ if(!dp) return; btn.disabled=true; dp.prompt(); dp=null; });
     document.body.appendChild(btn);
   });
