@@ -29,12 +29,9 @@
 html{-webkit-tap-highlight-color:transparent}
 body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;line-height:1.5;min-height:100vh;padding-bottom:90px;overflow-x:hidden;-webkit-font-smoothing:antialiased}
 
-.hero{padding:52px 20px 20px;position:relative;overflow:hidden}
-.hero::after{content:'';position:absolute;top:-60px;right:-80px;width:280px;height:280px;background:radial-gradient(circle,rgba(230,57,57,.06),transparent 70%);pointer-events:none}
-.hero-label{font-size:12px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:10px}
-.hero-title{font-size:clamp(28px,8vw,48px);font-weight:700;line-height:1.05;letter-spacing:-.5px}
-.hero-title strong{color:var(--accent)}
-.hero-meta{font-size:13px;color:var(--t2);margin-top:8px;line-height:1.6}
+.hero{padding:calc(env(safe-area-inset-top) + 10px) var(--s4) 6px;max-height:calc(env(safe-area-inset-top) + 64px);overflow:hidden}
+.hero-name{font-size:20px;font-weight:700;line-height:28px;letter-spacing:-.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hero-meta{font-size:13px;color:var(--t2);line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hs-row{display:flex;gap:8px;margin-top:16px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
 .hs-row::-webkit-scrollbar{display:none}
 .hs-pill{flex-shrink:0;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 14px;text-align:center;min-width:68px}
@@ -164,6 +161,28 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 .voice-btn.listening .voice-dot{display:block}
 
 /* ── Smart banners ── */
+.muted{font-size:13px;color:var(--t3);line-height:1.5}
+.chart-empty{display:flex;align-items:center;justify-content:center;height:100%;color:var(--t3);font-size:13px}
+.td-line{display:flex;gap:var(--s2);align-items:baseline;margin-top:var(--s2);font-size:13px;color:var(--t2);line-height:1.5}
+.td-line b{color:var(--t1);font-weight:600}
+.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;display:inline-block;transform:translateY(-1px)}
+.more-hints{margin-bottom:10px}
+.more-hints>summary{list-style:none;cursor:pointer;min-height:44px;display:flex;align-items:center;gap:var(--s2);font-size:13px;font-weight:600;color:var(--t2);padding:0 var(--s1)}
+.more-hints>summary::-webkit-details-marker{display:none}
+.more-hints>summary::after{content:'▾';margin-left:auto;color:var(--t3)}
+.more-hints[open]>summary::after{content:'▴'}
+.wstrip{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:var(--s1)}
+.wday{background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:var(--s2) 2px;text-align:center;min-height:72px;display:flex;flex-direction:column;align-items:center;gap:2px}
+.wday.today{border-color:var(--accent)}
+.wday-n{font-size:12px;font-weight:600;color:var(--t2)}
+.wday-d{font-size:12px;color:var(--t3)}
+.wday-i{font-size:14px;line-height:18px;min-height:18px}
+.wday-l{font-size:12px;color:var(--t2);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px}
+.wday .ok{color:var(--green);font-weight:700}
+.wday .plan{color:var(--blue)}
+.ww-row{display:flex;gap:var(--s2);align-items:center}
+.ww-row .li{flex:1;text-align:left;padding:10px 14px;min-height:44px}
+.ww-row .btn{width:auto;margin:0;min-height:44px;padding:10px 16px}
 .sm-banner{border-radius:12px;padding:12px 14px;margin-bottom:10px;display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.5}
 .sm-pr{background:rgba(52,199,89,.07);border:1px solid rgba(52,199,89,.2)}
 .sm-warn{background:rgba(255,149,0,.07);border:1px solid rgba(255,149,0,.2)}
@@ -230,53 +249,38 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 
 <!-- ══ HERO ══ -->
 <header class="hero" id="heroSection">
-  <div class="hero-label">⚡ KINETIC · Athlete OS</div>
-  <h1 class="hero-title">Dein Körper.<br><strong>Dein Plan.</strong></h1>
+  <h1 class="hero-name" id="heroName">KINETIC</h1>
   <p class="hero-meta" id="heroMeta">Lade…</p>
-  <div class="hs-row" id="heroStats"></div>
 </header>
 
 <main>
 
 <!-- ══ PAGE: DASHBOARD ══ -->
 <section id="page-dash" class="page active">
-  <div id="smartNotifs"></div>
+  <!-- C2: 1 Tagesvorschlag · 2 ein Hinweis · 3 Wochenleiste · 4 Kraft · 5 Gewicht (1×/Woche) · 6 Rest -->
   <div id="todayCard"></div>
-  <div class="sh"><div class="sh-t">Übersicht</div></div>
-  <div class="c-row">
-    <div class="c">
-      <div class="sl">Gewicht</div>
-      <div class="sv" id="dashWeight">—<span class="su"> kg</span></div>
-      <div style="font-size:12px;color:var(--t3);margin-top:6px" id="dashWeightDelta"></div>
-    </div>
-    <div class="c">
-      <div class="sl">Streak</div>
-      <div class="sv"><span id="dashStreak">0</span><span class="su"> 🔥</span></div>
-      <div style="font-size:12px;color:var(--t3);margin-top:6px" id="dashStreakInfo"></div>
-    </div>
-  </div>
+  <div id="smartNotifs"></div>
+  <div id="weekStrip"></div>
+  <div class="sh"><div class="sh-t">Kraft · E1RM</div></div>
+  <div class="c" id="strengthCard"><div class="muted">Logge Workouts – dein geschätztes 1RM (E1RM) pro Übung erscheint hier.</div></div>
+  <div id="weeklyWeight"></div>
+
+  <div class="sh"><div class="sh-t">Gewichtsverlauf</div></div>
   <div class="c">
-    <div class="sl">Kalorien heute</div>
-    <div class="sv"><span id="dashKcal">0</span><span class="su" id="dashKcalTarget"> / 2870 kcal</span></div>
-    <div style="height:4px;background:var(--card3);border-radius:2px;overflow:hidden;margin-top:10px">
-      <div id="dashKcalBar" style="height:100%;background:var(--green);border-radius:2px;width:0;transition:width .6s ease"></div>
-    </div>
+    <div class="sl">Gewicht</div>
+    <div class="sv" id="dashWeight">—<span class="su"> kg</span></div>
+    <div class="muted" style="margin-top:6px" id="dashWeightDelta"></div>
+    <div class="chart-wrap" id="weightChart" style="margin-top:10px"><div class="chart-empty">Noch keine Einträge</div></div>
   </div>
 
-  <div class="sh"><div class="sh-t">📊 Gewichtsverlauf</div></div>
+  <div class="sh"><div class="sh-t">Smart Coach · Wochenvolumen</div></div>
+  <div class="c" id="coachCard"><div class="muted">Starte dein erstes Workout – der Coach lernt mit jedem Satz.</div></div>
+
   <div class="c">
-    <div style="display:flex;gap:8px;margin-bottom:10px">
-      <input id="newWeightInput" class="li" type="number" step="0.1" placeholder="z.B. 107.5 kg" style="flex:1;text-align:left;padding:10px 14px">
-      <button onclick="logWeight()" style="flex-shrink:0;padding:10px 16px;background:var(--accent-fill);color:#fff;border:none;border-radius:10px;font-family:var(--f);font-size:14px;font-weight:600;cursor:pointer">+ Eintragen</button>
-    </div>
-    <div class="chart-wrap" id="weightChart"><div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--t3);font-size:13px">Noch keine Einträge</div></div>
+    <div class="sl">Streak</div>
+    <div class="sv"><span id="dashStreak">0</span><span class="su"> Tage</span></div>
+    <div class="muted" style="margin-top:6px" id="dashStreakInfo"></div>
   </div>
-
-  <div class="sh"><div class="sh-t">💪 Kraft-Fortschritt · E1RM</div></div>
-  <div class="c" id="strengthCard"><div style="color:var(--t3);font-size:13px">Logge Workouts – dein geschätztes 1RM (E1RM) pro Übung erscheint hier.</div></div>
-
-  <div class="sh"><div class="sh-t">🧠 Smart Coach · Wochenvolumen</div></div>
-  <div class="c" id="coachCard"><div style="color:var(--t3);font-size:13px">Starte dein erstes Workout – der Coach lernt mit jedem Satz.</div></div>
 </section>
 
 <!-- ══ PAGE: PLAN ══ -->
@@ -353,6 +357,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 
 <!-- ══ PAGE: ERNÄHRUNG ══ -->
 <section id="page-ern" class="page">
+  <button type="button" class="btn bg2 btn-sm" onclick="navigate('data')" style="width:auto;margin-top:var(--s3)">← Profil</button>
   <div class="sh"><div class="sh-t">Ernährung heute</div></div>
   <div class="c">
     <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:8px">
@@ -419,6 +424,8 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 
 <section id="page-data" class="page">
   <div class="sh"><div class="sh-t">👤 Profil</div></div>
+  <div class="hs-row" id="heroStats" style="margin:0 0 10px"></div>
+  <button type="button" class="btn bg2" onclick="navigate('ern')" style="margin-bottom:10px;min-height:44px;text-align:left;display:flex;justify-content:space-between"><span>🥗 Ernährung · Kalorien & Mahlzeiten</span><span>→</span></button>
   <div class="c">
     <div class="prof-grid">
       <div><div class="prof-label">Name</div><input id="profName"   class="li" type="text"   placeholder="Dein Name"  style="text-align:left;padding:10px;font-size:14px;font-weight:400" oninput="saveProfile()"></div>
@@ -677,11 +684,10 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 </div>
 
 <nav class="nav">
-  <button class="nb active" data-nav="dash">    <span class="ni">📊</span><span class="nl">Dash</span></button>
+  <button class="nb active" data-nav="dash">    <span class="ni">📊</span><span class="nl">Heute</span></button>
   <button class="nb"         data-nav="plan">    <span class="ni">📅</span><span class="nl">Plan</span></button>
   <button class="nb"         data-nav="workout"> <span class="ni">🏋️</span><span class="nl">Workout</span></button>
   <button class="nb"         data-nav="log">     <span class="ni">📝</span><span class="nl">Log</span></button>
-  <button class="nb"         data-nav="ern">     <span class="ni">🥗</span><span class="nl">Essen</span></button>
   <button class="nb"         data-nav="data">    <span class="ni">👤</span><span class="nl">Profil</span></button>
 </nav>
 
@@ -1242,7 +1248,8 @@ function navigate(pageId){
   const target=$('#page-'+pageId);
   if(!target){ log.warn('navigate: no page',pageId); return; }
   target.classList.add('active');
-  $$('.nb').forEach(b=>b.classList.toggle('active', b.dataset.nav===pageId));
+  var navId = pageId==='ern' ? 'data' : pageId;   // C2: Ernährung liegt im Profil
+  $$('.nb').forEach(b=>b.classList.toggle('active', b.dataset.nav===navId));
   AppState.currentPage=pageId;
   const heroEl=el('heroSection');
   if(heroEl) heroEl.style.display=(pageId==='workout')?'none':'block';
@@ -1267,7 +1274,7 @@ function ffmiOf(u){
   return +((w*(1-k/100))/((h/100)*(h/100))).toFixed(1);
 }
 function renderHeroStats(){
-  const row=el('heroStats'); if(!row) return;
+  const row=el('heroStats'); if(!row){ renderHeroHeader(); return; }
   const u=AppState.user;
   const bmi=u.weight&&u.height?(u.weight/((u.height/100)**2)).toFixed(1):'—';
   row.innerHTML=[
@@ -1278,10 +1285,17 @@ function renderHeroStats(){
     {v:bmi,                      l:'BMI'}
   ].map(s=>`<div class="hs-pill"><div class="hs-val">${esc(s.v)}</div><div class="hs-lbl">${esc(s.l)}</div></div>`).join('');
 
-  const meta=el('heroMeta'); if(!meta) return;
-  const nameTag=u.name?' · <strong style="color:var(--accent)">'+esc(u.name)+'</strong>':'';
-  meta.innerHTML=(u.height||'—')+' cm · '+(u.weight||'—')+' kg · KFA '+(u.kfa||'—')+'% · FFMI '+(ffmiOf(u)||'—')+'<br>'
-    +'🔥 <span id="streakDays">'+AppState.streak+'</span> Tage Streak'+nameTag;
+  renderHeroHeader();
+}
+// C2: Kopf auf "Heute" höchstens 64 px – Name, Datum, Zykluswoche.
+// Die Kennzahlen-Pillen (heroStats) stehen im Profil.
+function renderHeroHeader(){
+  var u = AppState.user || {};
+  var n = el('heroName'); if(n) n.textContent = u.name || 'KINETIC';
+  var meta = el('heroMeta'); if(!meta) return;
+  var d = new Date().toLocaleDateString('de', {weekday:'short', day:'2-digit', month:'2-digit'});
+  var wk = ''; try { wk = mesoLabel(); } catch(e){}
+  meta.textContent = d + (wk ? ' · ' + wk : '');
 }
 
 // ── 9. DASHBOARD ────────────────────────────────────────
@@ -1295,16 +1309,13 @@ function refreshDash(){
     const wl=AppState.weightLog; const delta=wl.length>=2?wl[0].w-wl[wl.length-1].w:0;
     const dd=el('dashWeightDelta'); if(dd) dd.textContent=delta!==0?(delta<0?'↓ '+Math.abs(delta).toFixed(1)+' kg verloren':'↑ '+delta.toFixed(1)+' kg zugenommen'):'Startgewicht';
     const dsi=el('dashStreakInfo'); if(dsi) dsi.textContent=AppState.streak>0?`${AppState.streak} Tage in Folge aktiv`:'Heute das erste Training starten!';
-    // kcal (nur heutige Mahlzeiten – prune falls Mitternacht überschritten)
-    pruneMeals();
-    const todayKcal=AppState.meals.reduce((a,m)=>a+(m.kcal||0),0);
-    const dk=el('dashKcal'); if(dk) dk.textContent=Math.round(todayKcal);
-    const dkt=el('dashKcalTarget'); if(dkt) dkt.textContent=` / ${u.kcalTarget||KCAL_FALLBACK} kcal`;
-    const bar=el('dashKcalBar'); if(bar) bar.style.width=Math.min(100,(todayKcal/(u.kcalTarget||KCAL_FALLBACK))*100)+'%';
+    pruneMeals();   // Kalorien stehen jetzt unter Profil → Ernährung
     renderHeroStats();
     renderCoachCard();
     renderSmartNotifs();
     renderTodayCard();
+    safeCall(renderWeekStrip);
+    safeCall(renderWeeklyWeight);
     renderWeightChart();
     renderStrengthCard();
   } catch(e){ log.error('refreshDash',e); }
@@ -1359,19 +1370,7 @@ function renderSmartNotifs(){
   var c = el('smartNotifs'); if(!c) return;
   var notifs = [];
 
-  // Readiness Score (täglicher KPI) – datenbasiert
-  var rd = readinessScore();
-  if(!rd.hasData){
-    notifs.push({icon:'📊', title:'Readiness – noch keine Daten', body:'Logge Schlaf (Profil → Schlaf & Recovery) und ein paar Workouts, dann berechnet KINETIC deine Tagesform.', type:'sleep', prio:0});
-  } else {
-    var score = rd.score;
-    var factorStr = rd.factors.length ? ' · '+rd.factors.join(' · ') : '';
-    var scoreData = score>=85 ? {icon:'🟢',title:'Bereit für Top-Workout',body:'Readiness '+score+'/100 – aggressive Progression heute möglich.'+factorStr,type:'pr'}
-                  : score>=65 ? {icon:'🟡',title:'Normaler Trainingstag',body:'Readiness '+score+'/100 – plane wie gewohnt.'+factorStr,type:'sleep'}
-                              : {icon:'🔴',title:'Vorsicht heute',body:'Readiness '+score+'/100 – reduziere Volumen oder leichte Session.'+factorStr,type:'warn'};
-    scoreData.prio = 0;
-    notifs.push(scoreData);
-  }
+  // C2: Readiness steht als Zeile im Tagesvorschlag (todayLinesHtml)
 
   // Deload: aktiv-Status oder Empfehlung (antippbar → wirklich anwenden)
   var mi = mesoInfo();
@@ -1418,12 +1417,7 @@ function renderSmartNotifs(){
       type:'sleep', prio:1, buttons:[{label:'Ansehen', fn:'offerPermanentReplace()'}, {label:'Nein, danke', fn:'declinePermanentReplace()'}]});
   }
 
-  // Montags-Wiegen (Spec 6.1): ohne Gewichtsverlauf keine Recomp-Auswertung
-  var wDue = weighInDue();
-  if(wDue){
-    notifs.push({icon:'⚖️', title:'Montags-Wiegen',
-      body:(wDue.days===null ? 'Noch kein Gewicht eingetragen' : 'Letzter Eintrag vor '+wDue.days+' Tagen')+' – ohne Gewichtsverlauf ist die Recomp nicht auswertbar. Tippen zum Eintragen (morgens, nüchtern).', type:'warn', action:'weighIn'});
-  }
+  // C2: Wiegen über das Wochenfeld "Gewicht" (renderWeeklyWeight)
 
   // RPE-Varianz-Check (Spec 4.2) → AMRAP-Satz zur Kalibrierung
   var amrap = amrapSuggestion();
@@ -1432,12 +1426,7 @@ function renderSmartNotifs(){
       body:'Deine RIR-Angaben wirken gewohnheitsmäßig. '+(amrap.today?'Heute':'Im nächsten Training ('+amrap.day.name+')')+' im letzten Satz von '+amrap.ex+' so viele Wdh wie möglich (AMRAP).', type:'sleep'});
   }
 
-  // Luna-Check-in (Spec 6.2): 3 Tage ohne Wearable-Daten
-  var lDue = lunaCheckinDue();
-  if(lDue){
-    notifs.push({icon:'⌚', title:'Luna-Check-in',
-      body:(lDue.days===null ? 'Noch keine Wearable-Daten' : 'Seit '+lDue.days+' Tagen keine Wearable-Daten')+' – HRV, Ruhepuls und Schlaf eintragen, dann rechnen Readiness und Coach mit deiner echten Erholung. Tippen → Profil.', type:'sleep', action:'luna'});
-  }
+  // C2: Luna als Zeile im Tagesvorschlag, keine tägliche Karte mehr
 
   // PR-Erkennung: pr-Flags der letzten Session (in finishWorkout gesetzt)
   var lastSess = (AppState.history||[]).slice(-1)[0];
@@ -1484,14 +1473,14 @@ function renderSmartNotifs(){
     notifs.unshift({icon:'🛟', title:'Daten wiederherstellbar', body:'Deine Daten wirken leer, aber eine Schattenkopie vom '+new Date(rec.ts).toLocaleDateString('de')+' mit '+rec.historyCount+' Sessions existiert. Tippen zum Wiederherstellen.', type:'warn', action:'restoreSnapshot', prio:0});
   }
 
-  // Max. 4 Karten. Reihenfolge stabil nach prio: Wiederherstellung,
-  // Readiness und Deload (0), Backup (1), danach alles andere (2) – so
-  // verdrängen Datenerfassungs-Karten die Backup-Erinnerung nicht
+  // Reihenfolge stabil nach prio: Wiederherstellung und Deload (0),
+  // Backup (1), danach alles andere (2). C2: nur der erste Hinweis ist
+  // sichtbar, die übrigen liegen hinter "Weitere Hinweise".
   notifs = notifs.map(function(n, i){ return {n:n, i:i}; }).sort(function(a, b){
     var pa = a.n.prio!=null ? a.n.prio : 2, pb = b.n.prio!=null ? b.n.prio : 2;
     return pa - pb || a.i - b.i;
   }).map(function(x){ return x.n; });
-  c.innerHTML = notifs.slice(0,4).map(function(n){
+  var cards = notifs.map(function(n){
     var clickAttr = n.backup ? ' onclick="navigate(\'data\')" style="cursor:pointer"'
                   : n.action==='startDeload'     ? ' onclick="startDeload()" style="cursor:pointer"'
                   : n.action==='endDeload'       ? ' onclick="endDeload()" style="cursor:pointer"'
@@ -1507,7 +1496,9 @@ function renderSmartNotifs(){
         }).join('')+'</div>' : '')
       +'</div>'
       +'</div>';
-  }).join('');
+  });
+  c.innerHTML = (cards[0]||'')
+    + (cards.length > 1 ? '<details class="more-hints"><summary>Weitere Hinweise ('+(cards.length-1)+')</summary>'+cards.slice(1).join('')+'</details>' : '');
 }
 
 // ── 11. WEIGHT CHART ────────────────────────────────────
@@ -1516,7 +1507,7 @@ function renderWeightChart(){
   // weightLog ist neueste-zuerst (unshift) → neueste 14 nehmen, für den Chart
   // chronologisch drehen (links alt, rechts neu)
   const wl=AppState.weightLog.slice(0,14).reverse();
-  if(!wl.length){ wrap.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--t3);font-size:13px">Noch keine Einträge</div>'; return; }
+  if(!wl.length){ wrap.innerHTML='<div class="chart-empty">Noch keine Einträge</div>'; return; }
   const vals=wl.map(e=>e.w), W=320,H=120,PAD=20;
   const min=Math.min(...vals)-1, max=Math.max(...vals)+1;
   const xS=(W-PAD*2)/Math.max(vals.length-1,1);
@@ -2466,7 +2457,7 @@ function renderTodayCard(){
   var c = el('todayCard'); if(!c) return;
   var dc = dataCheckCardHtml();
   if(!dc && _dcBox==='dataCheckToday') _dcBox = 'dataCheckBox';
-  if(!rotationUnits().length){ c.innerHTML = dc; if(dc && _dcBox==='dataCheckToday') renderDataCheck(); return; }
+  if(!rotationUnits().length){ c.innerHTML = '<div class="c" style="margin-bottom:10px">'+todayLinesHtml()+'</div>'+dc; if(dc && _dcBox==='dataCheckToday') renderDataCheck(); return; }
   var r = flexSuggestion(), m = r.main, a = r.alt;
   var icon = m.kind==='unit' ? '🏋️' : m.kind==='done' ? '✅' : m.kind==='appointment' ? '⚽' : m.kind==='mobility' ? '🧘' : '😌';
   var bars = FLEX_GROUPS.map(function(g){
@@ -2478,11 +2469,12 @@ function renderTodayCard(){
   var nextAppt = r.upcoming[0];
   var vo = weekOpenVolume();
   var voTxt = Object.keys(vo).map(function(k){ return satzWort(vo[k])+' '+(MUSCLE_LABEL[k]||k); }).join(', ');
-  c.innerHTML = dc+feedbackHtml()+'<div class="c" style="margin-bottom:10px">'
+  c.innerHTML = '<div class="c" style="margin-bottom:10px">'
     +'<div style="display:flex;align-items:center;gap:10px"><div style="font-size:24px">'+icon+'</div>'
     +'<div style="flex:1"><div style="font-size:15px;font-weight:700">'+esc(m.kind==='unit' ? 'Heute: '+m.label : m.label)+'</div>'
     +(m.reason ? '<div style="font-size:12px;color:var(--t2);margin-top:2px;line-height:1.5">'+esc(m.reason)+'</div>' : '')+'</div></div>'
-    +(a ? '<div style="margin-top:8px;font-size:12px;color:var(--t2);line-height:1.5">Alternative: <b style="color:var(--t1)">'+esc(a.label)+'</b>'+(a.reason ? ', '+esc(a.reason) : '')+'</div>' : '')
+    +todayLinesHtml()
+    +(a ? '<div class="td-line"><span>Alternative: <b>'+esc(a.label)+'</b>'+(a.reason ? ', '+esc(a.reason) : '')+'</span></div>' : '')
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;margin-top:10px">'+bars+'</div>'
     +'<div style="margin-top:8px;font-size:12px;color:var(--t3)">Gym diese Woche: '+r.weekGym+' · Ziel '+r.goal.min+'–'+r.goal.max+'×'
     +(r.next ? ' · Nächste Einheit: '+esc(r.next.name) : '')
@@ -2494,9 +2486,89 @@ function renderTodayCard(){
     +(a && a.kind==='unit' ? '<button type="button" class="btn bo" id="flexStartAlt" onclick="startFlexAlt()" style="flex:1;margin:0;font-size:12px">Alternative</button>' : '')
     +'</div>'
     +(r.kind!=='done' ? '<select id="flexOther" onchange="startFlexUnit(this.value)" style="margin-top:8px;width:100%;padding:8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t2);font-size:12px"><option value="">Andere Einheit starten …</option>'+others+'</select>' : '')
-    +'</div>';
+    +'</div>'+feedbackHtml()+dc;
   if(dc && _dcBox==='dataCheckToday') renderDataCheck();
 }
+
+// C2: Readiness als eine Zeile, Luna als Zeile (nur mit Daten der letzten 14 Tage)
+function todayLinesHtml(){
+  var out = '';
+  var rd = readinessScore();
+  if(rd.hasData){
+    var col = rd.score>=85 ? 'var(--green)' : rd.score>=65 ? 'var(--orange)' : 'var(--accent)';
+    var txt = rd.score>=85 ? 'bereit für ein starkes Training' : rd.score>=65 ? 'normaler Trainingstag' : 'Volumen reduzieren oder leicht trainieren';
+    out += '<div class="td-line" data-line="readiness"><span class="dot" style="background:'+col+'"></span><span>Readiness <b>'+rd.score+'/100</b> · '+esc(txt)+'</span></div>';
+  } else {
+    out += '<div class="td-line" data-line="readiness"><span class="dot" style="background:var(--t3)"></span><span>Readiness: noch keine Daten (Schlaf oder Luna eintragen)</span></div>';
+  }
+  var l = lunaLine();
+  if(l) out += '<div class="td-line" data-line="luna"><span class="dot" style="background:var(--blue)"></span><span>'+l+'</span></div>';
+  return out;
+}
+function lunaLine(){
+  var d = daysSinceLogEntry(AppState.wearableLog);
+  if(d===null || d > 14) return '';
+  var e = (AppState.wearableLog||[]).slice().sort(function(a, b){ return String(b.d).localeCompare(String(a.d)); })[0] || {};
+  var parts = [];
+  if(e.hrv>0) parts.push('HRV <b>'+Math.round(e.hrv)+' ms</b>');
+  if(e.rhr>0) parts.push('Ruhepuls <b>'+Math.round(e.rhr)+'</b>');
+  var hs = null; try { hs = hrvStatus(); } catch(err){}
+  var when = d===0 ? 'heute' : d===1 ? 'gestern' : 'vor '+d+' Tagen';
+  return 'Luna ('+when+'): '+(parts.length ? parts.join(' · ') : 'Daten vorhanden')
+    + (hs && hs.status==='suppressed' ? ' · <span style="color:var(--orange)">unter Baseline</span>' : hs && hs.status==='elevated' ? ' · über Baseline' : '');
+}
+
+// C2: Wochenleiste Mo–So – erledigt (✓), Termine, heutiger Vorschlag
+function renderWeekStrip(){
+  var c = el('weekStrip'); if(!c) return;
+  var mon = weekKeyOf(Date.now()), today = localDateStr(), out = [];
+  var appts = appointmentOccurrences(mon, 7);
+  var sug = null; try { sug = flexSuggestion().main; } catch(e){}
+  for(var k=0; k<7; k++){
+    var day = new Date(mon); day.setDate(day.getDate()+k);
+    var ds = localDayStr(day.getTime());
+    var gym = (AppState.history||[]).filter(function(h){ return localDayStr(+h.ts)===ds; });
+    var acts = (AppState.activityLog||[]).filter(function(a){ return a && a.d===ds; });
+    var ap = appts.filter(function(o){ return o.d===ds && !o.cancelled; });
+    var icon = '', label = '', title = [];
+    if(gym.length){ icon = '<span class="ok">✓</span>'; label = gym[0].dayName||'Gym'; title.push('Gym: '+gym.map(function(h){ return h.dayName||'Workout'; }).join(', ')); }
+    else if(acts.length){ icon = '<span class="ok">✓</span>'; label = acts[0].activity==='gym' ? 'Gym' : (acts[0].name||acts[0].activity||'Aktiv'); title.push('Erledigt: '+label); }
+    if(ap.length){
+      if(!icon) icon = ds < today ? '<span class="ok">✓</span>' : '⚽';
+      if(!label) label = ap[0].appt.name||'Termin';
+      title.push(ap.map(function(o){ return (o.appt.time||'')+' '+(o.appt.name||'Termin'); }).join(', '));
+    }
+    if(ds===today && !gym.length && sug && sug.kind==='unit'){
+      if(!icon) icon = '<span class="plan">●</span>';
+      if(!label) label = sug.label;
+      title.push('Vorschlag: '+sug.label);
+    }
+    out.push('<div class="wday'+(ds===today?' today':'')+'" title="'+esc(title.join(' · '))+'" aria-label="'+esc(WEEKDAYS[k]+(title.length?': '+title.join(', '):''))+'">'
+      +'<div class="wday-n">'+WEEKDAYS[k].slice(0,2)+'</div><div class="wday-d">'+day.getDate()+'.</div>'
+      +'<div class="wday-i">'+(icon||'')+'</div><div class="wday-l">'+esc(label)+'</div></div>');
+  }
+  c.innerHTML = '<div class="sh"><div class="sh-t">Diese Woche</div></div><div class="wstrip">'+out.join('')+'</div>';
+}
+
+// C2: Gewicht einmal pro Woche als Ein-Feld-Eintrag
+var _wwEdit = false;
+function weightThisWeek(){
+  var mon = weekKeyOf(Date.now());
+  return (AppState.weightLog||[]).filter(function(e){ return e && e.d && Date.parse(e.d+'T12:00:00') >= mon; })[0] || null;
+}
+function renderWeeklyWeight(){
+  var c = el('weeklyWeight'); if(!c) return;
+  var w = weightThisWeek();
+  if(w && !_wwEdit){
+    c.innerHTML = '<div class="c ww-done"><div class="ww-row"><div style="flex:1;font-size:13px;color:var(--t2)">Gewicht diese Woche: <b style="color:var(--t1)">'+fmtDe(w.w)+' kg</b> <span style="color:var(--green)">✓</span></div>'
+      +'<button type="button" class="btn bg2 btn-sm" onclick="editWeeklyWeight()">Ändern</button></div></div>';
+    return;
+  }
+  c.innerHTML = '<div class="c"><div class="sl">Gewicht diese Woche</div><div class="ww-row">'
+    +'<input id="newWeightInput" class="li" type="number" inputmode="decimal" step="0.1" placeholder="kg, morgens nüchtern" aria-label="Gewicht in kg">'
+    +'<button type="button" class="btn bp" onclick="logWeight()">Eintragen</button></div></div>';
+}
+function editWeeklyWeight(){ _wwEdit = true; renderWeeklyWeight(); var i = el('newWeightInput'); if(i) try{ i.focus(); }catch(e){} }
 
 // ── Subjektives Feedback (Punkt 5) ──
 // Nach jeder Einheit optional Muskelkater/Frische je Gruppe: 1 = starker
@@ -2830,7 +2902,8 @@ function logWeight(){
   const inp=el('newWeightInput'); if(!inp) return;
   const v=parseFloat(inp.value);
   if(!v||v<40||v>300){ toast('Ungültiges Gewicht (40–300 kg)'); return; }
-  AppState.weightLog.unshift({w:v, d:new Date().toISOString().split('T')[0]});
+  AppState.weightLog.unshift({w:v, d:localDateStr()});
+  _wwEdit = false;
   if(AppState.weightLog.length>90) AppState.weightLog=AppState.weightLog.slice(0,90);
   AppState.user.weight=v;
   AppState.save();

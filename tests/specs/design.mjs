@@ -53,4 +53,41 @@ export default function ({ test, assert, loadApp, REPO_ROOT }) {
     const short = [...src.matchAll(/font:\s*\d+\s+([0-9.]+)px/g)].map((m) => +m[1]).filter((v) => v < 12);
     assert.equal(short.length, 0);
   });
+
+  test('C2 Heute: kompakter Kopf, Reihenfolge, Essen im Profil', () => {
+    const src = html();
+    assert.match(src, /<h1 class="hero-name" id="heroName">/);
+    assert.doesNotMatch(src, /hero-title|Dein Körper\./);
+    assert.match(src, /\.hero\{[^}]*max-height:calc\(env\(safe-area-inset-top\) \+ 64px\)/);
+    const dash = src.slice(src.indexOf('<section id="page-dash"'), src.indexOf('<!-- ══ PAGE: PLAN'));
+    const order = ['todayCard', 'smartNotifs', 'weekStrip', 'strengthCard', 'weeklyWeight', 'weightChart', 'coachCard'].map((id) => dash.indexOf('id="' + id + '"'));
+    order.forEach((v, i) => { assert.ok(v > 0, 'fehlt: ' + i); if (i) assert.ok(v > order[i - 1], 'Reihenfolge ' + i); });
+    assert.doesNotMatch(dash, /dashKcal|id="heroStats"/, 'Kalorien und Pillen nicht auf Heute');
+    const nav = src.slice(src.indexOf('<nav class="nav">'), src.indexOf('</nav>'));
+    assert.deepEqual([...nav.matchAll(/data-nav="(\w+)"/g)].map((m) => m[1]), ['dash', 'plan', 'workout', 'log', 'data']);
+    assert.match(nav, />Heute</);
+    const prof = src.slice(src.indexOf('<section id="page-data"'));
+    assert.match(prof, /id="heroStats"/);
+    assert.match(prof, /navigate\('ern'\)/);
+  });
+
+  test('C2 Kopf zeigt Name, Datum, Zykluswoche; Ernährung markiert Profil', () => {
+    const c = loadApp({ user: { name: 'Test' } }, { now: '2026-11-10T08:00:00Z' });
+    c.renderHeroStats();
+    assert.equal(c.document.getElementById('heroName').textContent, 'Test');
+    assert.match(c.document.getElementById('heroMeta').textContent, /10\.11\..*Wo \d/);
+  });
+
+  test('C2 Wochenleiste: Mo–So mit Terminen, erledigtem Gym und Vorschlag', () => {
+    const sched = { appointments: [{ id: 'tr', name: 'Training', weekdays: [2, 4], time: '19:00' }] };
+    const hist = [{ ts: Date.parse('2026-11-09T17:00:00'), dayName: 'Lower', durationMs: 3e6, volume: 0, sets: [{ ex: 'Kniebeuge (LH)', w: 100, r: 5, rpe: 8 }] }];
+    const c = loadApp({ schedule: sched, history: hist }, { now: '2026-11-10T08:00:00' });
+    c.renderWeekStrip();
+    const h = c.document.getElementById('weekStrip').innerHTML;
+    assert.equal((h.match(/class="wday( today)?"/g) || []).length, 7);
+    assert.match(h, /aria-label="Montag: Gym: Lower"/);
+    assert.match(h, /class="wday today"[^>]*aria-label="Dienstag/);
+    assert.match(h, /aria-label="Mittwoch: 19:00 Training"/);
+    assert.match(h, /aria-label="Freitag: 19:00 Training"/);
+  });
 }
