@@ -78,4 +78,32 @@ export default function ({ test, assert, loadApp, REPO_ROOT }) {
     assert.doesNotMatch(e.note, /Teilw|Versagen anh/i);
     assert.doesNotMatch(html(), /Teilwdh unten NACH Muskelversagen|Teilwdh in der unteren/);
   });
+
+  test('B7 Karte "Daten prüfen" auf Heute, solange Ausreißer; PRs danach neu', () => {
+    const S = (d, sets, dur) => ({ ts: Date.parse(`${d}T17:00:00Z`), dayName: 'Lower', durationMs: dur || 3e6, volume: 0, sets });
+    const hist = [
+      S('2026-11-08', [{ ex: 'Kniebeuge (LH)', w: 1000, r: 5, rpe: 8 }]),          // Tippfehler
+      S('2026-11-05', [{ ex: 'Kniebeuge (LH)', w: 100, r: 5, rpe: 12 }]),          // RPE ungültig
+      S('2026-11-01', [{ ex: 'Kniebeuge', w: 100, r: 5, rpe: 8 }], 5 * 3600000),   // > 4 h, alter Name
+      S('2026-10-28', [{ ex: 'Kniebeuge (LH)', w: 95, r: 5, rpe: 8 }]),
+    ];
+    const c = loadApp({ history: hist }, { now: '2026-11-10T08:00:00Z' });
+    assert.equal(c.findDataIssues(false).length, 3);
+    c.renderTodayCard();
+    const card = () => c.document.getElementById('todayCard').innerHTML;
+    assert.match(card(), /Daten prüfen/);
+    assert.match(card(), /3 auffällige Einträge/);
+    const prBefore = c.AppState.prs['Kniebeuge (LH)'];
+    c.openDataCheck('dataCheckToday');
+    assert.match(c.document.getElementById('dataCheckToday').innerHTML, /Satz löschen/);
+    const wi = c._dcList.findIndex(f => f.kind === 'gewicht');
+    c.dcAct(wi, 'delete');
+    assert.ok(c.AppState.prs['Kniebeuge (LH)'] < prBefore, 'PR ohne Ausreißer neu berechnet');
+    assert.match(card(), /2 auffällige Einträge/);
+    c.dcAct(c._dcList.findIndex(f => f.kind === 'rpe'), 'fix', 8);
+    c.dcAct(c._dcList.findIndex(f => f.kind === 'dauer'), 'ok');
+    assert.equal(c.findDataIssues(false).length, 0);
+    c.renderTodayCard();
+    assert.doesNotMatch(card(), /Daten prüfen/, 'Karte verschwindet ohne offene Funde');
+  });
 }

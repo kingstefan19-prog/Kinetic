@@ -2462,7 +2462,9 @@ function manualStartCheck(day, variant, date){
 // Dashboard-Karte "Heute": Vorschlag, Alternative, Erholung, Wochenziel
 function renderTodayCard(){
   var c = el('todayCard'); if(!c) return;
-  if(!rotationUnits().length){ c.innerHTML = ''; return; }
+  var dc = dataCheckCardHtml();
+  if(!dc && _dcBox==='dataCheckToday') _dcBox = 'dataCheckBox';
+  if(!rotationUnits().length){ c.innerHTML = dc; if(dc && _dcBox==='dataCheckToday') renderDataCheck(); return; }
   var r = flexSuggestion(), m = r.main, a = r.alt;
   var icon = m.kind==='unit' ? '🏋️' : m.kind==='done' ? '✅' : m.kind==='appointment' ? '⚽' : m.kind==='mobility' ? '🧘' : '😌';
   var bars = FLEX_GROUPS.map(function(g){
@@ -2474,7 +2476,7 @@ function renderTodayCard(){
   var nextAppt = r.upcoming[0];
   var vo = weekOpenVolume();
   var voTxt = Object.keys(vo).map(function(k){ return satzWort(vo[k])+' '+(MUSCLE_LABEL[k]||k); }).join(', ');
-  c.innerHTML = feedbackHtml()+'<div class="c" style="margin-bottom:10px">'
+  c.innerHTML = dc+feedbackHtml()+'<div class="c" style="margin-bottom:10px">'
     +'<div style="display:flex;align-items:center;gap:10px"><div style="font-size:24px">'+icon+'</div>'
     +'<div style="flex:1"><div style="font-size:15px;font-weight:700">'+esc(m.kind==='unit' ? 'Heute: '+m.label : m.label)+'</div>'
     +(m.reason ? '<div style="font-size:12px;color:var(--t2);margin-top:2px;line-height:1.5">'+esc(m.reason)+'</div>' : '')+'</div></div>'
@@ -2491,6 +2493,7 @@ function renderTodayCard(){
     +'</div>'
     +(r.kind!=='done' ? '<select id="flexOther" onchange="startFlexUnit(this.value)" style="margin-top:8px;width:100%;padding:8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t2);font-size:12px"><option value="">Andere Einheit starten …</option>'+others+'</select>' : '')
     +'</div>';
+  if(dc && _dcBox==='dataCheckToday') renderDataCheck();
 }
 
 // ── Subjektives Feedback (Punkt 5) ──
@@ -3140,7 +3143,7 @@ function renderLog(){
 // ── Bereinigungs-Assistent (Spec 1.4) ────────────────────────────────────
 // Findet Sätze mit w > 2× Median der Übung, RPE außerhalb 5–10 und
 // Sessions > 4 h. "Ist korrekt" merkt sich den Fund (DB dataIssuesOk).
-var _dcList = [], _dcFixIdx = null;
+var _dcList = [], _dcFixIdx = null, _dcBox = 'dataCheckBox';
 function medianOf(nums){
   var a = nums.slice().sort(function(x, y){ return x - y; }), m = Math.floor(a.length/2);
   return a.length ? (a.length % 2 ? a[m] : (a[m-1] + a[m])/2) : 0;
@@ -3149,14 +3152,14 @@ function dataIssueKey(f){ return [f.kind, f.ts, f.sIdx==null ? '' : f.sIdx, f.ex
 function findDataIssues(includeAccepted){
   var h = AppState.history||[], ws = {}, med = {}, out = [];
   h.forEach(function(s){ (s.sets||[]).forEach(function(x){
-    if(+x.w>0){ (ws[x.ex] = ws[x.ex]||[]).push(+x.w); }
+    if(+x.w>0){ var k = canonicalEx(x.ex); (ws[k] = ws[k]||[]).push(+x.w); }
   }); });
   Object.keys(ws).forEach(function(ex){ med[ex] = medianOf(ws[ex]); });
   h.forEach(function(s, hi){
     (s.sets||[]).forEach(function(x, si){
-      var w = +x.w;
-      if(w>0 && w > 2*med[x.ex]) out.push({kind:'gewicht', hIdx:hi, sIdx:si, ts:s.ts, ex:x.ex, value:w,
-        msg:fmtDe(w)+' kg × '+(x.r||'?')+' – mehr als doppelt so viel wie dein Median ('+fmtDe(med[x.ex])+' kg)'});
+      var w = +x.w, m = med[canonicalEx(x.ex)];
+      if(w>0 && w > 2*m) out.push({kind:'gewicht', hIdx:hi, sIdx:si, ts:s.ts, ex:x.ex, value:w,
+        msg:fmtDe(w)+' kg × '+(x.r||'?')+' – mehr als doppelt so viel wie dein Median ('+fmtDe(m)+' kg)'});
       if(x.rpe!==null && x.rpe!==undefined && x.rpe!=='' && !(+x.rpe>=5 && +x.rpe<=10)) out.push({kind:'rpe', hIdx:hi, sIdx:si, ts:s.ts, ex:x.ex, value:x.rpe,
         msg:'RPE '+x.rpe+' ungültig – erlaubt sind RIR 0–5 (RPE 5–10)'});
     });
@@ -3185,7 +3188,7 @@ function resolveDataIssue(f, action, value){
       if(!(min>=1 && min<=240)) return false;
       sess.durationMs = Math.round(min*60000);
     }
-    AppState.save();
+    logAfterChange(sess);
     return true;
   }
   var st = (sess.sets||[])[f.sIdx]; if(!st) return false;
@@ -3202,14 +3205,15 @@ function resolveDataIssue(f, action, value){
   logAfterChange(sess);
   return true;
 }
-function openDataCheck(){
-  var box = el('dataCheckBox'); if(!box) return;
+function openDataCheck(boxId){
+  _dcBox = boxId || 'dataCheckBox';
+  var box = el(_dcBox); if(!box) return;
   _dcList = findDataIssues(false); _dcFixIdx = null;
   box.style.display = 'block';
   renderDataCheck();
 }
 function renderDataCheck(){
-  var box = el('dataCheckBox'); if(!box) return;
+  var box = el(_dcBox); if(!box) return;
   if(!_dcList.length){
     box.innerHTML = '<div class="c" style="font-size:13px;color:var(--green)">✅ Keine auffälligen Einträge gefunden.</div>';
     return;
@@ -3242,6 +3246,21 @@ function dcAct(i, action, value){
   toast(action==='ok' ? 'Als korrekt markiert' : (action==='delete' ? 'Gelöscht' : 'Korrigiert')+' – PRs neu berechnet');
   _dcList = findDataIssues(false); _dcFixIdx = null;   // Indizes neu, falls ein Satz gelöscht wurde
   renderDataCheck(); safeCall(renderLog); safeCall(refreshDash);
+}
+// B7: Karte "Daten prüfen" auf Heute, solange offene Funde existieren
+// (Satz > 2× Median der Übung, RPE außerhalb 5–10, Session > 4 h).
+// Korrigieren/Löschen berechnet die PRs neu (logAfterChange).
+function dataCheckCardHtml(){
+  var n = findDataIssues(false).length;
+  if(!n) return '';
+  var open = _dcBox==='dataCheckToday';
+  return '<div class="c" id="dataCheckCard" style="margin-bottom:10px;border:1px solid var(--orange)">'
+    +'<div style="display:flex;align-items:center;gap:10px"><div style="font-size:22px">🔍</div>'
+    +'<div style="flex:1"><div style="font-size:15px;font-weight:700">Daten prüfen</div>'
+    +'<div style="font-size:12px;color:var(--t2);margin-top:2px;line-height:1.5">'+n+(n===1?' auffälliger Eintrag':' auffällige Einträge')+' im Log. Ausreißer verfälschen PRs und Startgewichte.</div></div></div>'
+    +(open ? '' : '<button type="button" class="btn bo" onclick="openDataCheck(\'dataCheckToday\')" style="margin:10px 0 0;font-size:13px">Jetzt prüfen</button>')
+    +'<div id="dataCheckToday" style="margin-top:8px"></div>'
+    +'</div>';
 }
 function dcSaveFix(i){ var x = el('dcFixInp'); dcAct(i, 'fix', x ? x.value : ''); }
 
