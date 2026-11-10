@@ -166,4 +166,15 @@ export default function ({ test, assert, loadApp, loadFixture, REPO_ROOT }) {
       assert.deepEqual(statics, [], k);
     }
   });
+
+  test('C7 Zoom erlaubt, Safe-Area in der Nav, reduzierte Bewegung', () => {
+    const src = html();
+    const vp = src.match(/<meta name="viewport" content="([^"]*)">/)[1];
+    assert.doesNotMatch(vp, /user-scalable\s*=\s*no|maximum-scale/);
+    assert.match(src, /\.nav\{[^}]*padding-bottom:calc\(8px \+ env\(safe-area-inset-bottom\)\)/);
+    const rm = src.match(/@media \(prefers-reduced-motion: reduce\)\{([\s\S]*?)\n\}/);
+    assert.ok(rm, 'Media-Query vorhanden');
+    assert.match(rm[1], /animation-duration:\.01ms!important/);
+    assert.match(rm[1], /transition-duration:\.01ms!important/);
+  });
 }
