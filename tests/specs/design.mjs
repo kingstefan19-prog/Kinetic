@@ -115,4 +115,16 @@ export default function ({ test, assert, loadApp, REPO_ROOT }) {
     assert.match(src, /\.wo-sets input,\.wo-sets button\{min-height:44px\}/);
     assert.match(src, /\.wo-bar\{position:fixed;[^}]*bottom:calc\(var\(--nav-h\) \+ env\(safe-area-inset-bottom\)\)/);
   });
+
+  test('C4 Plan-Kopf: die vier Knöpfe liegen im Menü "⋯"', () => {
+    const src = html();
+    const head = src.slice(src.indexOf('<section id="page-plan"'), src.indexOf('id="planList"'));
+    const menu = head.slice(head.indexOf('<details class="pmenu"'), head.indexOf('</details>'));
+    for (const fn of ['id="editDaysBtn"', 'openOnboarding()', 'offerPlan3plus1()', 'resetToDefaultPlan()']) assert.ok(menu.includes(fn), fn);
+    assert.equal((head.match(/<button/g) || []).length - (menu.match(/<button/g) || []).length, 2, 'außerhalb nur "Fertig" und Glossar');
+    const c = loadApp({}, { now: '2026-11-10T08:00:00' });
+    c.document.getElementById('planMenu').open = true;
+    c.closePlanMenu();
+    assert.equal(c.document.getElementById('planMenu').open, false);
+  });
 }

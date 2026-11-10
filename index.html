@@ -27,6 +27,7 @@
   --f:'Inter',-apple-system,sans-serif;--r:14px;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+[hidden]{display:none!important}
 html{-webkit-tap-highlight-color:transparent}
 body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;line-height:1.5;min-height:100vh;padding-bottom:90px;overflow-x:hidden;-webkit-font-smoothing:antialiased}
 
@@ -190,6 +191,16 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 .wo-rest.on{display:flex;align-items:center;gap:var(--s2);background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:0 var(--s2) 0 var(--s3)}
 .wo-rest.on #restTimer{font-size:20px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums}
 .wo-rest.on .btn{flex:1;min-height:40px;padding:6px;font-size:12px}
+.plan-head{justify-content:space-between;align-items:center}
+.plan-head .sh-t{flex:1}
+.plan-head .btn{width:auto;margin:0;min-height:44px}
+.pmenu{position:relative}
+.pmenu>summary{list-style:none;cursor:pointer;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:var(--t1);background:var(--card2);border:1px solid var(--border);border-radius:10px}
+.pmenu>summary::-webkit-details-marker{display:none}
+.pmenu-list{position:absolute;right:0;top:calc(100% + var(--s1));z-index:150;min-width:220px;background:var(--card);border:1px solid var(--border2);border-radius:12px;padding:var(--s1);box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.pmenu-list button{display:block;width:100%;min-height:44px;text-align:left;padding:0 var(--s3);background:none;border:none;border-radius:8px;color:var(--t1);font-family:var(--f);font-size:14px;cursor:pointer}
+.pmenu-list button:active{background:var(--card2)}
+.pmenu-list button.danger{color:var(--orange)}
 .muted{font-size:13px;color:var(--t3);line-height:1.5}
 .chart-empty{display:flex;align-items:center;justify-content:center;height:100%;color:var(--t3);font-size:13px}
 .td-line{display:flex;gap:var(--s2);align-items:baseline;margin-top:var(--s2);font-size:13px;color:var(--t2);line-height:1.5}
@@ -314,14 +325,19 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 
 <!-- ══ PAGE: PLAN ══ -->
 <section id="page-plan" class="page">
-  <div class="sh" style="justify-content:space-between;align-items:center">
+  <!-- C4: Plan-Kopf – die vier Aktionen liegen im Menü "⋯" -->
+  <div class="sh plan-head">
     <span class="sh-t">Rotation</span>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
-      <button id="editDaysBtn" class="btn bg2" style="width:auto;padding:6px 10px;font-size:12px;margin:0">✏️ Anpassen</button>
-      <button onclick="resetToDefaultPlan()" class="btn bg2" style="width:auto;padding:6px 10px;font-size:12px;margin:0;color:var(--orange)">↺ Reset</button>
-      <button onclick="openOnboarding()" class="btn bg2" style="width:auto;padding:6px 10px;font-size:12px;margin:0;color:var(--blue)">🎯 Plan erstellen</button>
-      <button onclick="offerPlan3plus1()" class="btn bg2" style="width:auto;padding:6px 10px;font-size:12px;margin:0;color:var(--green)">📋 Vorlage übernehmen</button>
-    </div>
+    <button type="button" id="editDoneBtn" class="btn bp btn-sm" hidden>✓ Fertig</button>
+    <details class="pmenu" id="planMenu">
+      <summary aria-label="Plan-Aktionen">⋯</summary>
+      <div class="pmenu-list" role="menu" onclick="closePlanMenu()">
+        <button type="button" role="menuitem" id="editDaysBtn">✏️ Anpassen</button>
+        <button type="button" role="menuitem" onclick="openOnboarding()">🎯 Plan erstellen</button>
+        <button type="button" role="menuitem" onclick="offerPlan3plus1()">📋 Vorlage übernehmen</button>
+        <button type="button" role="menuitem" onclick="resetToDefaultPlan()" class="danger">↺ Reset</button>
+      </div>
+    </details>
   </div>
 
 
@@ -2519,6 +2535,9 @@ function renderTodayCard(){
   if(dc && _dcBox==='dataCheckToday') renderDataCheck();
 }
 
+// C4: Menü "⋯" im Plan-Kopf nach Auswahl schließen
+function closePlanMenu(){ var m = el('planMenu'); if(m) m.open = false; }
+
 // C2: Readiness als eine Zeile, Luna als Zeile (nur mit Daten der letzten 14 Tage)
 function todayLinesHtml(){
   var out = '';
@@ -3082,6 +3101,7 @@ function renderPlan(){
     }).join('');
 
     const eb=el('editDaysBtn'); if(eb) eb.textContent=em?'✓ Fertig':'✏️ Anpassen';
+    const ed=el('editDoneBtn'); if(ed) ed.hidden=!em;   // C4: im Bearbeiten-Modus sichtbar beenden
     const pi=el('planInfo'); if(pi) pi.innerHTML=planInfoHtml();
   } catch(e){ log.error('renderPlan',e); list.innerHTML='<div class="empty">Fehler beim Laden. <button class="btn bp" onclick="resetToDefaultPlan()" style="margin-top:10px;max-width:200px">↺ Plan zurücksetzen</button></div>'; }
 }
@@ -6928,7 +6948,7 @@ function bindEvents(){
     const start=ev.target.closest('[data-start]');
     if(start){ startWorkout(start.dataset.start); return; }
 
-    if(ev.target.closest('#editDaysBtn')){ toggleEditMode(); return; }
+    if(ev.target.closest('#editDaysBtn') || ev.target.closest('#editDoneBtn')){ toggleEditMode(); return; }
 
     const up=ev.target.closest('[data-move-up]');
     if(up){ const i=parseInt(up.dataset.moveUp,10); moveGymDay(i,-1); return; }
