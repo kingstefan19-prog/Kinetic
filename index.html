@@ -1607,6 +1607,10 @@ function setTrainingGoal(g){
   toast(g==='athlete' ? '🏃 Trainingsziel: Athlet' : '💪 Trainingsziel: Recomp');
   return true;
 }
+function setSessionMinutes(v){
+  var m = parseInt(v, 10); if(!(m>=30 && m<=120)) return false;
+  AppState.user.sessionMinutes = m; AppState.save(); return true;
+}
 function renderGoalSettings(){
   var c = el('goalSettings'); if(!c) return;
   var g = trainingGoal();
@@ -1615,7 +1619,9 @@ function renderGoalSettings(){
       +'<div style="font-size:14px;font-weight:700">'+label+(on?' ✓':'')+'</div><div style="font-size:12px;color:var(--t2);margin-top:2px">'+sub+'</div></button>'; };
   c.innerHTML = '<div style="display:flex;gap:8px">'
     +btn('recomp', 'Recomp', 'Muskelaufbau, KFA senken')
-    +btn('athlete', 'Athlet', 'Maximal-/Schnellkraft, Fußball, Masse halten')+'</div>';
+    +btn('athlete', 'Athlet', 'Maximal-/Schnellkraft, Fußball, Masse halten')+'</div>'
+    +(g==='athlete' ? '<div style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--t2)">Max. Dauer je Einheit'
+      +'<input class="li" type="number" min="30" max="120" step="5" value="'+sessionMaxMinutes()+'" onchange="setSessionMinutes(this.value)" style="width:70px;padding:6px;font-size:13px"> Min</div>' : '');
 }
 
 // A2: Übungsrollen. Override "role" am Plan-Eintrag, dann Tabelle, dann Regel
@@ -1684,14 +1690,55 @@ function athletePlanString(e){
   n = Math.max(sp.sets[0], Math.min(sp.sets[1], n));
   return sp.secs ? n+'×'+sp.secs : n+'×'+sp.lo+'-'+sp.hi;
 }
-// Vorschau alt → neu je Übung (nur Gym-Tage)
+// A4: Dauer und Sätze einer Einheit mit den Pausen des Athleten-Modus
+function athleteDayStats(day){
+  var sets = 0, secs = 0;
+  (day && day.ex || []).forEach(function(e){
+    var m = String(e.s||'').match(/^(\d+)/), n = m ? parseInt(m[1], 10) : 0;
+    var timed = !!(e.timed || /\d+s\b/.test(e.s||'')), t = String(e.s||'').match(/(\d+)\s*s\b/);
+    var sp = roleSpec(e.n, exerciseRole(e.n, e)), rest = sp ? sp.rest : (timed ? 60 : 90);
+    sets += n;
+    secs += n * (rest + (timed && t ? +t[1] : 40));
+  });
+  return {sets:sets, min:sets ? Math.round((secs/60 + 10)/5)*5 : 0};
+}
+var ATHLETE_MAX_SETS = 20;
+function sessionMaxMinutes(){ var m = +(AppState.user && AppState.user.sessionMinutes); return m>=30 && m<=120 ? m : 60; }
+// Satz für Satz kürzen, bis Dauer und Satzzahl passen: zuerst iso, dann assist
+// (jeweils bei der Übung mit den meisten Sätzen, bei Gleichstand der späteren),
+// jede Übung behält mindestens 1 Satz; main, main-heavy und prevent nie.
+function trimSession(day, opts){
+  opts = opts || {};
+  var maxMin = opts.maxMin || sessionMaxMinutes(), maxSets = opts.maxSets || ATHLETE_MAX_SETS;
+  var d = Object.assign({}, day, {ex:(day.ex||[]).map(function(e){ return Object.assign({}, e); })}), cut = 0;
+  var setsOf = function(e){ var m = String(e.s||'').match(/^(\d+)/); return m ? +m[1] : 0; };
+  for(var guard=0; guard<100; guard++){
+    var st = athleteDayStats(d);
+    if(st.sets <= maxSets && st.min <= maxMin) break;
+    var pick = null;
+    ['iso','assist'].some(function(role){
+      d.ex.forEach(function(e){
+        if(exerciseRole(e.n, e)!==role || setsOf(e) <= 1) return;
+        if(!pick || setsOf(e) >= setsOf(pick)) pick = e;
+      });
+      return !!pick;
+    });
+    if(!pick) break;
+    pick.s = String(pick.s).replace(/^\d+/, String(setsOf(pick) - 1));
+    cut++;
+  }
+  d.trimmed = cut;
+  return d;
+}
+// Vorschau alt → neu je Übung (nur Gym-Tage), Einheiten auf 60 Min/20 Sätze gekürzt
 function athletePlanPreview(){
   var rows = [];
   (AppState.plan||[]).forEach(function(d, di){
     if(!d || d.type!=='gym') return;
+    var conv = Object.assign({}, d, {ex:(d.ex||[]).map(function(e){ return Object.assign({}, e, {s:athletePlanString(Object.assign({}, e, {s:e.prevS || e.s}))}); })});
+    var t = trimSession(conv);
     (d.ex||[]).forEach(function(e, ei){
-      var role = exerciseRole(e.n, e);
-      rows.push({day:d.name, di:di, ei:ei, n:e.n, role:role, old:e.prevS || e.s, neu:athletePlanString(Object.assign({}, e, {s:e.prevS || e.s}))});
+      rows.push({day:d.name, di:di, ei:ei, n:e.n, role:exerciseRole(e.n, e), old:e.prevS || e.s, neu:t.ex[ei].s});
     });
   });
   return rows;
@@ -2527,6 +2574,8 @@ function renderCoachCard(){
     var m=pair[0], lm=pair[1], sets=vol[m]||0;
     var status, color;
     if(sets<=0 && inPlan[m]){ status='nicht trainiert'; color='var(--accent)'; }
+    else if(isAthlete() && sets<ATHLETE_MAINTAIN){ status='unter Erhalt'; color='var(--orange)'; }
+    else if(isAthlete() && sets<=lm.mrv){ status='erhalten'; color='var(--green)'; }
     else if(sets<lm.mev){ status='unter MEV'; color='var(--orange)'; }
     else if(sets<=lm.mav){ status='optimal'; color='var(--green)'; }
     else if(sets<=lm.mrv){ status='hoch'; color='var(--gold)'; }
@@ -3130,6 +3179,15 @@ function showPreWorkoutDialog(dayId, day, analysis, opts){
 
 function proceedWithWorkout(dayId, day, applyAdjustments, suggestions, opts){
   opts = opts || {};
+  // A4: Athlet – Dauer und Satzzahl begrenzen; bei niedriger Readiness 4 Sätze weniger
+  if(isAthlete() && day && day.type==='gym'){
+    var rdA = readinessScore(), low = rdA && rdA.hasData && rdA.score < 65;
+    var tr = trimSession(day, {maxSets: ATHLETE_MAX_SETS - (low ? 4 : 0)});
+    if(tr.trimmed){
+      day = tr;
+      opts = Object.assign({}, opts, {hints:(opts.hints||[]).concat([(low ? 'Readiness '+rdA.score+': ' : '')+tr.trimmed+' Satz/Sätze Isolation/Assistenz gekürzt (max. '+sessionMaxMinutes()+' Min)'])});
+    }
+  }
   // Optional: Adjust the session's exercises based on suggestions
   var exercises = day.ex.map(function(e){ return Object.assign({},e); });
   if(applyAdjustments && suggestions){
@@ -4665,8 +4723,20 @@ function planNoteDisplay(note){
 }
 
 // ── Volumen-Progression: Satz-Empfehlung übers Mesozyklus (MEV→MAV→MRV) ───
+// A4: Erhaltungswert im Athleten-Modus – gewichtete Sätze je Muskel und Woche
+var ATHLETE_MAINTAIN = 4;
 function volumeProgressionAdvice(){
   if(deloadActive()) return [];   // im Deload keine Steigerungs-Empfehlungen
+  if(isAthlete()){
+    // keine Hinweise Richtung MAV; nur unter Erhalt oder über MRV
+    var volA = smoothedWeeklyMuscleSets(), inPlanA = planMuscles(), adv = [];
+    Object.keys(VOLUME_LM).forEach(function(m){
+      var setsA = volA[m]||0;
+      if(setsA > VOLUME_LM[m].mrv) adv.push({m:m, action:'reduce', msg:m+': über MRV ('+setsA+'/'+VOLUME_LM[m].mrv+') – nächste Woche −2–3 Sätze.'});
+      else if(setsA < ATHLETE_MAINTAIN && inPlanA[m]) adv.push({m:m, action:'add', untrained:setsA<=0, msg:m+': unter Erhalt ('+setsA+'/'+ATHLETE_MAINTAIN+' Sätze pro Woche) – Masse halten braucht etwa 4 harte Sätze.'});
+    });
+    return adv.filter(function(a){ return a.untrained; }).concat(adv.filter(function(a){ return !a.untrained; }));
+  }
   var vol = smoothedWeeklyMuscleSets();
   var advice = [], inPlan = planMuscles();
   Object.keys(VOLUME_LM).forEach(function(m){

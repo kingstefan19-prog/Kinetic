@@ -112,4 +112,45 @@ export default function ({ test, assert, loadApp }) {
     c.__harness.setNow(Date.parse('2026-11-12T08:00:00Z'));
     assert.notEqual(c.coachSuggestion(B, '4×3-6').hint, 'Einstiegsgewicht, lieber zu leicht.');
   });
+
+  // ── A4 Volumen ──
+  test('A4 Höchstens 60 Min und 20 Sätze: zuerst iso kürzen, dann assist, nie main', () => {
+    const c = loadApp({ plan: PLAN() }, { now: '2026-11-10T08:00:00Z' });
+    const rows = c.athletePlanPreview().filter((r) => r.day === 'Upper B');
+    c.applyAthletePlan();
+    const ub = c.AppState.plan.find((d) => d.name === 'Upper B');
+    const st = c.athleteDayStats(ub);
+    assert.ok(st.sets <= 20 && st.min <= 60, JSON.stringify(st));
+    for (const e of ub.ex) {
+      const role = c.exerciseRole(e.n, e), n = +e.s[0];
+      if (role === 'main-heavy') assert.equal(n, 4, e.n);
+      if (role === 'main' || role === 'assist') assert.equal(n, 3, `${e.n} nicht gekürzt`);
+      assert.ok(n >= 1);
+    }
+    assert.equal(rows.reduce((a, r) => a + +r.neu[0], 0), st.sets);
+    for (const d of c.AppState.plan.filter((x) => x.type === 'gym')) {
+      const s2 = c.athleteDayStats(d);
+      assert.ok(s2.sets <= 20 && s2.min <= 60, `${d.name} ${JSON.stringify(s2)}`);
+    }
+    // Readiness < 65: 4 Sätze weniger, wieder zuerst iso
+    const t = c.trimSession(ub, { maxSets: 16 });
+    assert.equal(c.athleteDayStats(t).sets, 16);
+    assert.ok(t.ex.filter((e) => c.isMainRole(c.exerciseRole(e.n, e))).every((e) => ub.ex.find((x) => x.n === e.n).s === e.s));
+    // 45 Min eingestellt: Assistenz wird auch gekürzt, main nie
+    c.setSessionMinutes(45);
+    const t45 = c.trimSession(ub);
+    assert.ok(c.athleteDayStats(t45).min <= 45 || t45.ex.every((e) => c.isMainRole(c.exerciseRole(e.n, e)) || c.exerciseRole(e.n, e) === 'prevent' || +e.s[0] === 1));
+    assert.equal(t45.ex.find((e) => e.n === 'Schrägbank Bankdrücken (LH)').s, '4×3-6');
+  });
+
+  test('A4 Volumen: Warnung erst unter Erhalt (4 Sätze), keine Hinweise Richtung MAV', () => {
+    const hist = ['2026-11-02', '2026-11-05'].map((d) => S(`${d}T17:00:00Z`, 'Bankdrücken (LH)', [[100, 5, 8], [100, 5, 8], [100, 5, 8]]));
+    const c = loadApp({ plan: PLAN(), history: hist }, { now: '2026-11-10T08:00:00Z' });
+    assert.ok(c.volumeProgressionAdvice().some((a) => /brust: unter MEV|Spielraum bis MAV/.test(a.msg)), 'Recomp wie bisher');
+    c.AppState.user.trainingGoal = 'athlete';
+    const adv = c.volumeProgressionAdvice();
+    assert.ok(!adv.some((a) => /MEV|MAV/.test(a.msg)), JSON.stringify(adv.map((a) => a.msg)));
+    assert.ok(!adv.some((a) => a.m === 'brust'), 'Brust ≥ 4 Sätze pro Woche: kein Hinweis');
+    assert.ok(adv.some((a) => /unter Erhalt \(0\/4/.test(a.msg)));
+  });
 }
