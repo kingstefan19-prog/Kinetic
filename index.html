@@ -1365,15 +1365,15 @@ function renderSmartNotifs(){
     }
   }
 
-  // Adherence (Spec 3.3): Tag fehlt in 2 der letzten 3 Wochen
+  // Adherence (Spec 3.3, B1): Einheit in 3 Wochen höchstens 1× trainiert
   var missedDays = oftenMissedDays();
   if(missedDays.length){
     var md = missedDays[0];
     var others = missedDays.slice(1).map(function(a){ return a.name; });
-    var btns = [{label:'Wochentag verschieben', fn:'moveMissedDay('+md.idx+')'}];
+    var btns = [{label:md.name+' als Nächstes', fn:'preferUnitNext(\''+md.id+'\')'}];
     if(typeof offerPlan3plus1==='function') btns.push({label:'3+1-Plan übernehmen', fn:'offerPlan3plus1()'});
-    notifs.push({icon:'📅', title:md.name+' fällt oft aus',
-      body:'In '+md.missed+' der letzten 3 Wochen nicht trainiert ('+WEEKDAYS[md.idx]+'). Leg ihn auf einen Tag, der zuverlässig klappt'+(others.length?' · ebenfalls oft ausgefallen: '+others.join(', '):'')+'.',
+    notifs.push({icon:'📅', title:md.name+' in 3 Wochen '+(md.count ? 'nur '+md.count+'× trainiert' : 'nicht trainiert'),
+      body:'Damit jeder Muskel etwa 2× pro Woche dran ist, sollte jede Einheit rund 1× pro Woche kommen'+(others.length?' · ebenfalls selten: '+others.join(', '):'')+'.',
       type:'warn', prio:1, buttons:btns});
   }
 
@@ -1517,35 +1517,32 @@ function baseDayName(n){
   do { prev = x; x = x.replace(/\s*\(((KI-)?optimiert|kompakt)\)\s*$/i, '').trim(); } while(x !== prev);
   return x;
 }
-// Pro Pflicht-Gymtag: in welcher der letzten 3 Wochen wurde er absolviert?
-// Bewertet wird erst, wenn die erste Session mindestens 14 Tage zurückliegt.
-function planAdherence(){
-  var h = AppState.history||[], now = Date.now(), W = 7*86400000;
+// B1: Adherence je Einheit statt Wochentag. Wie oft wurde jede Pflicht-Einheit
+// der Rotation in den letzten 21 Tagen trainiert? Bewertet wird erst, wenn die
+// erste Session mindestens 14 Tage zurückliegt.
+function unitAdherence(){
+  var h = AppState.history||[], now = Date.now();
   if(!h.length) return [];
   var first = Math.min.apply(null, h.map(function(e){ return +e.ts||now; }));
   if(now - first < 14*86400000) return [];
-  var out = [];
-  (AppState.plan||[]).forEach(function(day, idx){
-    if(!day || day.type!=='gym' || day.optional || !(day.ex||[]).length) return;
-    var name = baseDayName(day.name), weeks = [false, false, false];
-    h.forEach(function(e){
-      if(baseDayName(e.dayName) !== name) return;
-      var k = Math.floor((now - e.ts)/W);
-      if(k>=0 && k<3) weeks[k] = true;
-    });
-    var missed = weeks.filter(function(x){ return !x; }).length;
-    out.push({idx:idx, name:day.name, weeks:weeks, missed:missed});
+  var since = now - 21*86400000;
+  return rotationUnits().filter(function(d){ return !d.optional; }).map(function(d){
+    var n = h.filter(function(e){ return e.ts>=since && e.ts<=now && unitOfSession(e)===d; }).length
+      + (AppState.activityLog||[]).filter(function(a){ var t = activityTs(a); return a && a.status!=='cancelled' && t>=since && t<=now && unitOfSession(a)===d; }).length;
+    return {id:d.id, idx:(AppState.plan||[]).indexOf(d), name:d.name, count:n};
   });
-  return out;
 }
-// Tage, die in 2 der letzten 3 Wochen ausgefallen sind
+// Einheiten, die in 3 Wochen höchstens 1× dran waren (Name bleibt für Kompatibilität)
 function oftenMissedDays(){
-  return planAdherence().filter(function(a){ return a.missed >= 2; });
+  return unitAdherence().filter(function(a){ return a.count <= 1; });
 }
-// "Wochentag verschieben": Plan öffnen, Tag-Editor mit Tausch-Auswahl
-function moveMissedDay(idx){
-  navigate('plan');
-  safeCall(function(){ openDayEditor(idx); });
+// "Lower als Nächstes": einmalig vor die Rotation ziehen, bis sie trainiert ist
+function preferUnitNext(id){
+  if(!unitById(id)) return false;
+  flexSchedule().nextOverride = {id:id, ts:Date.now()};
+  AppState.save(); safeCall(renderSmartNotifs); safeCall(renderTodayCard); safeCall(renderPlan);
+  toast('✅ '+unitById(id).name+' ist die nächste Einheit');
+  return true;
 }
 
 // ── Kalender-Helfer (ursprünglich feat/week-queue) ──────────────────────
@@ -2133,6 +2130,9 @@ function activityTs(a){ return a && a.ts ? +a.ts : Date.parse(String(a && a.d)+'
 function nextRotationUnit(until){
   var units = rotationUnits(); if(!units.length) return null;
   var last = lastRotationEntry(until);
+  // B1: "… als Nächstes" gilt, bis die Einheit danach trainiert wurde
+  var ov = AppState.schedule && AppState.schedule.nextOverride, t = until==null ? Date.now() : +new Date(until);
+  if(ov && ov.ts <= t && unitById(ov.id) && !(last && last.ts >= ov.ts && last.unit===unitById(ov.id))) return unitById(ov.id);
   var start = last ? units.indexOf(last.unit) + 1 : 0;
   for(var k=0; k<units.length; k++){
     var u = units[(start + k) % units.length];
