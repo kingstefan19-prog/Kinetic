@@ -34,4 +34,19 @@ export default function ({ test, assert, loadApp, REPO_ROOT }) {
     assert.equal(JSON.stringify(c.AppState.history), before, 'Historie nicht umgeschrieben');
     assert.doesNotMatch(html(), /BENCH_STD=/);
   });
+
+  test('B4 FFMI wird aus Gewicht, Größe und KFA berechnet, nie gespeichert', () => {
+    const c = loadApp({ user: { name: 'Test', weight: 80, height: 180, kfa: 15, ffmi: 99.9 } }, { now: '2026-11-10T08:00:00Z' });
+    assert.equal(c.AppState.user.ffmi, undefined, 'gespeicherter FFMI verworfen');
+    assert.equal(c.ffmiOf(c.AppState.user), 21);
+    assert.equal(c.ffmiOf({ weight: 80, height: 180 }), null, 'ohne KFA kein FFMI');
+    c.renderHeroStats();
+    assert.match(c.document.getElementById('heroStats').innerHTML, />21</);
+    // Import eines alten Backups mit gespeichertem FFMI: neu berechnet
+    c.applyBackupState({ version: 2, user: { weight: 90, height: 180, kfa: 20, ffmi: 12.3 } });
+    assert.equal(c.AppState.user.ffmi, undefined);
+    assert.equal(c.ffmiOf(c.AppState.user), 22.2);
+    c.AppState.save();
+    assert.equal(c.DB.get('user', {}).ffmi, undefined, 'nicht gespeichert');
+  });
 }

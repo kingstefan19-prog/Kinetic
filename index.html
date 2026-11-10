@@ -817,7 +817,7 @@ const WEEKDAYS = ['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag
 const AppState = {
   currentPage: 'dash',
   activeSession: null,
-  user: { name:'', age:31, weight:106.6, height:190, kfa:17.3, kfaGoal:14, ffmi:27.2, kcalTarget:3225 },
+  user: { name:'', age:31, weight:106.6, height:190, kfa:17.3, kfaGoal:14, kcalTarget:3225 },
   streak: 0,
   lastStreakDate: null,
   meals: [],           // [{name,kcal,p,kh,f,time,aiAnalyzed}]
@@ -837,7 +837,8 @@ const AppState = {
 
   load(){
     try {
-      this.user          = Object.assign({name:'',age:31,weight:106.6,height:190,kfa:17.3,kfaGoal:14,ffmi:27.2,kcalTarget:3225}, DB.get('user',{}));
+      this.user          = Object.assign({name:'',age:31,weight:106.6,height:190,kfa:17.3,kfaGoal:14,kcalTarget:3225}, DB.get('user',{}));
+      delete this.user.ffmi; // B4: FFMI wird nie gespeichert, nur berechnet (ffmiOf)
       this.streak        = DB.get('streak', 0);
       this.lastStreakDate = DB.get('lastStreakDate', null);
       this.meals         = (DB.get('meals', [])||[]).filter(function(m){ return m && m.d === localDateStr(); });
@@ -907,6 +908,7 @@ const AppState = {
   },
   save(){
     try {
+      delete this.user.ffmi; // B4
       DB.set('user', this.user);
       DB.set('streak', this.streak);
       DB.set('lastStreakDate', this.lastStreakDate);
@@ -1240,6 +1242,14 @@ function navigate(pageId){
 }
 
 // ── 8. HERO STATS ───────────────────────────────────────
+// B4: FFMI immer aus Gewicht, Größe und KFA berechnet (Magermasse / Größe²).
+// Fehlt einer der drei Werte, gibt es keinen FFMI – kein Standardwert.
+function ffmiOf(u){
+  u = u || AppState.user || {};
+  var w = +u.weight, h = +u.height, k = +u.kfa;
+  if(!(w>0) || !(h>0) || !(k>0) || k>=100) return null;
+  return +((w*(1-k/100))/((h/100)*(h/100))).toFixed(1);
+}
 function renderHeroStats(){
   const row=el('heroStats'); if(!row) return;
   const u=AppState.user;
@@ -1248,13 +1258,13 @@ function renderHeroStats(){
     {v:AppState.streak,          l:'Streak 🔥'},
     {v:u.weight?u.weight+'kg':'—', l:'Gewicht'},
     {v:u.kfa?u.kfa+'%':'—',      l:'KFA'},
-    {v:u.ffmi||'—',              l:'FFMI'},
+    {v:ffmiOf(u)||'—',           l:'FFMI'},
     {v:bmi,                      l:'BMI'}
   ].map(s=>`<div class="hs-pill"><div class="hs-val">${esc(s.v)}</div><div class="hs-lbl">${esc(s.l)}</div></div>`).join('');
 
   const meta=el('heroMeta'); if(!meta) return;
   const nameTag=u.name?' · <strong style="color:var(--accent)">'+esc(u.name)+'</strong>':'';
-  meta.innerHTML=(u.height||'—')+' cm · '+(u.weight||'—')+' kg · KFA '+(u.kfa||'—')+'% · FFMI '+(u.ffmi||'—')+'<br>'
+  meta.innerHTML=(u.height||'—')+' cm · '+(u.weight||'—')+' kg · KFA '+(u.kfa||'—')+'% · FFMI '+(ffmiOf(u)||'—')+'<br>'
     +'🔥 <span id="streakDays">'+AppState.streak+'</span> Tage Streak'+nameTag;
 }
 
@@ -6403,7 +6413,6 @@ function saveProfile(){
     // Recalculate derived
     if(u.weight&&u.height){
       var lbm = u.weight*(1-(u.kfa||20)/100);
-      u.ffmi=+(lbm/((u.height/100)**2)).toFixed(1);
       // Katch-McArdle (genauer bei bekanntem Körperfett) statt Mifflin
       var bmr = u.kfa ? Math.round(370 + 21.6*lbm)
                       : Math.round(88.36+13.4*u.weight+4.8*u.height-5.7*(u.age||30));
@@ -6423,7 +6432,7 @@ function updateProfPreview(){
   const fatKg=u.weight&&u.kfa?(u.weight*u.kfa/100).toFixed(1):'—';
   const musKg=u.weight&&u.kfa?(u.weight*(1-u.kfa/100)).toFixed(1):'—';
   const toGoal=u.weight&&u.kfa&&u.kfaGoal?(u.weight*(u.kfa-u.kfaGoal)/100).toFixed(1):'—';
-  pp.innerHTML=`${u.height||190} cm · ${u.weight||108} kg · KFA ${u.kfa||20.1}%<br>BMI: <b>${bmi}</b> · FFMI: <b>${u.ffmi||26.6}</b> · Magermasse: <b>${musKg} kg</b><br>Ziel: KFA ${u.kfaGoal||14}% → noch ca. <b style="color:var(--accent)">${toGoal} kg</b> Fett abbauen`;
+  pp.innerHTML=`${u.height||190} cm · ${u.weight||108} kg · KFA ${u.kfa||20.1}%<br>BMI: <b>${bmi}</b> · FFMI: <b>${ffmiOf(u)||'—'}</b> · Magermasse: <b>${musKg} kg</b><br>Ziel: KFA ${u.kfaGoal||14}% → noch ca. <b style="color:var(--accent)">${toGoal} kg</b> Fett abbauen`;
 }
 
 function loadProfileInputs(){
@@ -6555,6 +6564,7 @@ function buildBackupObject(){
 function applyBackupState(s){
   if(!s) return false;
   if(s.user) AppState.user=Object.assign(AppState.user,s.user);
+  delete AppState.user.ffmi; // B4: alter gespeicherter FFMI wird verworfen, Anzeige rechnet neu
   if(s.streak!==undefined) AppState.streak=s.streak;
   if(s.lastStreakDate!==undefined) AppState.lastStreakDate=s.lastStreakDate;
   if(Array.isArray(s.plan)&&s.plan.length) AppState.plan=s.plan;
@@ -7065,8 +7075,6 @@ function generatePlan(){
     if(v) AppState.user[k]=v;
   });
   if(AppState.user.weight&&AppState.user.height){
-    var kfa=AppState.user.kfa||20;
-    AppState.user.ffmi=+((AppState.user.weight*(1-kfa/100))/((AppState.user.height/100)**2)).toFixed(1);
     var bmr=Math.round(88.36+13.4*AppState.user.weight+4.8*AppState.user.height-5.7*(AppState.user.age||30));
     AppState.user.kcalTarget=Math.round(bmr*1.55-500);
   }
