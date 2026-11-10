@@ -3,7 +3,7 @@ export const title = 'Athleten-Modus · Ziel, Rollen, Vorgaben, Volumen, Fußbal
 
 const plain = (x) => JSON.parse(JSON.stringify(x));
 
-export default function ({ test, assert, loadApp }) {
+export default function ({ test, assert, loadApp, loadFixture }) {
   const PLAN = () => plain(loadApp({}).plan3plus1());
 
   // ── A1 Ziel-Schalter ──
@@ -95,22 +95,52 @@ export default function ({ test, assert, loadApp }) {
     assert.deepEqual({ rir: c.targetRIR('Bankdrücken (LH)'), rest: c.restSecondsFor('Bankdrücken (LH)') }, recomp);
   });
 
-  test('A3 Einstiegsgewicht: E1RM für die Mitte des Bereichs bei Ziel-RIR, abgerundet, ohne Steigerung', () => {
+  test('A3 Startgewicht = min(E1RM-Rechnung, letztes Arbeitsgewicht + 1 Schritt), abgerundet; Hinweis in Einheit 1', () => {
     const B = 'Bankdrücken (LH)';
-    const c = loadApp({ plan: PLAN(), history: [S('2026-11-03T17:00:00Z', B, [[100, 8, 8], [100, 8, 8], [100, 8, 8], [100, 8, 8]])] },
-      { now: '2026-11-10T08:00:00Z' });
-    assert.ok(/\+/.test(c.coachSuggestion(B, '4×5-8').hint), 'Recomp: Obergrenze → Steigerung');
-    c.applyAthletePlan();
-    const e1 = c.currentE1rm(B);
+    const three = (rows) => ['2026-10-27', '2026-10-30', '2026-11-03'].map((d) => S(`${d}T17:00:00Z`, B, rows));
+    // (b) greift: E1RM-Rechnung 109,6 kg, letztes 100 + 2,5 → 102,5
+    const c = loadApp({ plan: PLAN(), history: three([[100, 8, 8], [100, 8, 8], [100, 8, 8], [100, 8, 8]]), equipSteps: {} }, { now: '2026-11-10T08:00:00Z' });
+    const before = JSON.stringify({ h: c.AppState.history, p: c.AppState.prs, e: c.AppState.equipSteps });
+    const sw = c.athleteStartWeight(B, '4×3-6');
+    assert.deepEqual([sw.lastW, sw.lastR, sw.weight, sw.src], [100, 8, 102.5, 'last+step']);
+    c.setTrainingGoal('athlete');
+    assert.match(c.document.getElementById('appDialog').innerHTML, /Bankdrücken \(LH\)[^]*?4×5-8 → <b>4×3-6<\/b><br><span[^>]*>100 kg × 8 → <b>102,5 kg<\/b>/);
+    c.confirmDialogOk();
     const r = c.coachSuggestion(B, '4×3-6');
+    assert.equal(r.weight, 102.5);
     assert.equal(r.reps, 4);
-    assert.equal(r.hint, 'Einstiegsgewicht, lieber zu leicht.');
-    assert.ok(r.weight <= e1 / (1 + 6.5 / 30) && r.weight > e1 / (1 + 6.5 / 30) - 2.5, `${r.weight}`);
-    assert.equal(r.weight % 2.5, 0);
-    // nach der ersten Einheit im neuen Bereich normale Logik
-    c.AppState.history.push(S('2026-11-10T17:00:00Z', B, [[r.weight, 6, 7.5], [r.weight, 6, 7.5], [r.weight, 6, 7.5], [r.weight, 6, 7.5]]));
+    assert.equal(r.hint, 'Einstiegsgewicht aus deinem letzten Training.');
+    assert.equal(JSON.stringify({ h: c.AppState.history, p: c.AppState.prs, e: c.AppState.equipSteps }), before, 'Historie, PRs, equipSteps unverändert');
+    // nach der ersten Einheit normale Logik
+    c.AppState.history.push(S('2026-11-10T17:00:00Z', B, [[102.5, 6, 7.5], [102.5, 6, 7.5], [102.5, 6, 7.5], [102.5, 6, 7.5]]));
     c.__harness.setNow(Date.parse('2026-11-12T08:00:00Z'));
-    assert.notEqual(c.coachSuggestion(B, '4×3-6').hint, 'Einstiegsgewicht, lieber zu leicht.');
+    assert.notEqual(c.coachSuggestion(B, '4×3-6').hint, 'Einstiegsgewicht aus deinem letzten Training.');
+
+    // (a) greift: 100 × 5 @ RPE 10 → E1RM 116,7 → 95,9 → 95; rpeOffset +1 (Reserve unterschätzt) → RPE 9 → 98,6 → 97,5
+    const d = loadApp({ plan: PLAN(), history: three([[100, 5, 10]]) }, { now: '2026-11-10T08:00:00Z' });
+    assert.deepEqual([d.athleteStartWeight(B, '4×3-6').weight, d.athleteStartWeight(B, '4×3-6').src], [95, 'e1rm']);
+    d.AppState.rpeOffset = 1;
+    assert.equal(d.athleteStartWeight(B, '4×3-6').weight, 97.5);
+    // Sätze außerhalb RPE 5–10 zählen nicht; ohne RPE-Daten oder < 3 Sessions: letztes Arbeitsgewicht
+    const noRpe = loadApp({ plan: PLAN(), history: three([[100, 8, 0], [100, 8, 4]]) }, { now: '2026-11-10T08:00:00Z' });
+    assert.deepEqual([noRpe.athleteStartWeight(B, '4×3-6').weight, noRpe.athleteStartWeight(B, '4×3-6').src], [100, 'last']);
+    const two = loadApp({ plan: PLAN(), history: three([[100, 5, 10]]).slice(1) }, { now: '2026-11-10T08:00:00Z' });
+    assert.equal(two.athleteStartWeight(B, '4×3-6').weight, 100);
+    // Kurzhantel-Raster und Klimmzüge (Zusatzlast halten)
+    const kh = loadApp({ plan: PLAN(), history: ['2026-10-27', '2026-10-30', '2026-11-03'].map((x) => S(`${x}T17:00:00Z`, 'Schrägbankdrücken (KH)', [[42.5, 12, 8]])) }, { now: '2026-11-10T08:00:00Z' });
+    assert.equal(kh.athleteStartWeight('Schrägbankdrücken (KH)', '3×6-10').weight % 2, 0);
+  });
+
+  test('A3 Kein Startgewicht liegt mehr als einen plateStep über dem letzten Arbeitsgewicht (realistisches Fixture)', () => {
+    const c = loadApp(loadFixture('realistic-3plus1'));
+    let n = 0;
+    for (const r of c.athletePlanPreview()) {
+      if (r.start == null || r.add != null) continue;
+      n++;
+      assert.ok(r.start <= r.lastW + c.plateStep(r.n, r.lastW) + 1e-9, `${r.n}: ${r.lastW} → ${r.start}`);
+      assert.ok(r.start > 0, r.n);
+    }
+    assert.ok(n >= 15, `nur ${n} Übungen geprüft`);
   });
 
   // ── A4 Volumen ──

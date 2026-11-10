@@ -1756,7 +1756,9 @@ function athletePlanPreview(){
     var conv = Object.assign({}, d, {ex:(d.ex||[]).map(function(e){ return Object.assign({}, e, {s:athletePlanString(Object.assign({}, e, {s:e.prevS || e.s}))}); })});
     var t = trimSession(conv);
     (d.ex||[]).forEach(function(e, ei){
-      rows.push({day:d.name, di:di, ei:ei, n:e.n, role:exerciseRole(e.n, e), old:e.prevS || e.s, neu:t.ex[ei].s});
+      var sw = athleteStartWeight(e.n, t.ex[ei].s);
+      rows.push({day:d.name, di:di, ei:ei, n:e.n, role:exerciseRole(e.n, e), old:e.prevS || e.s, neu:t.ex[ei].s,
+        lastW:sw ? sw.lastW : null, lastR:sw ? sw.lastR : null, start:sw ? sw.weight : null, add:sw ? sw.add : null});
     });
   });
   return rows;
@@ -1784,7 +1786,8 @@ function athletePreviewHtml(rows){
       +byDay[day].map(function(r){
         return '<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:3px 0;border-bottom:1px solid var(--border)">'
           +'<span style="flex:1;min-width:0">'+esc(r.n)+(r.role?' <span style="color:var(--t3)">· '+esc(ROLE_LABEL[r.role])+'</span>':'')+'</span>'
-          +'<span style="white-space:nowrap">'+esc(r.old)+' → <b>'+esc(r.neu)+'</b></span></div>';
+          +'<span style="white-space:nowrap;text-align:right">'+esc(r.old)+' → <b>'+esc(r.neu)+'</b>'
+          +(r.lastW!=null ? '<br><span style="color:var(--t2)">'+(r.add!=null ? '+'+fmtDe(r.add)+' kg' : fmtDe(r.lastW)+' kg')+' × '+r.lastR+' → <b>'+(r.add!=null ? '+'+fmtDe(r.add)+' kg' : fmtDe(r.start)+' kg')+'</b></span>' : '')+'</span></div>';
       }).join('');
   }).join('');
 }
@@ -1792,7 +1795,7 @@ function athletePreviewHtml(rows){
 function offerAthletePlan(){
   var rows = athletePlanPreview();
   showConfirmDialog({title:'Plan auf Athlet umstellen?',
-    bodyHtml:'Hauptübungen schwerer mit weniger Wdh, Assistenz und Isolation kürzer. Startgewichte rechnet der Coach aus deinem E1RM (lieber zu leicht). Vorher wird eine Sicherung angelegt. <b>Historie und PRs bleiben.</b>'+athletePreviewHtml(rows),
+    bodyHtml:'Hauptübungen schwerer mit weniger Wdh, Assistenz und Isolation kürzer. Je Übung: letztes Gewicht × Wdh → Startgewicht (höchstens ein Gewichtsschritt über dem letzten Arbeitsgewicht). Vorher wird eine Sicherung angelegt. <b>Historie, PRs und Geräteschritte bleiben.</b>'+athletePreviewHtml(rows),
     okLabel:'Übernehmen', onOk:function(){ applyAthletePlan(rows); }});
 }
 // Zurück auf Recomp: alte Plan-Strings wiederherstellen (nach Bestätigung)
@@ -1983,25 +1986,61 @@ function chooseEmptyAlt(i){
 function emptyAskSkip(){ _emptyAsk = null; skipAskOpen(); }
 
 // Einstiegsgewicht nach der Umstellung: E1RM für die Mitte des neuen Bereichs bei Ziel-RIR, abgerundet
+// Startgewicht (Korrektur A3): Minimum aus (a) E1RM für die Mitte des neuen
+// Bereichs bei Ziel-RIR und (b) letztem Arbeitsgewicht + ein plateStep, danach
+// auf plateStep abgerundet. Der E1RM nutzt nur Sätze mit RPE 5–10 und korrigiert
+// die gefühlte Reserve mit rpeOffset (+ = Reserve unterschätzt → RPE − Offset).
+// Ohne RPE-Daten oder mit weniger als 3 Sessions: letztes Arbeitsgewicht.
+// `until`: nur Sessions davor (Umstellungszeitpunkt). Historie, PRs und
+// equipSteps bleiben unverändert.
+function roleTargetRIR(exName){
+  var r = exerciseRole(exName, planEntryOf(exName)), w = mesoWeek();
+  if(isMainRole(r)) return w <= 3 ? 2.5 : 1.5;
+  if(r==='iso') return 1.5;
+  return 2;
+}
+function athleteStartWeight(exName, targetStr, until){
+  var t = until==null ? Date.now() : +until;
+  var sess = (AppState.history||[]).filter(function(e){ return e && e.ts < t; })
+    .map(function(e){ return {ts:e.ts, sets:(e.sets||[]).filter(function(x){ return x.ex===exName && +x.w>0 && +x.r>0; })}; })
+    .filter(function(e){ return e.sets.length; });
+  if(!sess.length) return null;
+  var lastSets = sess[sess.length-1].sets;
+  var lastW = workWeightOf(lastSets.map(function(x){ return x.w; }));
+  var top = lastSets.filter(function(x){ return +x.w>=lastW; });
+  var lastR = top.length ? Math.max.apply(null, top.map(function(x){ return +x.r; })) : +lastSets[0].r;
+  var res = {lastW:lastW, lastR:lastR, src:'last'};
+  if(isLoadableBodyweight(exName)){
+    res.add = lastSets.reduce(function(a, x){ return Math.max(a, setAddKg(x)); }, 0);
+    res.weight = lastW; return res;
+  }
+  var step = function(w){ return plateStep(exName, w); };
+  var floorTo = function(w){ var st = step(w); var f = Math.floor(w/st + 1e-9)*st; if(dbGridApplies(exName)) f = Math.floor(w/2 + 1e-9)*2; return Math.max(st, f); };
+  var rng = parseRepRange(targetStr);
+  var withRpe = sess.filter(function(e){ return e.sets.some(function(x){ var r = +x.rpe; return r>=5 && r<=10; }); });
+  var cap = lastW + step(lastW);
+  if(!rng || sess.length < 3 || !withRpe.length){ res.weight = floorTo(lastW); return res; }
+  var off = (typeof AppState.rpeOffset==='number' && isFinite(AppState.rpeOffset)) ? AppState.rpeOffset : 0;
+  var ref = withRpe[withRpe.length-1].sets.filter(function(x){ var r = +x.rpe; return r>=5 && r<=10; });
+  var e1 = ref.reduce(function(a, x){ return Math.max(a, e1rm(x.w, x.r, Math.max(5, Math.min(10, +x.rpe - off)))); }, 0);
+  var mid = Math.floor((rng.lo + rng.hi)/2), eff = Math.min(12, mid + roleTargetRIR(exName));
+  var a = e1 / (1 + eff/30);
+  res.e1rm = Math.round(e1*10)/10;
+  res.src = a < cap ? 'e1rm' : 'last+step';
+  res.weight = floorTo(Math.min(a, cap));
+  return res;
+}
+// Erste Einheit nach der Umstellung: Startgewicht, keine Steigerung darüber hinaus
 function athleteEntrySuggestion(exName, targetStr){
   if(!isAthlete()) return null;
   var sw = DB.get('athleteSwitch', null); if(!sw || !sw.ts) return null;
   var h = AppState.history||[];
-  if(!h.some(function(e){ return e.ts < sw.ts && (e.sets||[]).some(function(x){ return x.ex===exName; }); })) return null;
   if(h.some(function(e){ return e.ts >= sw.ts && (e.sets||[]).some(function(x){ return x.ex===exName; }); })) return null;
+  var sw8 = athleteStartWeight(exName, targetStr, sw.ts); if(!sw8) return null;
   var rng = parseRepRange(targetStr); if(!rng) return null;
-  var reps = Math.floor((rng.lo + rng.hi)/2), rir = targetRIR(exName);
-  var hint = 'Einstiegsgewicht, lieber zu leicht.';
-  if(isLoadableBodyweight(exName)){
-    var last = recentSessionSets(exName, 1)[0] || [];
-    var add = last.reduce(function(a, x){ return Math.max(a, setAddKg(x)); }, 0);
-    return bodyweightResult(bodyWeightKg(), add, reps, hint);
-  }
-  var e1 = currentE1rm(exName); if(!(e1>0)) return null;
-  var eff = Math.min(12, reps + rir), w = e1/(1 + eff/30), st = plateStep(exName, w);
-  w = Math.max(st, Math.floor(w/st + 1e-9)*st);
-  if(dbGridApplies(exName)) w = Math.max(2, Math.floor(w/2)*2);
-  return {weight:w, reps:reps, hint:hint, entry:true};
+  var reps = Math.floor((rng.lo + rng.hi)/2), hint = 'Einstiegsgewicht aus deinem letzten Training.';
+  if(isLoadableBodyweight(exName)) return bodyweightResult(bodyWeightKg(), sw8.add||0, reps, hint);
+  return {weight:sw8.weight, reps:reps, hint:hint, entry:true};
 }
 
 // ── Flexible Planung (feat/flex-planning) ────────────────────────────────

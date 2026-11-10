@@ -81,12 +81,20 @@ Zeitübungen ohne Tabelleneintrag (Plank) behalten ihre Vorgabe und keine Rolle.
    String berechnen.
 2. Vorschau im App-Dialog als Tabelle „Übung · alt → neu · Rolle“ mit Summe je Einheit
    (Sätze und Minuten). Angewendet wird erst nach „Übernehmen“, vorher läuft `snapshotState('pre-athlete')`.
-3. Startgewicht je Übung mit Historie: aus dem E1RM für die Mitte des neuen Bereichs bei
-   Ziel-RIR (`loadForReps(ex, (lo+hi)/2, rir)`), auf `plateStep` **abgerundet**, bei
-   Kurzhanteln auf das 2-kg-Raster.
-4. Die erste Einheit jeder Übung nach der Umstellung zeigt keinen Steigerungsvorschlag. Der
-   Coach-Hinweis lautet „Einstiegsgewicht, lieber zu leicht.“ Danach greift die normale
-   Double Progression im neuen Bereich.
+3. **Startgewicht (Korrektur, ersetzt die frühere Regel):** Minimum aus
+   (a) E1RM-Rechnung für die Mitte des neuen Bereichs bei Ziel-RIR und
+   (b) letztem Arbeitsgewicht + ein `plateStep`, danach auf `plateStep` abgerundet
+   (Kurzhanteln: 2-kg-Raster).
+   - Der E1RM nutzt nur Sätze mit RPE 5–10 (jüngste Session mit solchen Sätzen).
+   - `rpeOffset` korrigiert die gefühlte Reserve vor der Rechnung (RPE − Offset).
+   - Ohne RPE-Daten oder mit weniger als 3 Sessions: letztes Arbeitsgewicht unverändert.
+   - Klimmzüge: Zusatzlast der letzten Session.
+   - Die Vorschau zeigt je Übung: letztes Gewicht × Wdh → Startgewicht und neuer Bereich.
+   - Historie, PRs und equipSteps bleiben unverändert.
+   - Test: Kein Startgewicht liegt mehr als einen plateStep über dem letzten Arbeitsgewicht.
+4. In der ersten Einheit jeder Übung nach der Umstellung schlägt der Coach das Startgewicht
+   vor, ohne Steigerung darüber hinaus. Hinweis: „Einstiegsgewicht aus deinem letzten
+   Training.“ Danach greift die normale Double Progression im neuen Bereich.
 
 Beispiel mit der Vorlage plan3plus1 (synthetisch, aus dem Repo):
 
