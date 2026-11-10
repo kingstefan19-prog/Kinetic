@@ -1289,7 +1289,7 @@ function renderStrengthCard(){
   var wrap=el('strengthCard'); if(!wrap) return;
   // Alle Übungen mit ≥2 E1RM-Datenpunkten sammeln
   var names={};
-  (AppState.history||[]).forEach(function(s){ (s.sets||[]).forEach(function(x){ if(x.ex&&x.w&&x.r) names[x.ex]=true; }); });
+  (AppState.history||[]).forEach(function(s){ (s.sets||[]).forEach(function(x){ if(x.ex&&x.w&&x.r) names[canonicalEx(x.ex)]=true; }); });
   var lifts=Object.keys(names).map(function(ex){
     return {ex:ex, hist:e1rmHistory(ex), trend:liftTrend(ex)};
   }).filter(function(l){ return l.hist.length>=2; });
@@ -4500,10 +4500,21 @@ function e1rm(w, r, rpe){
 }
 
 // Bestes (höchstes) E1RM einer Übung innerhalb einer Session
+// B3: Alte Übungsnamen in der Historie beim LESEN dem heutigen Namen zuordnen.
+// Die Historie wird nicht umgeschrieben; PRs, E1RM-Verlauf, Kraft-Karte und
+// Benchmarks nutzen die zusammengeführten Werte.
+var EX_ALIAS = {
+  'Kniebeuge':'Kniebeuge (LH)',
+  'Rudern (LH)':'Rudern (LH Untergriff)',
+  'Schulterdrücken':'Schulterdrücken (KH sitzend)',
+  'Latzug':'Latzug (Untergriff eng)',
+  'Seitheben':'Seitheben (Kabel)'
+};
+function canonicalEx(n){ return EX_ALIAS[n] || n; }
 function sessionBestE1rm(sets, exName){
-  var best = 0;
+  var best = 0, key = canonicalEx(exName);
   (sets||[]).forEach(function(s){
-    if(s.ex!==exName) return;
+    if(canonicalEx(s.ex)!==key) return;
     var e = e1rm(s.w, s.r, s.rpe);
     if(e>best) best = e;
   });
@@ -4516,8 +4527,8 @@ function recomputePRs(history){
   (history||[]).forEach(function(sess){
     (sess.sets||[]).forEach(function(s){
       if(!s.ex || !s.w || !s.r) return;
-      var e = Math.round(e1rm(s.w, s.r, s.rpe)*10)/10;
-      if(e > (prs[s.ex]||0)) prs[s.ex] = e;
+      var e = Math.round(e1rm(s.w, s.r, s.rpe)*10)/10, k = canonicalEx(s.ex);
+      if(e > (prs[k]||0)) prs[k] = e;
     });
   });
   return prs;
@@ -6436,7 +6447,8 @@ function logSleep(h,btn){
 }
 
 // ── 24. BENCHMARKS ──────────────────────────────────────
-const BENCH_STD={'Bankdrücken (LH)':{inter:100,adv:130,elite:160},'Kniebeuge':{inter:120,adv:160,elite:200},'Rudern (LH)':{inter:90,adv:120,elite:150},'Schulterdrücken':{inter:65,adv:90,elite:115},'Klimmzüge':{inter:0,adv:0,elite:0}};
+// B3: BENCH_STD (absolute Stufen, Namen passten nicht zu den PR-Schlüsseln) entfällt;
+// Benchmarks zeigen für beide Ziele den eigenen Trend (A8).
 // ── A8 Kennzahlen: E1RM pro kg Körpergewicht, eigener Trend (Entscheidung 5) ──
 // Körpergewicht zum Zeitpunkt ts: jüngster weightLog-Eintrag bis dahin, sonst Profil
 function bodyWeightAt(ts){
@@ -6461,25 +6473,15 @@ function relTrend(exName, weeks){
 function fmtRel(v){ return v==null ? '—' : String(v.toFixed(2)).replace('.', ',')+'×KG'; }
 function renderBenchmarks(){
   const c=el('benchmarkList'); if(!c) return;
-  if(isAthlete()){
-    var lifts = mainLiftsWithData();
-    c.innerHTML = '<div style="font-size:11px;color:var(--t3);margin-bottom:6px">Orientierung: dein eigener Trend (E1RM pro kg Körpergewicht, 8 Wochen)</div>'
-      + (lifts.length ? lifts.map(function(n){
-        var t = relTrend(n, 8), d = t.delta;
-        var col = d==null ? 'var(--t2)' : d>0 ? 'var(--green)' : d<0 ? 'var(--accent)' : 'var(--t2)';
-        return '<div class="bench-row"><div style="font-size:14px;font-weight:500;flex:1">'+esc(n)+'</div><div style="text-align:right">'
-          +'<div style="font-size:14px;font-weight:700">'+fmtRel(t.rel)+'</div>'
-          +'<div style="font-size:12px;color:'+col+'">'+t.e1rm+' kg E1RM'+(d!=null ? ' · '+(d>0?'+':'')+String(d.toFixed(2)).replace('.', ',')+' seit 8 Wo' : '')+'</div></div></div>';
-      }).join('') : '<div style="color:var(--t3);font-size:13px">Logge Hauptübungen für deinen Trend.</div>');
-    return;
-  }
-  const rows=Object.entries(BENCH_STD).map(([ex,std])=>{
-    const pr=AppState.prs[ex];
-    if(!pr) return `<div class="bench-row"><div style="font-size:14px;font-weight:500;flex:1">${esc(ex)}</div><span class="bench-pct bench-avg">Noch nicht geloggt</span></div>`;
-    const [cls,lbl]=pr>=std.elite?['bench-elite','🏆 Elite']:pr>=std.adv?['bench-good','⭐ Fortgeschritten']:['bench-avg','📈 Aufbau'];
-    return `<div class="bench-row"><div style="font-size:14px;font-weight:500;flex:1">${esc(ex)}</div><div style="text-align:right"><div style="font-size:12px;color:var(--t2)">${pr} kg E1RM</div><span class="bench-pct ${cls}">${lbl}</span></div></div>`;
-  }).join('');
-  c.innerHTML=rows||'<div style="color:var(--t3);font-size:13px">Logge Workouts für Vergleiche.</div>';
+  var lifts = mainLiftsWithData();
+  c.innerHTML = '<div style="font-size:11px;color:var(--t3);margin-bottom:6px">Orientierung: dein eigener Trend (E1RM pro kg Körpergewicht, 8 Wochen)</div>'
+    + (lifts.length ? lifts.map(function(n){
+      var t = relTrend(n, 8), d = t.delta;
+      var col = d==null ? 'var(--t2)' : d>0 ? 'var(--green)' : d<0 ? 'var(--accent)' : 'var(--t2)';
+      return '<div class="bench-row"><div style="font-size:14px;font-weight:500;flex:1">'+esc(n)+'</div><div style="text-align:right">'
+        +'<div style="font-size:14px;font-weight:700">'+fmtRel(t.rel)+'</div>'
+        +'<div style="font-size:12px;color:'+col+'">'+t.e1rm+' kg E1RM'+(d!=null ? ' · '+(d>0?'+':'')+String(d.toFixed(2)).replace('.', ',')+' seit 8 Wo' : '')+'</div></div></div>';
+    }).join('') : '<div style="color:var(--t3);font-size:13px">Logge Hauptübungen für deinen Trend.</div>');
 }
 
 // ── 25. DATA PAGE ───────────────────────────────────────
