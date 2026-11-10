@@ -112,7 +112,7 @@ export default function ({ test, assert, loadApp }) {
       assert.doesNotMatch(html, /data-rir-pick|data-rir-val/, name);
       assert.match(html, /⏱ Zeitübung/);
       assert.match(html, /data-set-field="secs"/);
-      assert.match(html, /<colgroup><col style="width:24px"><col><col><col style="width:52px"><col style="width:44px"><col style="width:24px"><\/colgroup>/);
+      assert.match(html, /<colgroup><col class="c-n"><col><col><col class="c-rir"><col class="c-done"><col class="c-del"><\/colgroup>/);
     }
     // Gewichtsübung behält Ziel-RIR und Schnellwahl
     const c = loadApp({ plan: plain(PLAN), history: [] }, { now: '2026-10-28T08:00:00Z' });

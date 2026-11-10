@@ -263,39 +263,49 @@ export default function ({ test, todo, assert, loadApp, REPO_ROOT }) {
     return ctx.document.getElementById('smartNotifs').innerHTML;
   }
 
-  test('6.1 Montags Gewicht-Karte, wenn letzter weightLog-Eintrag älter als 7 Tage', () => {
-    const mo = '2026-10-19T07:00:00Z';   // Montag
-    assert.match(notifsHtml({ weightLog: [{ w: 105, d: '2026-10-10' }] }, mo), /Montags-Wiegen.*Letzter Eintrag vor 9 Tagen/s);
-    assert.match(notifsHtml({ weightLog: [] }, mo), /Montags-Wiegen.*Noch kein Gewicht eingetragen/s);
-    assert.match(notifsHtml({ weightLog: [{ w: 105, d: '2026-10-12' }] }, mo), /Montags-Wiegen/, 'Vormontag (7 Tage) → wieder fällig');
-    assert.doesNotMatch(notifsHtml({ weightLog: [{ w: 105, d: '2026-10-15' }] }, mo), /Montags-Wiegen/);
-    assert.doesNotMatch(notifsHtml({ weightLog: [{ w: 105, d: '2026-10-19' }] }, mo), /Montags-Wiegen/, 'heute gewogen');
-    assert.doesNotMatch(notifsHtml({ weightLog: [{ w: 105, d: '2026-10-01' }] }, '2026-10-20T07:00:00Z'), /Montags-Wiegen/, 'nur montags');
-    // Reihenfolge im Log egal (Import kann unsortiert sein)
-    assert.doesNotMatch(notifsHtml({ weightLog: [{ w: 105, d: '2026-09-01' }, { w: 104, d: '2026-10-18' }] }, mo), /Montags-Wiegen/);
+  // C2 ersetzt die Karten "Montags-Wiegen" und "Luna-Check-in": Gewicht als
+  // Wochenfeld auf Heute, Luna als Zeile im Tagesvorschlag.
+  function weeklyHtml(state, now) {
+    const ctx = loadApp(state, { now });
+    ctx.renderWeeklyWeight();
+    return ctx.document.getElementById('weeklyWeight').innerHTML;
+  }
+  test('6.1 Gewicht: Eingabefeld, solange diese Woche (Mo–So) nichts eingetragen ist', () => {
+    const mi = '2026-10-21T07:00:00Z';   // Mittwoch
+    assert.match(weeklyHtml({ weightLog: [{ w: 105, d: '2026-10-18' }] }, mi), /id="newWeightInput"/, 'Sonntag zählt zur Vorwoche');
+    assert.match(weeklyHtml({ weightLog: [] }, mi), /id="newWeightInput"/);
+    const done = weeklyHtml({ weightLog: [{ w: 104.5, d: '2026-10-19' }] }, mi);
+    assert.doesNotMatch(done, /id="newWeightInput"/);
+    assert.match(done, /104,5 kg/);
+    assert.doesNotMatch(notifsHtml({ weightLog: [] }, '2026-10-19T07:00:00Z'), /Montags-Wiegen/, 'keine eigene Karte mehr');
   });
-  test('6.2 Luna-Erinnerung, wenn wearableLog seit 3 Tagen leer ist', () => {
+  test('6.1 Gewicht eintragen nutzt das lokale Datum und schließt das Feld', () => {
+    const ctx = loadApp({ weightLog: [] }, { now: '2026-10-21T07:00:00Z' });
+    ctx.renderWeeklyWeight();
+    ctx.document.getElementById('newWeightInput').value = '99.4';
+    ctx.logWeight();
+    assert.equal(ctx.AppState.weightLog[0].d, '2026-10-21');
+    assert.doesNotMatch(ctx.document.getElementById('weeklyWeight').innerHTML, /id="newWeightInput"/);
+  });
+  test('6.2 Luna: Zeile im Tagesvorschlag nur mit Daten der letzten 14 Tage, keine Karte', () => {
     const di = '2026-10-20T07:00:00Z';
     const entry = (d) => ({ d, hrv: 55, rhr: 52, sleep: 7.5 });
-    assert.match(notifsHtml({ wearableLog: [] }, di), /Luna-Check-in.*Noch keine Wearable-Daten/s);
-    assert.match(notifsHtml({ wearableLog: [entry('2026-10-17')] }, di), /Luna-Check-in.*Seit 3 Tagen keine Wearable-Daten/s);
-    assert.doesNotMatch(notifsHtml({ wearableLog: [entry('2026-10-18')] }, di), /Luna-Check-in/);
-    assert.doesNotMatch(notifsHtml({ wearableLog: [entry('2026-10-20')] }, di), /Luna-Check-in/);
+    const lines = (wl) => loadApp({ wearableLog: wl }, { now: di }).todayLinesHtml();
+    assert.match(lines([entry('2026-10-17')]), /data-line="luna".*vor 3 Tagen.*HRV <b>55 ms<\/b>/s);
+    assert.match(lines([entry('2026-10-06')]), /data-line="luna"/, 'genau 14 Tage');
+    assert.doesNotMatch(lines([entry('2026-10-05')]), /data-line="luna"/);
+    assert.doesNotMatch(lines([]), /data-line="luna"/);
+    assert.doesNotMatch(notifsHtml({ wearableLog: [] }, di), /Luna-Check-in/);
   });
 
-  test('6.1/6.2 Montag ohne Gewicht und ohne Luna-Daten: beide Karten sichtbar', () => {
-    const html = notifsHtml({ weightLog: [], wearableLog: [] }, '2026-10-19T07:00:00Z');
-    assert.match(html, /Montags-Wiegen/);
-    assert.match(html, /Luna-Check-in/);
-  });
-
-  test('6 Neue Karten verdrängen die Backup-Erinnerung nicht', () => {
-    // 6 Workouts ohne Backup + Montag ohne Gewicht/Luna + gewohnheitsmäßige RPE
+  test('6 Nur ein Hinweis sichtbar, der Rest hinter "Weitere Hinweise"; Backup bleibt vorn', () => {
     const hist = rpeHistory(40).concat([1, 2].map((k) => session(`2026-10-1${k + 5}`, [{ ex: 'Seitheben (Kabel)', w: 20, r: 14, rpe: 8 }])));
     const html = notifsHtml({ history: hist, weightLog: [], wearableLog: [] }, '2026-10-19T07:00:00Z');
-    assert.match(html, /Backup empfohlen/);
-    assert.equal((html.match(/class="sm-banner/g) || []).length, 4);
-    assert.ok(html.indexOf('Readiness') < html.indexOf('Backup empfohlen'), 'Readiness bleibt vorn');
+    const visible = html.split('<details')[0];
+    assert.equal((visible.match(/class="sm-banner/g) || []).length, 1);
+    assert.match(visible, /Backup empfohlen/);
+    assert.match(html, /<details class="more-hints"><summary>Weitere Hinweise \(\d+\)<\/summary>/);
+    assert.doesNotMatch(html, /Readiness/, 'Readiness steht im Tagesvorschlag');
   });
 
   // ── Phase 7 ──
