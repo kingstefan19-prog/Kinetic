@@ -153,4 +153,27 @@ export default function ({ test, assert, loadApp }) {
     assert.ok(!adv.some((a) => a.m === 'brust'), 'Brust ≥ 4 Sätze pro Woche: kein Hinweis');
     assert.ok(adv.some((a) => /unter Erhalt \(0\/4/.test(a.msg)));
   });
+
+  // ── A5 Spielminuten ──
+  test('A5 Spielminuten: ≥ 60 Stufe 3, 20–59 Stufe 2, < 20 Stufe 1, ohne Angabe Stufe 3', () => {
+    const c = loadApp({ plan: PLAN() }, { now: '2026-11-10T08:00:00Z' });
+    const lvl = (m) => c.activityEntryLoad({ d: '2026-11-08', activity: 'match', minutes: m }).legs;
+    assert.equal(lvl(90), 3); assert.equal(lvl(60), 3); assert.equal(lvl(45), 2); assert.equal(lvl(20), 2); assert.equal(lvl(15), 1);
+    assert.equal(c.activityEntryLoad({ d: '2026-11-08', activity: 'match' }).legs, 3);
+    // groupRecovery nutzt die Stufe: 30 Min Spiel So 15:00, Di 08:00 (41 h) → Stufe 2 (48 h) statt 3 (72 h)
+    const at = (min) => {
+      const d = loadApp({ plan: PLAN(), activityLog: [{ d: '2026-11-08', activity: 'match', time: '15:00', ...(min != null ? { minutes: min } : {}) }] }, { now: '2026-11-10T08:00:00' });
+      return d.groupRecovery().legs;
+    };
+    assert.equal(at(null), 57);
+    assert.equal(at(30), 85);
+    assert.equal(at(10), 100);
+    // eintragen und korrigieren
+    c.logActivity('2026-11-08', 'match', { minutes: '35' });
+    assert.equal(c.AppState.activityLog[0].minutes, 35);
+    c.setActivityMinutes(0, '70');
+    assert.equal(c.activityEntryLoad(c.AppState.activityLog[0]).legs, 3);
+    c.renderLog();
+    assert.match(c.document.getElementById('activityLogCard').innerHTML, /Spiel · 70 Min/);
+  });
 }

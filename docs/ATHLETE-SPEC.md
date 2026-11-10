@@ -9,7 +9,7 @@ Grundsätze (wie CLAUDE.md):
 - AppState bleibt abwärtskompatibel, alle neuen Felder sind optional, Backups version 2
   bleiben importierbar.
 - Ohne `user.trainingGoal` oder mit `'recomp'` verhält sich die App exakt wie heute.
-  Alles in Phase A gilt nur bei `'athlete'`. Ausnahmen, die immer gelten: A9, B1–B7, Phase C.
+  Alles in Phase A gilt nur bei `'athlete'`. Ausnahmen, die immer gelten: A5 (Minuten werden nur genutzt, wenn eingetragen), A9, B1–B7, Phase C.
 - Tests nur mit synthetischen Fixtures. Keine Werte aus echten Backups in Repo, Tests oder Spec.
 - Die Ergänzung nach der Backup-Auswertung hat Vorrang. Sie ist unten eingearbeitet
   (A7 geändert, A9–A11 neu, B3 erweitert, B7, C2 ergänzt).

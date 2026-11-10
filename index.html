@@ -1950,6 +1950,28 @@ function activityLoad(key){
   var a = flexSchedule().activities[key];
   return Object.assign(zeroLoad(), (a && a.load) || {});
 }
+// A5: Spielminuten → Beinbelastung (ab 60 Min Stufe 3, 20–59 Stufe 2, unter 20 Stufe 1);
+// ohne Angabe wie bisher die Belastung der Aktivität
+function matchLoadForMinutes(base, minutes){
+  var m = +minutes; if(minutes==null || minutes==='' || !(m>=0)) return base;
+  var L = Object.assign({}, base);
+  L.legs = m >= 60 ? 3 : m >= 20 ? 2 : 1;
+  L.core = Math.min(base.core||0, m >= 60 ? 2 : 1);
+  return L;
+}
+function activityEntryLoad(a){
+  if(a.load) return Object.assign(zeroLoad(), a.load);
+  var base = activityLoad(a.activity);
+  return a.activity==='match' ? matchLoadForMinutes(base, a.minutes) : base;
+}
+function setActivityMinutes(i, v){
+  var a = (AppState.activityLog||[])[i]; if(!a) return false;
+  var m = parseInt(v, 10);
+  if(v==='' || v==null){ delete a.minutes; }
+  else if(m>=0 && m<=150) a.minutes = m; else return false;
+  AppState.save(); safeCall(renderActivityLog); safeCall(renderTodayCard);
+  return true;
+}
 function activityLabel(key){
   if(String(key).indexOf('gym:')===0){ var u = unitById(String(key).slice(4)); return u ? u.name : 'Gym'; }
   if(key==='rest') return 'Ruhetag';
@@ -1975,7 +1997,7 @@ function flexEvents(until){
     var ts = activityTs(a); if(!(ts<=t)) return;
     var gym = String(a.activity).indexOf('gym:')===0;
     out.push({ts:ts, kind:gym ? 'gym' : 'activity', key:a.activity, label:activityLabel(a.activity),
-      load:a.load ? Object.assign(zeroLoad(), a.load) : activityLoad(a.activity), feel:a.feel, feelTs:a.feelTs, ref:{a:i}});
+      load:activityEntryLoad(a), feel:a.feel, feelTs:a.feelTs, ref:{a:i}});
   });
   return out.sort(function(x, y){ return x.ts - y.ts; });
 }
@@ -2267,6 +2289,7 @@ function logActivity(d, key, opts){
   var e = {d:d, activity:key};
   if(opts.time) e.time = opts.time;
   if(opts.apptKey) e.apptKey = opts.apptKey;
+  if(opts.minutes!=null && opts.minutes!=='' && +opts.minutes>=0) e.minutes = Math.min(150, Math.round(+opts.minutes));
   if(d===localDayStr(Date.now()) && !opts.time) e.ts = Date.now();
   AppState.activityLog = (AppState.activityLog||[]).concat([e]);
   AppState.save();
@@ -2281,7 +2304,7 @@ function removeActivity(i){
 function logActivityFromForm(){
   var d = (el('actDate')||{}).value || localDayStr(Date.now());
   var k = (el('actKind')||{}).value;
-  var r = logActivity(d, k);
+  var r = logActivity(d, k, {minutes:(el('actMin')||{}).value});
   if(r) toast('✅ Eingetragen: '+activityLabel(k)+' ('+d.slice(8,10)+'.'+d.slice(5,7)+'.)');
   return r;
 }
@@ -2320,7 +2343,8 @@ function renderActivityLog(){
     .sort(function(x, y){ return activityTs(y.a) - activityTs(x.a); })
     .map(function(x){
       return '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px">'
-        +'<span style="color:var(--t2)">'+x.a.d.slice(8,10)+'.'+x.a.d.slice(5,7)+'. · '+esc(activityLabel(x.a.activity))+(x.a.feel?' · Feedback ✓':'')+'</span>'
+        +'<span style="color:var(--t2)">'+x.a.d.slice(8,10)+'.'+x.a.d.slice(5,7)+'. · '+esc(activityLabel(x.a.activity))+(x.a.minutes!=null?' · '+x.a.minutes+' Min':'')+(x.a.feel?' · Feedback ✓':'')+'</span>'
+        +(x.a.activity==='match' ? '<input type="number" class="li" min="0" max="150" placeholder="Min" value="'+(x.a.minutes!=null?x.a.minutes:'')+'" data-act-min="'+x.i+'" onchange="setActivityMinutes('+x.i+',this.value)" style="width:56px;padding:4px;font-size:12px">' : '')
         +'<button type="button" data-act-del="'+x.i+'" onclick="removeActivity('+x.i+')" aria-label="Eintrag löschen" style="background:none;border:none;color:var(--t3);font-size:14px;cursor:pointer">✕</button></div>';
     }).join('');
   var pend = unconfirmedAppointments(7);
@@ -2329,6 +2353,7 @@ function renderActivityLog(){
     +'<div style="display:flex;gap:6px">'
     +'<input id="actDate" type="date" class="li" value="'+today+'" max="'+today+'" style="width:140px;padding:8px;font-size:12px">'
     +'<select id="actKind" style="flex:1;min-width:0;padding:8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-size:12px">'+opts+'</select></div>'
+    +'<div style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:var(--t2)">Spielminuten (optional, nur Spiel)<input id="actMin" class="li" type="number" min="0" max="150" placeholder="90" style="width:70px;padding:6px;font-size:13px"></div>'
     +'<button type="button" class="btn bp" onclick="logActivityFromForm()" style="margin-top:8px;font-size:13px;padding:10px">+ Eintragen</button>'
     +(pend.length ? '<div style="margin-top:12px;font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3)">Offene Termine</div>'+apptConfirmHtml(pend) : '')
     +(list ? '<div style="margin-top:12px;font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3)">Eingetragen (14 Tage)</div>'+list : '');
