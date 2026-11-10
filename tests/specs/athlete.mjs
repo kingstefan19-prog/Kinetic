@@ -361,4 +361,62 @@ export default function ({ test, assert, loadApp }) {
     c.renderLog();
     assert.match(c.document.getElementById('logList').innerHTML, /data-pause="1"[^>]*>⏱ Ø Pause Hauptübungen 2:13 \/ Ziel 2:30/);
   });
+
+  // ── A11 Hauptübungen nicht ans Limit ──
+  test('A11 Satz mit RIR 0 bei einer Hauptübung → nächste Einheit gleiches Gewicht, keine Steigerung', () => {
+    const K = 'Kniebeuge (LH)';
+    const rows = [[140, 6, 8], [140, 6, 8], [140, 6, 8], [140, 6, 10]];          // Obergrenze, letzter Satz RIR 0
+    const c = loadApp({ plan: PLAN(), history: [S('2026-11-04T17:00:00Z', K, rows, 'Lower'), S('2026-11-07T17:00:00Z', K, rows, 'Lower')] }, { now: '2026-11-10T08:00:00Z' });
+    c.applyAthletePlan();
+    c.DB.set('athleteSwitch', { ts: Date.parse('2026-11-01T00:00:00Z') });   // Umstellung vor den Sessions
+    const r = c.coachSuggestion(K, '4×3-6');
+    assert.equal(r.weight, 140);
+    assert.equal(r.hint, 'Letztes Mal am Limit – Gewicht halten, RIR 2 anpeilen.');
+    // ohne RIR 0: Obergrenze → Steigerung
+    const ok = loadApp({ plan: PLAN(), history: [S('2026-11-04T17:00:00Z', K, rows.map(([w, r2]) => [w, r2, 8]), 'Lower'), S('2026-11-07T17:00:00Z', K, rows.map(([w, r2]) => [w, r2, 8]), 'Lower')] }, { now: '2026-11-10T08:00:00Z' });
+    ok.applyAthletePlan();
+    ok.DB.set('athleteSwitch', { ts: Date.parse('2026-11-01T00:00:00Z') });
+    assert.ok(ok.coachSuggestion(K, '4×3-6').weight > 140);
+    // Isolation darf ans Limit (keine Sperre)
+    const iso = loadApp({ plan: PLAN(), history: [S('2026-11-07T17:00:00Z', 'Seitheben (Kabel)', [[20, 15, 10], [20, 15, 10]])] }, { now: '2026-11-10T08:00:00Z' });
+    iso.applyAthletePlan();
+    iso.DB.set('athleteSwitch', { ts: Date.parse('2026-11-01T00:00:00Z') });
+    assert.doesNotMatch(iso.coachSuggestion('Seitheben (Kabel)', '2×10-15').hint, /am Limit/);
+  });
+
+  test('A11 "Nächste Übung" gesperrt, bis jeder Satz einer Hauptübung einen RIR hat; leere Übung → Ersatz mit wenig Überschneidung', () => {
+    const c = athleteApp({}, '2026-11-10T10:00:00');
+    c.startWorkout(c.AppState.plan.find((d) => d.name === 'Lower').id);
+    const s = c.AppState.activeSession;
+    const k = s.exercises[0];
+    assert.equal(k.n, 'Kniebeuge (LH)');
+    k.sets.forEach((st) => { st.w = '120'; st.r = '5'; });
+    c.toggleSetDone(0); c.toggleSetDone(1);
+    k.sets[0].rpe = '8';
+    c.nextExercise();
+    assert.equal(s.currentIdx, 0, 'gesperrt');
+    assert.match(c.document.getElementById('toast').textContent, /RIR für Satz 2 fehlt/);
+    k.sets[1].rpe = '7.5';
+    c.nextExercise();
+    assert.equal(s.currentIdx, 1, 'alle abgehakten Sätze haben RIR');
+    // RDL ohne erledigten Satz → Ersatzvorschlag
+    assert.equal(s.exercises[1].n, 'Rumänisches Kreuzheben (LH)');
+    c.nextExercise();
+    assert.equal(s.currentIdx, 1);
+    c.renderWorkout();
+    const html = c.document.getElementById('workoutContent').innerHTML;
+    assert.match(html, /Bei RDL ist noch kein Satz erledigt\. Ersatz für heute\?/);
+    const alts = c.replacementSuggestions(s, 1).map((a) => a.n);
+    assert.ok(!alts.some((n) => s.exercises.some((e) => e.n === n)), 'nichts, was schon in der Einheit ist');
+    assert.ok(alts.indexOf('Beinbeuger (Maschine sitzend)') < 0 || alts[0] !== 'Beinbeuger (Maschine sitzend)', 'Beinbeuger überschneidet mit Beinbeuger liegend');
+    assert.equal(c.overlapScore(s, 1, alts[0]) <= c.overlapScore(s, 1, alts[alts.length - 1]), true);
+    c.chooseEmptyAlt(0);
+    assert.equal(s.exercises[1].n, alts[0]);
+    assert.match(s.skipNotes.join(' '), /^Ersatz: RDL → /);
+    // Recomp: keine Sperre
+    const r = loadApp({ plan: PLAN() }, { now: '2026-11-10T10:00:00' });
+    r.startWorkout(r.AppState.plan.find((d) => d.name === 'Lower').id);
+    r.nextExercise();
+    assert.equal(r.AppState.activeSession.currentIdx, 1);
+  });
 }

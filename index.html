@@ -1922,6 +1922,66 @@ function mainPauseStats(sets){
 }
 function mainPauseText(ps){ return ps ? 'Ø Pause Hauptübungen '+fmtMinSec(ps.avg)+' / Ziel '+fmtMinSec(ps.target) : ''; }
 
+// ── A11 RIR-Pflicht und Ersatz für leere Übungen (Entscheidung 4) ──
+// Haupt-/schwere Hauptübung: "Nächste Übung" gesperrt, bis jeder abgehakte
+// Satz einen RIR hat. Übung ohne erledigten Satz: Ersatz vorschlagen, der
+// möglichst wenig mit den anderen Übungen der Einheit überlappt.
+var _emptyAsk = null;   // {ts, ex}
+function missingRirIdx(cur){
+  if(!cur || cur.isTimed || !isMainRole(roleOf(cur.n))) return -1;
+  for(var i=0; i<(cur.sets||[]).length; i++){ var st = cur.sets[i]; if(st.done && rirOf(st.rpe)===null) return i; }
+  return -1;
+}
+function overlapScore(s, idx, name){
+  var fam = findFamilyFor(name), pm = primaryMuscles(name);
+  return (s.exercises||[]).reduce(function(a, e, i){
+    if(i===idx || e.skipped) return a;
+    var f2 = findFamilyFor(e.n), same = fam && f2 && fam.id===f2.id;
+    var shared = primaryMuscles(e.n).some(function(m){ return pm.indexOf(m)>=0; });
+    return a + (same ? 2 : 0) + (shared ? 1 : 0);
+  }, 0);
+}
+function replacementSuggestions(s, idx){
+  var ex = s.exercises[idx]; if(!ex) return [];
+  return familyAlternatives(ex.n, s.exercises.map(function(e){ return e.n; }))
+    .map(function(a, k){ return {a:a, k:k, sc:overlapScore(s, idx, a.n)}; })
+    .sort(function(x, y){ return (x.sc - y.sc) || (x.k - y.k); })
+    .slice(0, 3).map(function(x){ return x.a; });
+}
+function athleteNextBlock(s){
+  if(!isAthlete()) return false;
+  var cur = s.exercises[s.currentIdx]; if(!cur || cur.skipped) return false;
+  var mi = missingRirIdx(cur);
+  if(mi >= 0){
+    _rpeSel = {ts:s.startTs, ex:s.currentIdx, idx:mi};
+    toast('RIR für Satz '+(mi+1)+' fehlt – erst eintragen, dann weiter');
+    safeCall(renderWorkout);
+    return true;
+  }
+  if(!(cur.sets||[]).some(function(st){ return st.done; })){
+    if(_emptyAsk && _emptyAsk.ts===s.startTs && _emptyAsk.ex===s.currentIdx) return true;   // Auswahl offen
+    _emptyAsk = {ts:s.startTs, ex:s.currentIdx};
+    safeCall(renderWorkout);
+    return true;
+  }
+  return false;
+}
+function emptyAskHtml(s){
+  if(!_emptyAsk || _emptyAsk.ts!==s.startTs || _emptyAsk.ex!==s.currentIdx) return '';
+  var cur = s.exercises[s.currentIdx], alts = replacementSuggestions(s, s.currentIdx);
+  return '<div class="c" style="border-color:rgba(255,149,0,.4)"><div style="font-size:13px;color:var(--t1);margin-bottom:6px">Bei '+esc(exShortName(cur.n))+' ist noch kein Satz erledigt. Ersatz für heute?</div>'
+    +alts.map(function(a, i){ return '<button type="button" class="btn bg2" data-empty-alt="'+i+'" onclick="chooseEmptyAlt('+i+')" style="margin:0 0 6px;font-size:12px;padding:10px">'+esc(a.n)+' · '+esc(a.s)+'</button>'; }).join('')
+    +'<button type="button" class="btn bo" id="emptySkip" onclick="emptyAskSkip()" style="margin:0;font-size:12px;padding:10px">Ohne Ersatz weiter (überspringen)</button></div>';
+}
+function chooseEmptyAlt(i){
+  var s = AppState.activeSession; if(!s) return null;
+  var alt = replacementSuggestions(s, s.currentIdx)[i]; _emptyAsk = null;
+  var r = swapForSession(s.currentIdx, alt, 'Ersatz');
+  safeCall(renderWorkout);
+  return r;
+}
+function emptyAskSkip(){ _emptyAsk = null; skipAskOpen(); }
+
 // Einstiegsgewicht nach der Umstellung: E1RM für die Mitte des neuen Bereichs bei Ziel-RIR, abgerundet
 function athleteEntrySuggestion(exName, targetStr){
   if(!isAthlete()) return null;
@@ -3654,6 +3714,7 @@ function renderWorkout(){
         </div>
 
         ${primerHtml(s)}
+        ${emptyAskHtml(s)}
         ${cur.skipped ? skippedCardHtml(cur) : `<div class="c">
           <div class="sl">Aktuelle Übung</div>
           <div style="font-size:20px;font-weight:700;margin-top:6px">${esc(cur.n)}</div>
@@ -4226,6 +4287,7 @@ function applyRpeCalibration(exName, recs){
 
 function nextExercise(){
   const s=AppState.activeSession; if(!s) return;
+  if(athleteNextBlock(s)) return;             // A11: RIR-Pflicht bzw. Ersatzvorschlag
   s.exercises[s.currentIdx].done=true;
   s.restEndTs=0;
   s.currentIdx++;
@@ -5430,6 +5492,14 @@ function coachSuggestionCore(exName, targetStr){
   var failedCount = range ? workReps.filter(function(r){return r<range.lo;}).length : 0;
   var failedLow = range ? (failedCount >= 2 || (workReps.length<=2 && failedCount>=1)) : false;
 
+  // ── A11: Hauptübungen nicht ans Limit – Satz mit RIR 0 (RPE ≥ 9,5) → Gewicht halten ──
+  if(isAthlete() && isMainRole(roleOf(exName)) && last.some(function(x){ return (+x.rpe||0) >= 9.5; })){
+    var limitHint = 'Letztes Mal am Limit – Gewicht halten, RIR 2 anpeilen.';
+    var limitR = range ? Math.min(range.hi, Math.max(range.lo, Math.max.apply(null, workReps))) : Math.max.apply(null, workReps);
+    if(bwMode) return bodyweightResult(bw, bwWorkAdd, limitR, limitHint);
+    return {weight:workW, reps:limitR, hint:limitHint};
+  }
+
   // ── KÖRPERGEWICHTS-ÜBUNGEN: Wdh-Progression, dann Zusatzlast (Spec 2.1) ──
   // Körpergewicht lässt sich nicht steigern: erst alle Arbeitssätze an die
   // Obergrenze bringen, dann +2,5 kg Zusatzlast und wieder bei der
@@ -5972,7 +6042,7 @@ function sessionAlternatives(s, idx){
 }
 // Alternative nur für heute (der Plan bleibt). Schon erledigte Sätze bleiben
 // bei der alten Übung, die Alternative kommt mit den offenen Sätzen dahinter.
-function swapForSession(idx, alt){
+function swapForSession(idx, alt, why){
   var s = AppState.activeSession; if(!s || !alt) return null;
   var ex = s.exercises[idx]; if(!ex) return null;
   var done = (ex.sets||[]).filter(function(st){ return st.done; });
@@ -5992,7 +6062,7 @@ function swapForSession(idx, alt){
     s.exercises[idx] = nx;
   }
   s.swaps = (s.swaps||[]).concat([{from:ex.n, to:alt.n}]);
-  s.skipNotes = (s.skipNotes||[]).concat(['Gerät belegt: '+exShortName(ex.n)+' → '+alt.n+' (nur heute).']);
+  s.skipNotes = (s.skipNotes||[]).concat([(why||'Gerät belegt')+': '+exShortName(ex.n)+' → '+alt.n+' (nur heute).']);
   _skipAsk = null;
   AppState.saveSession();
   return nx;
