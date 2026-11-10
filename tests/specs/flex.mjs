@@ -100,7 +100,14 @@ export default function ({ test, assert, loadApp }) {
     { id: 'sp', name: 'Spiel', activity: 'match', weekdays: [6], time: '15:00' }] };
   const gym = (iso, unit) => ({ ts: Date.parse(iso), dayName: unit.name, durationMs: 3e6, volume: 0,
     sets: unit.ex.flatMap((e) => Array.from({ length: +e.s[0] }, () => ({ ex: e.n, w: 50, r: 8, rpe: 8 }))) });
-  const app = (state, now) => loadApp({ plan: plain(UNITS), schedule: plain(SCHEDULE), ...state }, { now });
+  // Seit A9 (feat/athlete-mode) zählen vergangene Termine automatisch. Diese Tests prüfen die
+  // Logik aus feat/flex-planning mit Log-Einträgen; vergangene Termine gelten hier als abgesagt,
+  // außer autoPast ist gesetzt.
+  const app = (state, now, autoPast = false) => {
+    const c = loadApp({ plan: plain(UNITS), schedule: plain(SCHEDULE), ...state }, { now });
+    if (!autoPast) for (const o of c.appointmentOccurrences(Date.parse(now) - 15 * 864e5, 15)) if (o.ts <= Date.parse(now)) c.flexSchedule().cancelled[o.key] = true;
+    return c;
+  };
 
   test('3 Belastung je Gruppe 0–3 aus den Sätzen; Aktivitäten anpassbar', () => {
     const c = app({}, '2026-11-09T08:00:00Z');
@@ -112,13 +119,15 @@ export default function ({ test, assert, loadApp }) {
     assert.equal(c.activityLoad('squash').legs, 1);
   });
 
-  test('3 Erholung aus der Historie: Stufe 3 = 72 h, linear; geplante Termine ohne Log zählen nicht', () => {
+  test('3 Erholung aus der Historie: Stufe 3 = 72 h, linear; abgesagte Termine zählen nicht', () => {
     // Spiel Sa 15:00 im Log, Mo 15:00 = 48 h → Beine 33 % ermüdet → 67 % erholt
     const c = app({ activityLog: [{ d: '2026-11-07', activity: 'match', time: '15:00' }] }, '2026-11-09T15:00:00');
     assert.equal(c.groupRecovery().legs, 67);
     assert.equal(c.groupRecovery().push, 100);
-    // gleiche Woche ohne Log-Eintrag: das geplante Spiel zählt nicht
+    // ohne Log-Eintrag und mit abgesagten Terminen: nichts belastet die Beine
     assert.equal(app({}, '2026-11-09T15:00:00').groupRecovery().legs, 100);
+    // A9: ohne Absage zählt das Spiel So 15:00 automatisch (Mo 15:00 = 24 h von 72 h → 33 %)
+    assert.equal(app({}, '2026-11-09T15:00:00', true).groupRecovery().legs, 33);
     // Erholungszeit anpassbar
     const d = app({ activityLog: [{ d: '2026-11-07', activity: 'match', time: '15:00' }] }, '2026-11-09T15:00:00');
     d.flexSchedule().recoveryHours[3] = 96;
@@ -209,14 +218,15 @@ export default function ({ test, assert, loadApp }) {
   // ── 4 Spontane Änderungen ──
   test('4 "Spiel ausgefallen, Oberkörper trainiert": Folgetag berücksichtigt das automatisch', () => {
     // So 08.11.: Spiel fällt aus, stattdessen Druck (ohne Satz-Log) eingetragen
-    const c = app({}, '2026-11-08T20:00:00');
-    assert.equal(c.unconfirmedAppointments(1).map((o) => o.appt.name).join(), 'Spiel', 'Startscreen: gestern und heute');
-    assert.equal(c.unconfirmedAppointments(7).map((o) => o.appt.name).join(), 'Spiel,Fußballtraining,Fußballtraining,Spiel', 'Log-Tab: 7 Tage');
+    const c = app({}, '2026-11-08T20:00:00', true);
+    assert.equal(c.countedAppointments(1).map((o) => o.appt.name).join(), 'Spiel', 'Startscreen: gestern und heute');
+    assert.equal(c.countedAppointments(7).map((o) => o.appt.name).join(), 'Spiel,Fußballtraining,Fußballtraining,Spiel', 'Log-Tab: 7 Tage');
     c.renderTodayCard();
-    assert.match(c.document.getElementById('todayCard').innerHTML, /So 15:00 Spiel – stattgefunden\?/);
+    assert.match(c.document.getElementById('todayCard').innerHTML, /✓ So 15:00 Spiel gezählt/);
     c.confirmAppointment('2026-11-08|sp', false);
     assert.equal(c.flexSchedule().cancelled['2026-11-08|sp'], true);
-    assert.equal(c.unconfirmedAppointments(1).length, 0);
+    assert.equal(c.countedAppointments(1).length, 0);
+    // Fußball Mi/Fr der Vorwoche liegen > 72 h zurück, belasten Montag nicht mehr
     c.logActivity('2026-11-08', 'gym:push');
     // Mo: Beine frisch (Spiel zählt nicht), Druck war gestern → nicht Hauptempfehlung
     c.__harness.setNow(Date.parse('2026-11-09T16:00:00'));
@@ -234,17 +244,20 @@ export default function ({ test, assert, loadApp }) {
     assert.match(html, /08\.11\. · Oberkörper Druck/);
   });
 
-  test('4 Stattgefundenen Termin bestätigen und Squash nachtragen; Löschen nimmt es wieder raus', () => {
-    const c = app({}, '2026-11-11T21:00:00');                                    // Mi nach dem Training
+  test('4 Termin zählt ohne Bestätigung, "fiel aus" nimmt ihn heraus; Squash nachtragen und löschen', () => {
+    const c = app({}, '2026-11-11T21:00:00', true);                             // Mi nach dem Training
+    assert.ok(c.groupRecovery().legs < 100, 'Training Mi 19:00 zählt automatisch');
+    c.confirmAppointment('2026-11-11|fb', false);
+    assert.equal(c.groupRecovery().legs, 100);
     c.confirmAppointment('2026-11-11|fb', true);
-    assert.equal(c.AppState.activityLog[0].apptKey, '2026-11-11|fb');
-    assert.ok(c.groupRecovery().legs < 100);
+    assert.ok(c.groupRecovery().legs < 100, 'zurückgenommen');
+    c.confirmAppointment('2026-11-11|fb', false);   // für den Squash-Teil ohne Fußball
     assert.equal(c.logActivity('2026-11-10', 'squash').activity, 'squash');
     assert.equal(c.logActivity('2026-11-10', 'gibtsnicht'), null);
     const before = c.groupRecovery().core;
-    c.removeActivity(1);
+    c.removeActivity(0);
     assert.ok(c.groupRecovery().core > before, 'Squash (Rumpf 2, 48 h) zählte mit');
-    assert.equal(c.buildBackupObject().state.activityLog.length, 1);
+    assert.equal(c.buildBackupObject().state.activityLog.length, 0);
   });
 
   // ── 5 Subjektives Feedback ──

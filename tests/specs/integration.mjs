@@ -284,7 +284,8 @@ export default function ({ test, assert, loadApp, loadFixture }) {
     assert.equal(r.kind, 'train');
     assert.equal(r.main.label, 'Upper A', 'Rotation: nach Upper B (Sa davor) kommt Upper A');
     const lower = r.candidates.find((c) => c.day.name === 'Lower');
-    assert.equal(lower.variant, 'compact', 'Spiel in < 48 h → Lower nur kompakt');
+    // Fußball Fr 19:00 zählt automatisch (A9) → Beine noch ermüdet; sonst Spiel < 48 h → kompakt
+    assert.ok(!lower || lower.variant === 'compact', 'Lower nie voll vor dem Spiel');
     assert.match(r.main.reason, /Wochenziel 0\/3, noch 2 Tage/);
     const PLAN = loadFixture(FX).state.plan;
     const upperA = { ts: Date.parse('2026-10-31T10:00:00Z'), dayName: 'Upper A', durationMs: 3e6, volume: 0,

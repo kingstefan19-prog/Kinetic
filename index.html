@@ -2108,6 +2108,15 @@ function flexEvents(until){
     out.push({ts:ts, kind:gym ? 'gym' : 'activity', key:a.activity, label:activityLabel(a.activity),
       load:activityEntryLoad(a), feel:a.feel, feelTs:a.feelTs, ref:{a:i}});
   });
+  // A9: Feste Termine zählen nach ihrer Uhrzeit automatisch (außer "fällt aus";
+  // ist dieselbe Aktivität am Tag eingetragen, zählt nur der Eintrag)
+  var mins = flexSchedule().apptMinutes || {};
+  appointmentOccurrences(t - 14*86400000, 15).forEach(function(o){
+    if(o.cancelled || o.ts > t || apptLogged(o)) return;
+    var base = activityLoad(o.appt.activity);
+    out.push({ts:o.ts, kind:'activity', key:o.appt.activity, label:o.appt.name, auto:true,
+      load:o.appt.activity==='match' ? matchLoadForMinutes(base, mins[o.key]) : base, ref:{o:o.key}});
+  });
   return out.sort(function(x, y){ return x.ts - y.ts; });
 }
 // Erholungszeit je Stufe (anpassbar, optional je Gruppe: recoveryHours.legs = {3:96})
@@ -2326,7 +2335,7 @@ function renderTodayCard(){
     +(r.next ? ' · Nächste Einheit: '+esc(r.next.name) : '')
     +(nextAppt ? ' · Nächster Termin: '+WEEKDAYS[dayIdxOf(nextAppt.ts)].slice(0,2)+' '+esc(nextAppt.appt.time||'')+' '+esc(nextAppt.appt.name) : '')+'</div>'
     +(voTxt ? '<div style="margin-top:4px;font-size:11px;color:var(--t3)">Volumen offen: '+esc(voTxt)+' (bis +2 Sätze im nächsten passenden Training)</div>' : '')
-    +apptConfirmHtml(unconfirmedAppointments(1))
+    +apptConfirmHtml(countedAppointments(1))
     +'<div style="display:flex;gap:8px;margin-top:10px">'
     +(m.kind==='unit' ? '<button type="button" class="btn bp" id="flexStartMain" onclick="startRecommended()" style="flex:2;margin:0">Workout starten →</button>' : '')
     +(a && a.kind==='unit' ? '<button type="button" class="btn bo" id="flexStartAlt" onclick="startFlexAlt()" style="flex:1;margin:0;font-size:12px">Alternative</button>' : '')
@@ -2342,6 +2351,7 @@ function renderTodayCard(){
 function pendingFeedback(date){
   var t = date==null ? Date.now() : +new Date(date), best = null;
   flexEvents(t).forEach(function(e){
+    if(e.ref.o) return;   // automatisch gezählte Termine: kein Feedback-Ziel
     var src = e.ref.h!=null ? AppState.history[e.ref.h] : AppState.activityLog[e.ref.a];
     if(!src || src.feel || src.feelSkip || t - e.ts > 24*3600000) return;
     if(!FLEX_GROUPS.some(function(g){ return (e.load[g]||0) > 0; })) return;
@@ -2420,25 +2430,38 @@ function logActivityFromForm(){
   if(r) toast('✅ Eingetragen: '+activityLabel(k)+' ('+d.slice(8,10)+'.'+d.slice(5,7)+'.)');
   return r;
 }
-// Vergangene Termine der letzten `days` Tage, die weder eingetragen noch abgesagt sind
-function unconfirmedAppointments(days, date){
+// A9: Vergangene Termine der letzten `days` Tage, die automatisch zählen
+// (nicht abgesagt, nicht schon als Aktivität eingetragen)
+function countedAppointments(days, date){
   var now = date==null ? Date.now() : +new Date(date);
   return appointmentOccurrences(now - (days||2)*86400000, (days||2)+1)
     .filter(function(o){ return o.ts <= now && !o.cancelled && !apptLogged(o); });
 }
+// Korrektur mit einem Tipp: "fiel aus" (happened=false) bzw. zurücknehmen
 function confirmAppointment(key, happened){
   var o = appointmentOccurrences(Date.parse(String(key).slice(0,10)+'T00:00:00'), 1).filter(function(x){ return x.key===key; })[0];
   if(!o) return false;
-  if(happened) logActivity(o.d, o.appt.activity, {time:o.appt.time, apptKey:o.key});
-  else { flexSchedule().cancelled[key] = true; AppState.save(); safeCall(renderActivityLog); safeCall(renderTodayCard); }
+  var c = flexSchedule().cancelled;
+  if(happened) delete c[key]; else c[key] = true;
+  AppState.save(); safeCall(renderActivityLog); safeCall(renderTodayCard);
+  return true;
+}
+// A5/A9: Spielminuten für einen automatisch gezählten Termin
+function setApptMinutes(key, v){
+  var sch = flexSchedule(), m = parseInt(v, 10);
+  sch.apptMinutes = Object.assign({}, sch.apptMinutes||{});
+  if(v==='' || v==null) delete sch.apptMinutes[key];
+  else if(m>=0 && m<=150) sch.apptMinutes[key] = m; else return false;
+  AppState.save(); safeCall(renderTodayCard); safeCall(renderActivityLog);
   return true;
 }
 function apptConfirmHtml(list){
+  var mins = flexSchedule().apptMinutes || {};
   return list.map(function(o){
     var k = esc(o.key);
     return '<div style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:var(--t1)">'
-      +'<span style="flex:1">'+WEEKDAYS[dayIdxOf(o.ts)].slice(0,2)+' '+esc(o.appt.time||'')+' '+esc(o.appt.name)+' – stattgefunden?</span>'
-      +'<button type="button" class="btn bg2" data-appt-yes="'+k+'" onclick="confirmAppointment(\''+k+'\',true)" style="width:auto;padding:5px 9px;font-size:11px;margin:0">✓ ja</button>'
+      +'<span style="flex:1">✓ '+WEEKDAYS[dayIdxOf(o.ts)].slice(0,2)+' '+esc(o.appt.time||'')+' '+esc(o.appt.name)+' gezählt</span>'
+      +(o.appt.activity==='match' ? '<input type="number" class="li" min="0" max="150" placeholder="Min" value="'+(mins[o.key]!=null?mins[o.key]:'')+'" data-appt-min="'+k+'" onchange="setApptMinutes(\''+k+'\',this.value)" style="width:56px;padding:4px;font-size:12px">' : '')
       +'<button type="button" class="btn bg2" data-appt-no="'+k+'" onclick="confirmAppointment(\''+k+'\',false)" style="width:auto;padding:5px 9px;font-size:11px;margin:0">✕ fiel aus</button></div>';
   }).join('');
 }
@@ -2459,7 +2482,7 @@ function renderActivityLog(){
         +(x.a.activity==='match' ? '<input type="number" class="li" min="0" max="150" placeholder="Min" value="'+(x.a.minutes!=null?x.a.minutes:'')+'" data-act-min="'+x.i+'" onchange="setActivityMinutes('+x.i+',this.value)" style="width:56px;padding:4px;font-size:12px">' : '')
         +'<button type="button" data-act-del="'+x.i+'" onclick="removeActivity('+x.i+')" aria-label="Eintrag löschen" style="background:none;border:none;color:var(--t3);font-size:14px;cursor:pointer">✕</button></div>';
     }).join('');
-  var pend = unconfirmedAppointments(7);
+  var pend = countedAppointments(7);
   c.innerHTML = '<div class="sl">Tag eintragen</div>'
     +'<div style="font-size:12px;color:var(--t2);margin:4px 0 8px">Was hast du tatsächlich gemacht? Zählt sofort für Erholung und Vorschläge.</div>'
     +'<div style="display:flex;gap:6px">'
@@ -2467,7 +2490,7 @@ function renderActivityLog(){
     +'<select id="actKind" style="flex:1;min-width:0;padding:8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-size:12px">'+opts+'</select></div>'
     +'<div style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:var(--t2)">Spielminuten (optional, nur Spiel)<input id="actMin" class="li" type="number" min="0" max="150" placeholder="90" style="width:70px;padding:6px;font-size:13px"></div>'
     +'<button type="button" class="btn bp" onclick="logActivityFromForm()" style="margin-top:8px;font-size:13px;padding:10px">+ Eintragen</button>'
-    +(pend.length ? '<div style="margin-top:12px;font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3)">Offene Termine</div>'+apptConfirmHtml(pend) : '')
+    +(pend.length ? '<div style="margin-top:12px;font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3)">Termine (zählen automatisch)</div>'+apptConfirmHtml(pend) : '')
     +(list ? '<div style="margin-top:12px;font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3)">Eingetragen (14 Tage)</div>'+list : '');
 }
 

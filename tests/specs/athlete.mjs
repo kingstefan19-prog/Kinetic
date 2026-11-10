@@ -245,8 +245,9 @@ export default function ({ test, assert, loadApp }) {
   // ── A7 Power-Primer ──
   test('A7 Primer bei Bein-Erholung ≥ 65 % und ohne Fußball in 3 h; abschaltbar; ohne Gewicht geloggt', () => {
     const idOf = (c, n) => c.AppState.plan.find((d) => d.name === n).id;
-    // Di 10:00, frisch: Lower → Sprünge
-    let c = athleteApp({}, '2026-11-10T10:00:00');
+    // Di 10:00, Spiel So abgesagt (sonst zählt es automatisch, A9): frisch → Lower mit Sprüngen
+    const ohneSpiel = { schedule: { ...plain(WINTER), cancelled: { '2026-11-08|sp': true } } };
+    let c = athleteApp(ohneSpiel, '2026-11-10T10:00:00');
     c.startWorkout(idOf(c, 'Lower'));
     let s = c.AppState.activeSession;
     assert.equal(s.primer.kind, 'jump');
@@ -259,7 +260,7 @@ export default function ({ test, assert, loadApp }) {
     assert.deepEqual(plain(h.primer), { kind: 'jump', sets: 2, reps: '3-5' });
     assert.ok(!h.sets.some((x) => /Sprung/.test(x.ex)), 'kein Arbeitssatz');
     // Oberkörper: explosive Liegestütze/Würfe
-    c = athleteApp({}, '2026-11-10T10:00:00');
+    c = athleteApp(ohneSpiel, '2026-11-10T10:00:00');
     c.startWorkout(idOf(c, 'Upper A'));
     assert.equal(c.AppState.activeSession.primer.kind, 'upper');
     // Mi 17:00: Fußball 19:00 in 2 h → weglassen mit Grund
@@ -271,7 +272,7 @@ export default function ({ test, assert, loadApp }) {
     c = athleteApp({ activityLog: [{ d: '2026-11-08', activity: 'match', time: '15:00', minutes: 90 }] }, '2026-11-09T10:00:00');
     assert.match(c.primerFor(c.AppState.plan.find((d) => d.name === 'Upper A')).skip, /^Beine \d+ % erholt/);
     // abgeschaltet bzw. Recomp: nie
-    c = athleteApp({}, '2026-11-10T10:00:00');
+    c = athleteApp(ohneSpiel, '2026-11-10T10:00:00');
     c.setPowerPrimer(false);
     assert.equal(c.primerFor(c.AppState.plan.find((d) => d.name === 'Lower')), null);
     const r = loadApp({ plan: PLAN() }, { now: '2026-11-10T10:00:00' });
@@ -303,5 +304,28 @@ export default function ({ test, assert, loadApp }) {
     assert.match(b, /Orientierung: dein eigener Trend/);
     assert.match(b, /Kniebeuge \(LH\)[^]*×KG[^]*seit 8 Wo/);
     assert.doesNotMatch(b, /Elite|Fortgeschritten/);
+  });
+
+  // ── A9 Fußball zählt automatisch ──
+  test('A9 Ohne activityLog-Eintrag senkt ein vergangener Fußballtermin die Bein-Erholung, ein abgesagter nicht', () => {
+    const c = loadApp({ plan: PLAN(), schedule: plain(WINTER) }, { now: '2026-11-12T08:00:00' });   // Do nach Training Mi 19:00
+    assert.equal(c.AppState.activityLog.length, 0);
+    const mit = c.groupRecovery().legs;
+    assert.ok(mit < 100, `${mit}`);
+    assert.equal(c.flexEvents().filter((e) => e.auto && e.ts > Date.parse('2026-11-05T00:00:00')).map((e) => e.label).join(), 'Fußballtraining,Spiel,Fußballtraining');
+    c.confirmAppointment('2026-11-11|fb', false);
+    assert.equal(c.groupRecovery().legs, 100);
+    // eingetragen zählt nur einmal
+    c.confirmAppointment('2026-11-11|fb', true);
+    c.logActivity('2026-11-11', 'soccer', { time: '19:00' });
+    assert.equal(c.flexEvents().filter((e) => e.key === 'soccer' && new Date(e.ts).getDate() === 11).length, 1);
+    assert.equal(c.groupRecovery().legs, mit);
+    // Spielminuten am automatisch gezählten Spiel (A5): 15 Min → Stufe 1
+    const d = loadApp({ plan: PLAN(), schedule: plain(WINTER) }, { now: '2026-11-09T08:00:00' });
+    const voll = d.groupRecovery().legs;
+    d.setApptMinutes('2026-11-08|sp', 15);
+    assert.ok(d.groupRecovery().legs > voll);
+    d.renderTodayCard();
+    assert.match(d.document.getElementById('todayCard').innerHTML, /✓ So 15:00 Spiel gezählt[^]*value="15" data-appt-min="2026-11-08\|sp"/);
   });
 }

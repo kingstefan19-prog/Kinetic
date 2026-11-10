@@ -105,6 +105,7 @@ export default function ({ test, assert, loadApp }) {
       const s = c.AppState.activeSession;
       s.currentIdx = s.exercises.findIndex((e) => e.n === name);
       assert.equal(s.exercises[s.currentIdx].isTimed, true, name);
+      s.hints = [];   // Session-Hinweise (z. B. "Gestern Fokus Beine: heute RIR +1") gehören nicht zur Übung
       c.renderWorkout();
       const html = c.document.getElementById('workoutContent').innerHTML;
       assert.doesNotMatch(html, /RIR/, `${name}: RIR im Workout`);
