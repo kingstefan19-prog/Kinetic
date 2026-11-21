@@ -114,4 +114,35 @@ export default function ({ test, assert, loadApp, REPO_ROOT }) {
     c.closePlanAppts();
     assert.equal(box.hidden, true);
   });
+
+  test('4 Belastung nach Dauer und Härte (sRPE = Minuten × Härte, Foster)', () => {
+    const c = app();
+    const L = (a) => plain(c.activityEntryLoad(a));
+    assert.equal(L({ activity: 'squash', minutes: 75, rpe: 8 }).legs, 3, 'Squash 75 Min, Härte 8 → Beine 3');
+    assert.equal(L({ activity: 'squash', minutes: 30, rpe: 5 }).legs, 1, 'Squash 30 Min, Härte 5 → Beine 1');
+    assert.deepEqual(L({ activity: 'squash', minutes: 60, rpe: 6 }), { legs: 2, push: 1, pull: 1, core: 2 }, '= Referenz → Grundprofil');
+    assert.deepEqual(L({ activity: 'squash', minutes: 300, rpe: 10 }), { legs: 3, push: 3, pull: 3, core: 3 }, 'gedeckelt auf 3');
+    assert.deepEqual(L({ activity: 'mobility', minutes: 60, rpe: 9 }), { legs: 0, push: 0, pull: 0, core: 0 });
+    // ohne Härte: Grundprofil bzw. Spielminuten
+    assert.deepEqual(L({ activity: 'squash', minutes: 75 }), { legs: 2, push: 1, pull: 1, core: 2 });
+    assert.equal(L({ activity: 'match', minutes: 30 }).legs, 2, 'Spiel nur Minuten → matchLoadForMinutes');
+    assert.equal(L({ activity: 'match' }).legs, 3);
+    // Spiel: Referenz 540 (90 × 6)
+    assert.equal(c.refSrpeOf('match'), 540);
+    assert.equal(c.refSrpeOf('squash'), 360);
+    assert.equal(L({ activity: 'match', minutes: 90, rpe: 6 }).legs, 3);
+    assert.equal(L({ activity: 'match', minutes: 30, rpe: 4 }).legs, 1);
+    // eigene Referenz je Aktivität (optional)
+    c.flexSchedule().activities.squash.refSrpe = 600;
+    assert.equal(L({ activity: 'squash', minutes: 75, rpe: 8 }).legs, 2);
+    delete c.flexSchedule().activities.squash.refSrpe;
+    // Tagesblatt zeigt die Rechnung
+    c.openDaySheet('2026-11-19');
+    c.daySheetSet('key', 'squash'); c.daySheetSet('min', '75'); c.daySheetSet('rpe', 8);
+    assert.match(c.document.getElementById('appDialog').innerHTML, /Squash 75 Min · Härte 8 → Beine Stufe 3/);
+    c.daySheetSave();
+    const ev = c.flexEvents().filter((e) => e.key === 'squash');
+    assert.equal(ev.length, 1);
+    assert.equal(ev[0].load.legs, 3, 'fließt in die Erholung ein');
+  });
 }
