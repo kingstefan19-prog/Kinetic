@@ -1,5 +1,8 @@
 // feat/day-sheet – Tagesblatt, Termin-Absage auf Heute, Termine im Plan-Tab,
 // Belastung nach Session-RPE (Foster), Deload-Fehlalarm
+import fs from 'node:fs';
+import path from 'node:path';
+
 export const title = 'Tagesblatt · Termine, Aktivitäten, sRPE-Belastung, Stagnation';
 
 const plain = (x) => JSON.parse(JSON.stringify(x));
@@ -10,7 +13,7 @@ const SCHED = () => ({ appointments: [
   { id: 'sp', name: 'Spiel', activity: 'match', weekdays: [6], time: '15:00' },
 ] });
 
-export default function ({ test, assert, loadApp }) {
+export default function ({ test, assert, loadApp, REPO_ROOT }) {
   // Woche Mo 16.11. – So 22.11.2026; "jetzt" = Freitag 20.11. 10:00
   const NOW = '2026-11-20T10:00:00';
   const app = (state = {}, now = NOW) => loadApp({ schedule: SCHED(), ...state }, { now });
@@ -90,5 +93,25 @@ export default function ({ test, assert, loadApp }) {
     assert.match(card(), /Heute: (Upper A|Lower|Upper B)/);
     assert.doesNotMatch(card(), /kein Gym|fällt heute aus/);
     assert.equal(c.cancelTodayAppt('2026-11-25|tr'), false, 'nur Termine von heute');
+  });
+
+  test('3 Feste Termine im Plan-Tab (Menü ⋯ → Termine & Aktivitäten), nicht mehr im Profil', () => {
+    const src = fs.readFileSync(path.join(REPO_ROOT, 'index.html'), 'utf8');
+    const sec = (id) => { const i = src.indexOf('<section id="page-' + id + '"'); return src.slice(i, src.indexOf('</section>', i)); };
+    assert.equal((src.match(/id="apptSettings"/g) || []).length, 1);
+    assert.match(sec('plan'), /id="apptSettings"/);
+    assert.doesNotMatch(sec('data'), /apptSettings|Feste Termine/);
+    assert.doesNotMatch(sec('ern'), /apptSettings|Feste Termine/);
+    const menu = sec('plan').slice(sec('plan').indexOf('<details class="pmenu"'), sec('plan').indexOf('</details>'));
+    assert.match(menu, /onclick="openPlanAppts\(\)">📅 Termine & Aktivitäten</);
+    assert.match(sec('plan'), /<div id="planApptBox" hidden>/, 'anfangs ausgeblendet');
+    const c = app();
+    const box = c.document.getElementById('planApptBox');
+    box.hidden = true;
+    assert.ok(c.openPlanAppts());
+    assert.equal(box.hidden, false);
+    assert.match(c.document.getElementById('apptSettings').innerHTML, /Fußballtraining/);
+    c.closePlanAppts();
+    assert.equal(box.hidden, true);
   });
 }

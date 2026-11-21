@@ -268,6 +268,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 .td-go{flex:2}.td-alt{flex:1;font-size:13px}
 .td-other{margin-top:8px;width:100%;min-height:44px;padding:8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t2);font-size:13px}
 .td-check{border:1px solid var(--orange)}
+.plan-appt-note{margin:-2px 2px 12px}
 .td-cancel{margin-top:10px;min-height:44px;font-size:13px}
 .td-check>.btn{margin:10px 0 0;font-size:13px;min-height:44px}
 #dataCheckToday{margin-top:8px}
@@ -458,6 +459,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
         <button type="button" role="menuitem" id="editDaysBtn">✏️ Anpassen</button>
         <button type="button" role="menuitem" onclick="openOnboarding()">🎯 Plan erstellen</button>
         <button type="button" role="menuitem" onclick="offerPlan3plus1()">📋 Vorlage übernehmen</button>
+        <button type="button" role="menuitem" id="planApptBtn" onclick="openPlanAppts()">📅 Termine & Aktivitäten</button>
         <button type="button" role="menuitem" onclick="resetToDefaultPlan()" class="danger">↺ Reset</button>
       </div>
     </details>
@@ -471,6 +473,14 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
   </div>
 
   <div id="planList"></div>
+
+  <!-- feat/day-sheet 3: Feste Termine im Plan-Tab (Menü ⋯ → Termine & Aktivitäten) -->
+  <div id="planApptBox" hidden>
+    <div class="sh plan-head"><span class="sh-t">Termine & Aktivitäten</span>
+      <button type="button" class="btn bg2 btn-sm" onclick="closePlanAppts()">Schließen</button></div>
+    <div class="c" id="apptSettings"></div>
+    <div class="muted plan-appt-note">Aktivitäten wie Squash oder Mobility trägst du direkt ein: Heute → Wochenleiste → Tag antippen.</div>
+  </div>
 </section>
 
 <!-- ══ APP-DIALOG (Bestätigungen statt confirm()) ══ -->
@@ -608,9 +618,6 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 
   <div class="sh"><div class="sh-t">🎯 Trainingsziel</div></div>
   <div class="c" id="goalSettings"></div>
-
-  <div class="sh"><div class="sh-t">📅 Feste Termine</div></div>
-  <div class="c" id="apptSettings"></div>
 
   <div class="sh"><div class="sh-t">🔋 Belastung & Erholung</div></div>
   <div class="c" id="loadSettings"></div>
@@ -2664,6 +2671,16 @@ function icon(name, cls){ return '<svg class="ic'+(cls?' '+cls:'')+'" aria-hidde
 var NOTIF_ICON = {'😌':'moon', '📅':'calendar', '🛡️':'shield', '⏸️':'pause', '🔄':'swap', '🎯':'target', '🏆':'trophy',
   '😴':'moon', '💾':'save', '⏱':'clock', '🛟':'restore', '📊':'calendar', '⚖️':'alert', '⌚':'clock'};
 
+// feat/day-sheet 3: Termine & Aktivitäten im Plan-Tab ein-/ausblenden
+function openPlanAppts(){
+  var b = el('planApptBox'); if(!b) return false;
+  b.hidden = false; closePlanMenu();
+  safeCall(renderApptSettings);
+  try{ b.scrollIntoView({block:'start'}); }catch(e){}
+  return true;
+}
+function closePlanAppts(){ var b = el('planApptBox'); if(b) b.hidden = true; }
+
 // C4: Menü "⋯" im Plan-Kopf nach Auswahl schließen
 function closePlanMenu(){ var m = el('planMenu'); if(m) m.open = false; }
 
@@ -3301,7 +3318,7 @@ function renderPlan(){
 
     const deloadOn=deloadActive();
     // Rotation statt Wochentage (feat/flex-planning): nur Gym-Einheiten,
-    // Termine (Fußball, Spiel) stehen im Profil unter "Feste Termine"
+    // Termine (Fußball, Spiel) stehen im Plan-Menü unter "Termine & Aktivitäten"
     const units=rotationUnits(), nextU=nextRotationUnit();
     list.innerHTML=AppState.plan.map(function(day,idx){
       if(!day || day.type!=='gym') return '';
