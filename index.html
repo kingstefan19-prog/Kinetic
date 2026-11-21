@@ -277,6 +277,27 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 .mt6{margin-top:6px}.mt10{margin-top:10px}
 .plan-info{background:rgba(10,132,255,.07);border:1px solid rgba(10,132,255,.2);border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--t2);line-height:1.7}
 .plan-gloss{display:inline-flex;align-items:center;gap:4px;margin-top:8px;min-height:44px;background:rgba(10,132,255,.12);border:1px solid rgba(10,132,255,.25);color:var(--blue);font-size:12px;font-weight:600;padding:5px 10px;border-radius:8px;cursor:pointer;font-family:var(--f)}
+.ds-sheet{background:var(--card);border-radius:20px 20px 0 0;padding:var(--s4) var(--s4) calc(32px + env(safe-area-inset-bottom));width:100%;max-height:88vh;overflow-y:auto}
+.ds-top{display:flex;align-items:center;gap:var(--s2)}
+.ds-title{flex:1;font-size:18px;font-weight:700}
+.ds-close{width:44px;min-height:44px;margin:0;padding:0}
+.ds-h{font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin:var(--s4) 0 var(--s1)}
+.ds-row{padding:var(--s2) 0;border-bottom:1px solid var(--border)}
+.ds-row.off .ds-txt{color:var(--t3);text-decoration:line-through}
+.ds-act{display:flex;align-items:center;gap:var(--s2)}
+.ds-txt{flex:1;font-size:13px;color:var(--t2);line-height:1.5}
+.ds-txt b{color:var(--t1)}
+.ds-del{width:44px;min-height:44px;margin:0;padding:0}
+.ds-chips{display:flex;flex-wrap:wrap;gap:var(--s1)}
+.ds-hard{display:grid;grid-template-columns:repeat(5,1fr);gap:var(--s1)}
+.ds-chip{min-height:44px;padding:0 var(--s3);border-radius:10px;border:1.5px solid var(--border2);background:var(--card2);color:var(--t1);font-family:var(--f);font-size:13px;font-weight:600;cursor:pointer}
+.ds-chip.on{border-color:var(--accent-fill);background:var(--accent-fill);color:#fff}
+.ds-line{display:flex;align-items:center;gap:var(--s2);margin-top:var(--s2);font-size:13px;color:var(--t2)}
+.ds-line>span{width:52px}
+.ds-line .li{flex:1;min-height:44px;text-align:left;padding:8px 12px}
+.ds-prev{margin-top:var(--s2);font-size:13px;color:var(--t1);background:var(--card2);border-radius:8px;padding:var(--s2) var(--s3)}
+.ds-save{margin-top:var(--s3);min-height:48px}
+.ds-note{margin-top:var(--s3)}
 .muted{font-size:13px;color:var(--t3);line-height:1.5}
 .chart-empty{display:flex;align-items:center;justify-content:center;height:100%;color:var(--t3);font-size:13px}
 .td-line{display:flex;gap:var(--s2);align-items:baseline;margin-top:var(--s2);font-size:13px;color:var(--t2);line-height:1.5}
@@ -288,7 +309,8 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 .more-hints>summary::after{content:'▾';margin-left:auto;color:var(--t3)}
 .more-hints[open]>summary::after{content:'▴'}
 .wstrip{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:var(--s1)}
-.wday{background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:var(--s2) 2px;text-align:center;min-height:72px;display:flex;flex-direction:column;align-items:center;gap:2px}
+.wday{background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:var(--s2) 2px;text-align:center;min-height:72px;min-width:0;display:flex;flex-direction:column;align-items:center;gap:2px;font-family:var(--f);color:var(--t1);cursor:pointer}
+.wday:active{background:var(--card3)}
 .wday.today{border-color:var(--accent)}
 .wday-n{font-size:12px;font-weight:600;color:var(--t2)}
 .wday-d{font-size:12px;color:var(--t3)}
@@ -2681,11 +2703,11 @@ function renderWeekStrip(){
     var day = new Date(mon); day.setDate(day.getDate()+k);
     var ds = localDayStr(day.getTime());
     var gym = (AppState.history||[]).filter(function(h){ return localDayStr(+h.ts)===ds; });
-    var acts = (AppState.activityLog||[]).filter(function(a){ return a && a.d===ds; });
+    var acts = (AppState.activityLog||[]).filter(function(a){ return a && a.d===ds && a.status!=='cancelled' && a.activity!=='rest'; });
     var ap = appts.filter(function(o){ return o.d===ds && !o.cancelled; });
     var icon = '', label = '', title = [];
     if(gym.length){ icon = '<span class="ok">✓</span>'; label = gym[0].dayName||'Gym'; title.push('Gym: '+gym.map(function(h){ return h.dayName||'Workout'; }).join(', ')); }
-    else if(acts.length){ icon = '<span class="ok">✓</span>'; label = acts[0].activity==='gym' ? 'Gym' : (acts[0].name||acts[0].activity||'Aktiv'); title.push('Erledigt: '+label); }
+    else if(acts.length){ icon = '<span class="ok">✓</span>'; label = activityLabel(acts[0].activity); title.push('Erledigt: '+label); }
     if(ap.length){
       if(!icon) icon = ds < today ? '<span class="ok">✓</span>' : '⚽';
       if(!label) label = ap[0].appt.name||'Termin';
@@ -2696,12 +2718,111 @@ function renderWeekStrip(){
       if(!label) label = sug.label;
       title.push('Vorschlag: '+sug.label);
     }
-    out.push('<div class="wday'+(ds===today?' today':'')+'" title="'+esc(title.join(' · '))+'" aria-label="'+esc(WEEKDAYS[k]+(title.length?': '+title.join(', '):''))+'">'
+    // Feature day-sheet 1: Tag antippen öffnet das Tagesblatt
+    out.push('<button type="button" class="wday'+(ds===today?' today':'')+'" title="'+esc(title.join(' · '))+'" aria-label="'+esc(WEEKDAYS[k]+(title.length?': '+title.join(', '):''))+'" data-day="'+ds+'" onclick="openDaySheet(\''+ds+'\')">'
       +'<div class="wday-n">'+WEEKDAYS[k].slice(0,2)+'</div><div class="wday-d">'+day.getDate()+'.</div>'
-      +'<div class="wday-i">'+(icon||'')+'</div><div class="wday-l">'+esc(label)+'</div></div>');
+      +'<div class="wday-i">'+(icon||'')+'</div><div class="wday-l">'+esc(label)+'</div></button>');
   }
   c.innerHTML = '<div class="sh"><div class="sh-t">Diese Woche</div></div><div class="wstrip">'+out.join('')+'</div>';
 }
+
+// ── Tagesblatt (feat/day-sheet 1) ──
+// Tag in der Wochenleiste antippen: feste Termine bestätigen/absagen,
+// Aktivitäten eintragen und löschen. Zukünftige Tage: nur Termine absagen.
+var _daySheet = null;   // {d, key, min, rpe}
+function openDaySheet(ds){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(String(ds))) return false;
+  _daySheet = {d:ds, key:'', min:'', rpe:null};
+  renderDaySheet();
+  return true;
+}
+function closeDaySheet(){ _daySheet = null; closeConfirmDialog(); safeCall(renderWeekStrip); safeCall(renderTodayCard); }
+function loadText(L){
+  var gs = FLEX_GROUPS.filter(function(g){ return (L[g]||0) >= 1; }).sort(function(a, b){ return (L[b]||0) - (L[a]||0); });
+  return gs.length ? gs.map(function(g){ return FLEX_GROUP_LABEL[g]+' Stufe '+L[g]; }).join(', ') : 'keine Belastung';
+}
+function activityEntryText(a){
+  return activityLabel(a.activity)+(a.minutes!=null ? ' '+a.minutes+' Min' : '')+(a.rpe ? ' · Härte '+a.rpe : '')
+    +(a.activity!=='rest' ? ' → '+loadText(activityEntryLoad(a)) : '');
+}
+function daySheetHtml(){
+  var S = _daySheet; if(!S) return '';
+  var ds = S.d, today = localDayStr(Date.now()), now = Date.now(), future = ds > today;
+  var dt = new Date(ds+'T12:00:00'), sch = flexSchedule();
+  var title = WEEKDAYS[dayIdxOf(dt.getTime())]+', '+dt.getDate()+'.'+(dt.getMonth()+1)+'.';
+  var appts = appointmentOccurrences(Date.parse(ds+'T00:00:00'), 1);
+  var apptHtml = appts.length ? appts.map(function(o){
+    var k = esc(o.key), past = o.ts <= now;
+    var state = o.cancelled ? (past ? 'fiel aus' : 'fällt aus') : past ? (apptLogged(o) ? 'eingetragen' : 'fand statt') : 'geplant';
+    var btns = past
+      ? '<button type="button" class="btn '+(o.cancelled?'bg2':'bp')+'" data-ds-appt-yes="'+k+'" onclick="daySheetAppt(\''+k+'\',true)">fand statt</button>'
+        +'<button type="button" class="btn '+(o.cancelled?'bp':'bg2')+'" data-ds-appt-no="'+k+'" onclick="daySheetAppt(\''+k+'\',false)">fiel aus</button>'
+      : '<button type="button" class="btn bg2" data-ds-appt-toggle="'+k+'" onclick="daySheetToggle(\''+k+'\')">'+(o.cancelled?'findet statt':'fällt aus')+'</button>';
+    return '<div class="ds-row'+(o.cancelled?' off':'')+'"><div class="ds-txt"><b>'+esc(o.appt.time||'')+' '+esc(o.appt.name)+'</b> · '+state
+      +' → '+esc(loadText(activityLoad(o.appt.activity)))+'</div><div class="btn-row">'+btns+'</div></div>';
+  }).join('') : '<div class="muted">Keine festen Termine.</div>';
+  var acts = (AppState.activityLog||[]).map(function(a, i){ return {a:a, i:i}; }).filter(function(x){ return x.a && x.a.d===ds; });
+  var actHtml = acts.length ? acts.map(function(x){
+    return '<div class="ds-row ds-act"><div class="ds-txt">'+esc(activityEntryText(x.a))+'</div>'
+      +'<button type="button" class="btn bg2 ds-del" data-ds-del="'+x.i+'" aria-label="Eintrag löschen" onclick="daySheetRemove('+x.i+')">✕</button></div>';
+  }).join('') : '<div class="muted">Noch nichts eingetragen.</div>';
+  var form = '';
+  if(!future){
+    var keys = Object.keys(sch.activities).filter(function(k){ return k.indexOf('gym:')!==0; });
+    var preview = '';
+    if(S.key){
+      var pv = {activity:S.key};
+      if(S.min!=='' && +S.min>0) pv.minutes = +S.min;
+      if(S.rpe) pv.rpe = S.rpe;
+      preview = '<div class="ds-prev" id="dsPreview">'+esc(activityEntryText(pv))+'</div>';
+    }
+    form = '<div class="ds-h">+ Aktivität</div>'
+      +'<div class="ds-chips">'+keys.map(function(k){
+        return '<button type="button" class="ds-chip'+(S.key===k?' on':'')+'" data-ds-kind="'+esc(k)+'" onclick="daySheetSet(\'key\',\''+esc(k)+'\')">'+esc(sch.activities[k].name||k)+'</button>';
+      }).join('')+'</div>'
+      +'<div class="ds-line"><span>Dauer</span><input id="dsMin" class="li" type="number" inputmode="numeric" min="1" max="300" placeholder="Minuten" value="'+esc(S.min)+'" oninput="daySheetSet(\'min\',this.value)"></div>'
+      +'<div class="ds-line"><span>Härte</span></div>'
+      +'<div class="ds-hard">'+[1,2,3,4,5,6,7,8,9,10].map(function(v){
+        return '<button type="button" class="ds-chip'+(S.rpe===v?' on':'')+'" data-ds-rpe="'+v+'" onclick="daySheetSet(\'rpe\','+v+')">'+v+'</button>';
+      }).join('')+'</div>'
+      +preview
+      +'<button type="button" class="btn bp ds-save" id="dsSave" onclick="daySheetSave()"'+(S.key?'':' disabled')+'>Eintragen</button>';
+  }
+  return '<div class="ds-sheet">'
+    +'<div class="ds-top"><div class="ds-title">'+esc(title)+'</div><button type="button" class="btn bg2 ds-close" onclick="closeDaySheet()" aria-label="Schließen">✕</button></div>'
+    +'<div class="ds-h">Feste Termine</div>'+apptHtml
+    +'<div class="ds-h">Eingetragen</div>'+actHtml
+    +(future ? '<div class="muted ds-note">Aktivitäten kannst du eintragen, sobald der Tag da ist.</div>' : form)
+    +'</div>';
+}
+function renderDaySheet(){
+  var d = el('appDialog'); if(!d || !_daySheet) return;
+  _dialogOk = null;
+  var keep = document.activeElement && document.activeElement.id==='dsMin';
+  d.innerHTML = daySheetHtml();
+  d.style.display = 'flex';
+  if(keep){ var i = el('dsMin'); if(i) try{ i.focus(); i.setSelectionRange(i.value.length, i.value.length); }catch(e){} }
+}
+function daySheetSet(field, v){
+  var S = _daySheet; if(!S) return;
+  if(field==='key') S.key = String(v);
+  else if(field==='min') S.min = String(v==null ? '' : v).replace(/[^0-9]/g, '').slice(0, 3);
+  else if(field==='rpe'){ var n = parseInt(v, 10); S.rpe = (n>=1 && n<=10) ? (S.rpe===n ? null : n) : null; }
+  if(field==='min'){   // beim Tippen nur Vorschau und Knopf aktualisieren, Fokus behalten
+    var pv = el('dsPreview'), html = daySheetHtml();
+    if(pv){ var m = html.match(/<div class="ds-prev" id="dsPreview">([\s\S]*?)<\/div>/); if(m) pv.innerHTML = m[1]; return; }
+  }
+  renderDaySheet();
+}
+function daySheetSave(){
+  var S = _daySheet; if(!S || !S.key || S.d > localDayStr(Date.now())) return null;
+  var e = logActivity(S.d, S.key, {minutes:S.min, rpe:S.rpe});
+  if(e){ toast('✅ '+activityEntryText(e)); S.key = ''; S.min = ''; S.rpe = null; renderDaySheet(); }
+  return e;
+}
+function daySheetRemove(i){ removeActivity(i); renderDaySheet(); }
+function daySheetAppt(key, happened){ confirmAppointment(key, happened); renderDaySheet(); }
+function daySheetToggle(key){ toggleApptCancelled(key); renderDaySheet(); }
 
 // C2: Gewicht einmal pro Woche als Ein-Feld-Eintrag
 var _wwEdit = false;
@@ -2790,7 +2911,9 @@ function logActivity(d, key, opts){
   var e = {d:d, activity:key};
   if(opts.time) e.time = opts.time;
   if(opts.apptKey) e.apptKey = opts.apptKey;
-  if(opts.minutes!=null && opts.minutes!=='' && +opts.minutes>=0) e.minutes = Math.min(150, Math.round(+opts.minutes));
+  if(opts.minutes!=null && opts.minutes!=='' && +opts.minutes>=0) e.minutes = Math.min(300, Math.round(+opts.minutes));
+  var hard = parseInt(opts.rpe, 10);
+  if(hard>=1 && hard<=10) e.rpe = hard;          // Härte 1–10 (Session-RPE, optional)
   if(d===localDayStr(Date.now()) && !opts.time) e.ts = Date.now();
   AppState.activityLog = (AppState.activityLog||[]).concat([e]);
   AppState.save();
