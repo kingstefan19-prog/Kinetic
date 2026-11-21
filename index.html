@@ -268,6 +268,8 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 .td-go{flex:2}.td-alt{flex:1;font-size:13px}
 .td-other{margin-top:8px;width:100%;min-height:44px;padding:8px;background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--t2);font-size:13px}
 .td-check{border:1px solid var(--orange)}
+.plan-appt-note{margin:-2px 2px 12px}
+.td-cancel{margin-top:10px;min-height:44px;font-size:13px}
 .td-check>.btn{margin:10px 0 0;font-size:13px;min-height:44px}
 #dataCheckToday{margin-top:8px}
 .dot-g{background:var(--green)}.dot-o{background:var(--orange)}.dot-r{background:var(--accent)}.dot-b{background:var(--blue)}.dot-n{background:var(--t3)}
@@ -277,6 +279,27 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 .mt6{margin-top:6px}.mt10{margin-top:10px}
 .plan-info{background:rgba(10,132,255,.07);border:1px solid rgba(10,132,255,.2);border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--t2);line-height:1.7}
 .plan-gloss{display:inline-flex;align-items:center;gap:4px;margin-top:8px;min-height:44px;background:rgba(10,132,255,.12);border:1px solid rgba(10,132,255,.25);color:var(--blue);font-size:12px;font-weight:600;padding:5px 10px;border-radius:8px;cursor:pointer;font-family:var(--f)}
+.ds-sheet{background:var(--card);border-radius:20px 20px 0 0;padding:var(--s4) var(--s4) calc(32px + env(safe-area-inset-bottom));width:100%;max-height:88vh;overflow-y:auto}
+.ds-top{display:flex;align-items:center;gap:var(--s2)}
+.ds-title{flex:1;font-size:18px;font-weight:700}
+.ds-close{width:44px;min-height:44px;margin:0;padding:0}
+.ds-h{font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin:var(--s4) 0 var(--s1)}
+.ds-row{padding:var(--s2) 0;border-bottom:1px solid var(--border)}
+.ds-row.off .ds-txt{color:var(--t3);text-decoration:line-through}
+.ds-act{display:flex;align-items:center;gap:var(--s2)}
+.ds-txt{flex:1;font-size:13px;color:var(--t2);line-height:1.5}
+.ds-txt b{color:var(--t1)}
+.ds-del{width:44px;min-height:44px;margin:0;padding:0}
+.ds-chips{display:flex;flex-wrap:wrap;gap:var(--s1)}
+.ds-hard{display:grid;grid-template-columns:repeat(5,1fr);gap:var(--s1)}
+.ds-chip{min-height:44px;padding:0 var(--s3);border-radius:10px;border:1.5px solid var(--border2);background:var(--card2);color:var(--t1);font-family:var(--f);font-size:13px;font-weight:600;cursor:pointer}
+.ds-chip.on{border-color:var(--accent-fill);background:var(--accent-fill);color:#fff}
+.ds-line{display:flex;align-items:center;gap:var(--s2);margin-top:var(--s2);font-size:13px;color:var(--t2)}
+.ds-line>span{width:52px}
+.ds-line .li{flex:1;min-height:44px;text-align:left;padding:8px 12px}
+.ds-prev{margin-top:var(--s2);font-size:13px;color:var(--t1);background:var(--card2);border-radius:8px;padding:var(--s2) var(--s3)}
+.ds-save{margin-top:var(--s3);min-height:48px}
+.ds-note{margin-top:var(--s3)}
 .muted{font-size:13px;color:var(--t3);line-height:1.5}
 .chart-empty{display:flex;align-items:center;justify-content:center;height:100%;color:var(--t3);font-size:13px}
 .td-line{display:flex;gap:var(--s2);align-items:baseline;margin-top:var(--s2);font-size:13px;color:var(--t2);line-height:1.5}
@@ -288,7 +311,8 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 .more-hints>summary::after{content:'▾';margin-left:auto;color:var(--t3)}
 .more-hints[open]>summary::after{content:'▴'}
 .wstrip{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:var(--s1)}
-.wday{background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:var(--s2) 2px;text-align:center;min-height:72px;display:flex;flex-direction:column;align-items:center;gap:2px}
+.wday{background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:var(--s2) 2px;text-align:center;min-height:72px;min-width:0;display:flex;flex-direction:column;align-items:center;gap:2px;font-family:var(--f);color:var(--t1);cursor:pointer}
+.wday:active{background:var(--card3)}
 .wday.today{border-color:var(--accent)}
 .wday-n{font-size:12px;font-weight:600;color:var(--t2)}
 .wday-d{font-size:12px;color:var(--t3)}
@@ -435,6 +459,7 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
         <button type="button" role="menuitem" id="editDaysBtn">✏️ Anpassen</button>
         <button type="button" role="menuitem" onclick="openOnboarding()">🎯 Plan erstellen</button>
         <button type="button" role="menuitem" onclick="offerPlan3plus1()">📋 Vorlage übernehmen</button>
+        <button type="button" role="menuitem" id="planApptBtn" onclick="openPlanAppts()">📅 Termine & Aktivitäten</button>
         <button type="button" role="menuitem" onclick="resetToDefaultPlan()" class="danger">↺ Reset</button>
       </div>
     </details>
@@ -448,6 +473,14 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
   </div>
 
   <div id="planList"></div>
+
+  <!-- feat/day-sheet 3: Feste Termine im Plan-Tab (Menü ⋯ → Termine & Aktivitäten) -->
+  <div id="planApptBox" hidden>
+    <div class="sh plan-head"><span class="sh-t">Termine & Aktivitäten</span>
+      <button type="button" class="btn bg2 btn-sm" onclick="closePlanAppts()">Schließen</button></div>
+    <div class="c" id="apptSettings"></div>
+    <div class="muted plan-appt-note">Aktivitäten wie Squash oder Mobility trägst du direkt ein: Heute → Wochenleiste → Tag antippen.</div>
+  </div>
 </section>
 
 <!-- ══ APP-DIALOG (Bestätigungen statt confirm()) ══ -->
@@ -585,9 +618,6 @@ body{background:var(--bg);color:var(--t1);font-family:var(--f);font-size:15px;li
 
   <div class="sh"><div class="sh-t">🎯 Trainingsziel</div></div>
   <div class="c" id="goalSettings"></div>
-
-  <div class="sh"><div class="sh-t">📅 Feste Termine</div></div>
-  <div class="c" id="apptSettings"></div>
 
   <div class="sh"><div class="sh-t">🔋 Belastung & Erholung</div></div>
   <div class="c" id="loadSettings"></div>
@@ -2207,7 +2237,7 @@ var FLEX_GROUPS = ['legs','push','pull','core'];
 var FLEX_GROUP_LABEL = {legs:'Beine', push:'Druck', pull:'Zug', core:'Rumpf'};
 var FLEX_DEFAULT_ACTIVITIES = {
   soccer:  {name:'Fußballtraining', load:{legs:2, push:0, pull:0, core:1}},
-  match:   {name:'Spiel',           load:{legs:3, push:0, pull:0, core:2}},
+  match:   {name:'Spiel',           load:{legs:3, push:0, pull:0, core:2}, refSrpe:540},
   squash:  {name:'Squash',          load:{legs:2, push:1, pull:1, core:2}},
   mobility:{name:'Mobility',        load:{legs:0, push:0, pull:0, core:0}}
 };
@@ -2355,9 +2385,29 @@ function matchLoadForMinutes(base, minutes){
   L.core = Math.min(base.core||0, m >= 60 ? 2 : 1);
   return L;
 }
+// feat/day-sheet 4: Session-RPE nach Foster (2001): sRPE = Minuten × Härte (1–10).
+// Referenz je Aktivität (refSrpe, optional): Standard 360 = 60 Min × Härte 6,
+// Spiel 540 = 90 Min × Härte 6. Belastung je Gruppe = Grundprofil × sRPE/Referenz,
+// gerundet, begrenzt auf 0–3. Ohne Minuten oder Härte gilt das Grundprofil
+// (Spiel mit nur Minuten weiter über matchLoadForMinutes).
+var SRPE_REF_DEFAULT = 360, SRPE_REF_MATCH = 540;
+function refSrpeOf(key){
+  var a = flexSchedule().activities[key];
+  if(a && +a.refSrpe > 0) return +a.refSrpe;
+  return key==='match' ? SRPE_REF_MATCH : SRPE_REF_DEFAULT;
+}
+function srpeLoad(base, minutes, rpe, key){
+  var m = +minutes, h = +rpe;
+  if(!(m > 0) || !(h >= 1 && h <= 10)) return null;
+  var f = (m * h) / refSrpeOf(key), L = zeroLoad();
+  FLEX_GROUPS.forEach(function(g){ L[g] = Math.max(0, Math.min(3, Math.round((base[g]||0) * f))); });
+  return L;
+}
 function activityEntryLoad(a){
   if(a.load) return Object.assign(zeroLoad(), a.load);
   var base = activityLoad(a.activity);
+  var s = srpeLoad(base, a.minutes, a.rpe, a.activity);
+  if(s) return s;
   return a.activity==='match' ? matchLoadForMinutes(base, a.minutes) : base;
 }
 function setActivityMinutes(i, v){
@@ -2626,6 +2676,7 @@ function renderTodayCard(){
     +(nextAppt ? ' · Nächster Termin: '+WEEKDAYS[dayIdxOf(nextAppt.ts)].slice(0,2)+' '+esc(nextAppt.appt.time||'')+' '+esc(nextAppt.appt.name) : '')+'</div>'
     +(voTxt ? '<div class="td-meta">Volumen offen: '+esc(voTxt)+' (bis +2 Sätze im nächsten passenden Training)</div>' : '')
     +apptConfirmHtml(countedAppointments(1))
+    +todayCancelHtml(r)
     +'<div class="td-actions">'
     +(m.kind==='unit' ? '<button type="button" class="btn bp td-go" id="flexStartMain" onclick="startRecommended()">Workout starten →</button>' : '')
     +(a && a.kind==='unit' ? '<button type="button" class="btn bo td-alt" id="flexStartAlt" onclick="startFlexAlt()">Alternative</button>' : '')
@@ -2640,8 +2691,38 @@ function icon(name, cls){ return '<svg class="ic'+(cls?' '+cls:'')+'" aria-hidde
 var NOTIF_ICON = {'😌':'moon', '📅':'calendar', '🛡️':'shield', '⏸️':'pause', '🔄':'swap', '🎯':'target', '🏆':'trophy',
   '😴':'moon', '💾':'save', '⏱':'clock', '🛟':'restore', '📊':'calendar', '⚖️':'alert', '⌚':'clock'};
 
+// feat/day-sheet 3: Termine & Aktivitäten im Plan-Tab ein-/ausblenden
+function openPlanAppts(){
+  var b = el('planApptBox'); if(!b) return false;
+  b.hidden = false; closePlanMenu();
+  safeCall(renderApptSettings);
+  try{ b.scrollIntoView({block:'start'}); }catch(e){}
+  return true;
+}
+function closePlanAppts(){ var b = el('planApptBox'); if(b) b.hidden = true; }
+
 // C4: Menü "⋯" im Plan-Kopf nach Auswahl schließen
 function closePlanMenu(){ var m = el('planMenu'); if(m) m.open = false; }
+
+// feat/day-sheet 2: fester Termin heute → "Fällt heute aus" direkt in der Karte.
+// Schon vergangene Termine haben dort bereits "fiel aus" (apptConfirmHtml).
+function todayCancelHtml(r){
+  var now = Date.now();
+  return ((r && r.todayAppts)||[]).filter(function(o){ return o.ts > now; }).map(function(o){
+    var k = esc(o.key);
+    return '<button type="button" class="btn bg2 td-cancel" data-cancel-today="'+k+'" onclick="cancelTodayAppt(\''+k+'\')">'
+      +esc(o.appt.name)+' fällt heute aus</button>';
+  }).join('');
+}
+function cancelTodayAppt(key){
+  var o = appointmentOccurrences(Date.now(), 1).filter(function(x){ return x.key===key; })[0];
+  if(!o) return false;
+  flexSchedule().cancelled[key] = true;
+  AppState.save();
+  safeCall(renderTodayCard); safeCall(renderWeekStrip); safeCall(renderApptSettings);
+  toast(o.appt.name+' fällt heute aus – Empfehlung angepasst');
+  return true;
+}
 
 // C2: Readiness als eine Zeile, Luna als Zeile (nur mit Daten der letzten 14 Tage)
 function todayLinesHtml(){
@@ -2681,11 +2762,11 @@ function renderWeekStrip(){
     var day = new Date(mon); day.setDate(day.getDate()+k);
     var ds = localDayStr(day.getTime());
     var gym = (AppState.history||[]).filter(function(h){ return localDayStr(+h.ts)===ds; });
-    var acts = (AppState.activityLog||[]).filter(function(a){ return a && a.d===ds; });
+    var acts = (AppState.activityLog||[]).filter(function(a){ return a && a.d===ds && a.status!=='cancelled' && a.activity!=='rest'; });
     var ap = appts.filter(function(o){ return o.d===ds && !o.cancelled; });
     var icon = '', label = '', title = [];
     if(gym.length){ icon = '<span class="ok">✓</span>'; label = gym[0].dayName||'Gym'; title.push('Gym: '+gym.map(function(h){ return h.dayName||'Workout'; }).join(', ')); }
-    else if(acts.length){ icon = '<span class="ok">✓</span>'; label = acts[0].activity==='gym' ? 'Gym' : (acts[0].name||acts[0].activity||'Aktiv'); title.push('Erledigt: '+label); }
+    else if(acts.length){ icon = '<span class="ok">✓</span>'; label = activityLabel(acts[0].activity); title.push('Erledigt: '+label); }
     if(ap.length){
       if(!icon) icon = ds < today ? '<span class="ok">✓</span>' : '⚽';
       if(!label) label = ap[0].appt.name||'Termin';
@@ -2696,12 +2777,111 @@ function renderWeekStrip(){
       if(!label) label = sug.label;
       title.push('Vorschlag: '+sug.label);
     }
-    out.push('<div class="wday'+(ds===today?' today':'')+'" title="'+esc(title.join(' · '))+'" aria-label="'+esc(WEEKDAYS[k]+(title.length?': '+title.join(', '):''))+'">'
+    // Feature day-sheet 1: Tag antippen öffnet das Tagesblatt
+    out.push('<button type="button" class="wday'+(ds===today?' today':'')+'" title="'+esc(title.join(' · '))+'" aria-label="'+esc(WEEKDAYS[k]+(title.length?': '+title.join(', '):''))+'" data-day="'+ds+'" onclick="openDaySheet(\''+ds+'\')">'
       +'<div class="wday-n">'+WEEKDAYS[k].slice(0,2)+'</div><div class="wday-d">'+day.getDate()+'.</div>'
-      +'<div class="wday-i">'+(icon||'')+'</div><div class="wday-l">'+esc(label)+'</div></div>');
+      +'<div class="wday-i">'+(icon||'')+'</div><div class="wday-l">'+esc(label)+'</div></button>');
   }
   c.innerHTML = '<div class="sh"><div class="sh-t">Diese Woche</div></div><div class="wstrip">'+out.join('')+'</div>';
 }
+
+// ── Tagesblatt (feat/day-sheet 1) ──
+// Tag in der Wochenleiste antippen: feste Termine bestätigen/absagen,
+// Aktivitäten eintragen und löschen. Zukünftige Tage: nur Termine absagen.
+var _daySheet = null;   // {d, key, min, rpe}
+function openDaySheet(ds){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(String(ds))) return false;
+  _daySheet = {d:ds, key:'', min:'', rpe:null};
+  renderDaySheet();
+  return true;
+}
+function closeDaySheet(){ _daySheet = null; closeConfirmDialog(); safeCall(renderWeekStrip); safeCall(renderTodayCard); }
+function loadText(L){
+  var gs = FLEX_GROUPS.filter(function(g){ return (L[g]||0) >= 1; }).sort(function(a, b){ return (L[b]||0) - (L[a]||0); });
+  return gs.length ? gs.map(function(g){ return FLEX_GROUP_LABEL[g]+' Stufe '+L[g]; }).join(', ') : 'keine Belastung';
+}
+function activityEntryText(a){
+  return activityLabel(a.activity)+(a.minutes!=null ? ' '+a.minutes+' Min' : '')+(a.rpe ? ' · Härte '+a.rpe : '')
+    +(a.activity!=='rest' ? ' → '+loadText(activityEntryLoad(a)) : '');
+}
+function daySheetHtml(){
+  var S = _daySheet; if(!S) return '';
+  var ds = S.d, today = localDayStr(Date.now()), now = Date.now(), future = ds > today;
+  var dt = new Date(ds+'T12:00:00'), sch = flexSchedule();
+  var title = WEEKDAYS[dayIdxOf(dt.getTime())]+', '+dt.getDate()+'.'+(dt.getMonth()+1)+'.';
+  var appts = appointmentOccurrences(Date.parse(ds+'T00:00:00'), 1);
+  var apptHtml = appts.length ? appts.map(function(o){
+    var k = esc(o.key), past = o.ts <= now;
+    var state = o.cancelled ? (past ? 'fiel aus' : 'fällt aus') : past ? (apptLogged(o) ? 'eingetragen' : 'fand statt') : 'geplant';
+    var btns = past
+      ? '<button type="button" class="btn '+(o.cancelled?'bg2':'bp')+'" data-ds-appt-yes="'+k+'" onclick="daySheetAppt(\''+k+'\',true)">fand statt</button>'
+        +'<button type="button" class="btn '+(o.cancelled?'bp':'bg2')+'" data-ds-appt-no="'+k+'" onclick="daySheetAppt(\''+k+'\',false)">fiel aus</button>'
+      : '<button type="button" class="btn bg2" data-ds-appt-toggle="'+k+'" onclick="daySheetToggle(\''+k+'\')">'+(o.cancelled?'findet statt':'fällt aus')+'</button>';
+    return '<div class="ds-row'+(o.cancelled?' off':'')+'"><div class="ds-txt"><b>'+esc(o.appt.time||'')+' '+esc(o.appt.name)+'</b> · '+state
+      +' → '+esc(loadText(activityLoad(o.appt.activity)))+'</div><div class="btn-row">'+btns+'</div></div>';
+  }).join('') : '<div class="muted">Keine festen Termine.</div>';
+  var acts = (AppState.activityLog||[]).map(function(a, i){ return {a:a, i:i}; }).filter(function(x){ return x.a && x.a.d===ds; });
+  var actHtml = acts.length ? acts.map(function(x){
+    return '<div class="ds-row ds-act"><div class="ds-txt">'+esc(activityEntryText(x.a))+'</div>'
+      +'<button type="button" class="btn bg2 ds-del" data-ds-del="'+x.i+'" aria-label="Eintrag löschen" onclick="daySheetRemove('+x.i+')">✕</button></div>';
+  }).join('') : '<div class="muted">Noch nichts eingetragen.</div>';
+  var form = '';
+  if(!future){
+    var keys = Object.keys(sch.activities).filter(function(k){ return k.indexOf('gym:')!==0; });
+    var preview = '';
+    if(S.key){
+      var pv = {activity:S.key};
+      if(S.min!=='' && +S.min>0) pv.minutes = +S.min;
+      if(S.rpe) pv.rpe = S.rpe;
+      preview = '<div class="ds-prev" id="dsPreview">'+esc(activityEntryText(pv))+'</div>';
+    }
+    form = '<div class="ds-h">+ Aktivität</div>'
+      +'<div class="ds-chips">'+keys.map(function(k){
+        return '<button type="button" class="ds-chip'+(S.key===k?' on':'')+'" data-ds-kind="'+esc(k)+'" onclick="daySheetSet(\'key\',\''+esc(k)+'\')">'+esc(sch.activities[k].name||k)+'</button>';
+      }).join('')+'</div>'
+      +'<div class="ds-line"><span>Dauer</span><input id="dsMin" class="li" type="number" inputmode="numeric" min="1" max="300" placeholder="Minuten" value="'+esc(S.min)+'" oninput="daySheetSet(\'min\',this.value)"></div>'
+      +'<div class="ds-line"><span>Härte</span></div>'
+      +'<div class="ds-hard">'+[1,2,3,4,5,6,7,8,9,10].map(function(v){
+        return '<button type="button" class="ds-chip'+(S.rpe===v?' on':'')+'" data-ds-rpe="'+v+'" onclick="daySheetSet(\'rpe\','+v+')">'+v+'</button>';
+      }).join('')+'</div>'
+      +preview
+      +'<button type="button" class="btn bp ds-save" id="dsSave" onclick="daySheetSave()"'+(S.key?'':' disabled')+'>Eintragen</button>';
+  }
+  return '<div class="ds-sheet">'
+    +'<div class="ds-top"><div class="ds-title">'+esc(title)+'</div><button type="button" class="btn bg2 ds-close" onclick="closeDaySheet()" aria-label="Schließen">✕</button></div>'
+    +'<div class="ds-h">Feste Termine</div>'+apptHtml
+    +'<div class="ds-h">Eingetragen</div>'+actHtml
+    +(future ? '<div class="muted ds-note">Aktivitäten kannst du eintragen, sobald der Tag da ist.</div>' : form)
+    +'</div>';
+}
+function renderDaySheet(){
+  var d = el('appDialog'); if(!d || !_daySheet) return;
+  _dialogOk = null;
+  var keep = document.activeElement && document.activeElement.id==='dsMin';
+  d.innerHTML = daySheetHtml();
+  d.style.display = 'flex';
+  if(keep){ var i = el('dsMin'); if(i) try{ i.focus(); i.setSelectionRange(i.value.length, i.value.length); }catch(e){} }
+}
+function daySheetSet(field, v){
+  var S = _daySheet; if(!S) return;
+  if(field==='key') S.key = String(v);
+  else if(field==='min') S.min = String(v==null ? '' : v).replace(/[^0-9]/g, '').slice(0, 3);
+  else if(field==='rpe'){ var n = parseInt(v, 10); S.rpe = (n>=1 && n<=10) ? (S.rpe===n ? null : n) : null; }
+  if(field==='min'){   // beim Tippen nur Vorschau und Knopf aktualisieren, Fokus behalten
+    var pv = el('dsPreview'), html = daySheetHtml();
+    if(pv){ var m = html.match(/<div class="ds-prev" id="dsPreview">([\s\S]*?)<\/div>/); if(m) pv.innerHTML = m[1]; return; }
+  }
+  renderDaySheet();
+}
+function daySheetSave(){
+  var S = _daySheet; if(!S || !S.key || S.d > localDayStr(Date.now())) return null;
+  var e = logActivity(S.d, S.key, {minutes:S.min, rpe:S.rpe});
+  if(e){ toast('✅ '+activityEntryText(e)); S.key = ''; S.min = ''; S.rpe = null; renderDaySheet(); }
+  return e;
+}
+function daySheetRemove(i){ removeActivity(i); renderDaySheet(); }
+function daySheetAppt(key, happened){ confirmAppointment(key, happened); renderDaySheet(); }
+function daySheetToggle(key){ toggleApptCancelled(key); renderDaySheet(); }
 
 // C2: Gewicht einmal pro Woche als Ein-Feld-Eintrag
 var _wwEdit = false;
@@ -2790,7 +2970,9 @@ function logActivity(d, key, opts){
   var e = {d:d, activity:key};
   if(opts.time) e.time = opts.time;
   if(opts.apptKey) e.apptKey = opts.apptKey;
-  if(opts.minutes!=null && opts.minutes!=='' && +opts.minutes>=0) e.minutes = Math.min(150, Math.round(+opts.minutes));
+  if(opts.minutes!=null && opts.minutes!=='' && +opts.minutes>=0) e.minutes = Math.min(300, Math.round(+opts.minutes));
+  var hard = parseInt(opts.rpe, 10);
+  if(hard>=1 && hard<=10) e.rpe = hard;          // Härte 1–10 (Session-RPE, optional)
   if(d===localDayStr(Date.now()) && !opts.time) e.ts = Date.now();
   AppState.activityLog = (AppState.activityLog||[]).concat([e]);
   AppState.save();
@@ -3156,7 +3338,7 @@ function renderPlan(){
 
     const deloadOn=deloadActive();
     // Rotation statt Wochentage (feat/flex-planning): nur Gym-Einheiten,
-    // Termine (Fußball, Spiel) stehen im Profil unter "Feste Termine"
+    // Termine (Fußball, Spiel) stehen im Plan-Menü unter "Termine & Aktivitäten"
     const units=rotationUnits(), nextU=nextRotationUnit();
     list.innerHTML=AppState.plan.map(function(day,idx){
       if(!day || day.type!=='gym') return '';
@@ -4855,18 +5037,55 @@ function liftTrend(exName){
   };
 }
 
-// Übungen die seit ≥3 Sessions kein neues E1RM mehr erreicht haben
-function stalledLifts(){
-  var seen = {};
-  (AppState.history||[]).forEach(function(sess){
-    (sess.sets||[]).forEach(function(s){
-      if(s.ex && s.w && s.r) seen[s.ex] = true;
+// feat/day-sheet 5: Übungen des aktiven Plans (alle Gym-Tage) → {Name, Wdh-Bereich}
+function planLifts(){
+  var out = {};
+  (AppState.plan||[]).forEach(function(d){
+    if(!d || d.type!=='gym') return;
+    (d.ex||[]).forEach(function(e){
+      if(!e || !e.n || e.timed) return;
+      var k = canonicalEx(e.n);
+      if(!out[k]) out[k] = {name:e.n, range:parseRepRange(e.s)};
     });
   });
+  return out;
+}
+// Bester Satz je Session (höchstes Gewicht, dabei die meisten Wdh), chronologisch
+function topSetHistory(exName){
+  var key = canonicalEx(exName), out = [];
+  (AppState.history||[]).slice().sort(function(a, b){ return (a.ts||0) - (b.ts||0); }).forEach(function(sess){
+    var best = null;
+    (sess.sets||[]).forEach(function(x){
+      if(!x || canonicalEx(x.ex)!==key || !(+x.w>0) || !(+x.r>0)) return;
+      if(!best || +x.w > best.w || (+x.w===best.w && +x.r > best.r)) best = {w:+x.w, r:+x.r, ts:sess.ts};
+    });
+    if(best) out.push(best);
+  });
+  return out;
+}
+// Ab Wdh-Obergrenze > 12 deckelt das E1RM (Cap 12 Wdh) – Fortschritt sind dort
+// mehr Wdh bei gleichem Gewicht oder mehr Gewicht (Vergleich über 3 Sessions)
+function repPlateau(exName){
+  var h = topSetHistory(exName);
+  if(h.length < 3) return false;
+  var last = h[h.length-1], ref = h[h.length-3];
+  return !(last.w > ref.w || (last.w===ref.w && last.r > ref.r));
+}
+// Übungen, die stagnieren: nur Übungen im aktiven Plan, in den letzten 28 Tagen
+// trainiert; seit ≥3 Sessions ohne Fortschritt (E1RM bzw. Wdh/Gewicht ab > 12 Wdh)
+function stalledLifts(){
+  var plan = planLifts(), since = Date.now() - 28*86400000, recent = {};
+  (AppState.history||[]).forEach(function(sess){
+    if(!sess || !(sess.ts >= since)) return;
+    (sess.sets||[]).forEach(function(s){ if(s && s.ex && s.w && s.r) recent[canonicalEx(s.ex)] = true; });
+  });
   var stalled = [];
-  Object.keys(seen).forEach(function(ex){
-    var t = liftTrend(ex);
-    if(t.sessions>=3 && t.plateau) stalled.push(ex);
+  Object.keys(plan).forEach(function(k){
+    if(!recent[k]) return;
+    var p = plan[k];
+    if(p.range && p.range.hi > 12){ if(repPlateau(k)) stalled.push(p.name); return; }
+    var t = liftTrend(k);
+    if(t.sessions>=3 && t.plateau) stalled.push(p.name);
   });
   return stalled;
 }
@@ -5052,8 +5271,13 @@ function justIncreasedWeight(exName){
 // Evidenz: Mehrgelenkübungen profitieren von ~2–3 Min Pause (Schoenfeld 2016;
 // Grgic-Meta 2017) – kürzere Pausen kosten dort Volumen und damit Reiz.
 // Isolation regeneriert schneller, 60–90 s genügen.
+// Isolationsübungen, die sonst am Grundübungs-Muster hängen bleiben
+// ("KH-Flys (Schrägbank)" → bank, "Wadenheben (Beinpresse)" → beinpresse, "Trizepsdrücken" → drück)
+var NOT_COMPOUND = /fly|flys|waden|calf|trizeps|tricep|curl|extension|seitheb|lateral/i;
 function isCompoundLift(exName){
-  return /bank|drück|press|kniebeug|squat|kreuzheb|deadlift|rudern|row|klimm|latzug|pulldown|^dip|beinpresse|hip thrust|ausfallschritt|lunge/i.test(String(exName||''));
+  var n = String(exName||'');
+  if(NOT_COMPOUND.test(n)) return false;
+  return /bank|drück|press|kniebeug|squat|kreuzheb|deadlift|rudern|row|klimm|latzug|pulldown|^dip|beinpresse|hip thrust|ausfallschritt|lunge/i.test(n);
 }
 // Isolationsübung: keine Grundübung, nicht Körpergewicht, keine Zeitübung
 function isIsolationLift(exName){
@@ -5571,8 +5795,15 @@ function needsDeload(){
   // Woche 6 ist der geplante Deload, Ende Woche 5 kommt die Karte "Deload startet"
   if(sinceDeload >= 5) return null;
   // Vorzeitig: Kraft-Stagnation: mehrere Hauptlifts ohne E1RM-Fortschritt
+  // feat/day-sheet 5: nur wenn mindestens 2 Übungen UND mindestens ein Drittel
+  // der Grundübungen im Plan stagnieren (einzelne Isolationsübungen reichen nicht)
   var stalled = stalledLifts();
-  if(stalled.length >= 2) return {reason:stalled.length+' Übungen stagnieren ('+stalled.slice(0,2).join(', ')+')'};
+  var compounds = Object.keys(planLifts()).filter(isCompoundLift);
+  var stalledComp = stalled.filter(isCompoundLift);
+  if(stalled.length >= 2 && compounds.length && stalledComp.length*3 >= compounds.length){
+    return {reason:stalledComp.length+' von '+compounds.length+' Grundübungen stagnieren ('+stalledComp.slice(0,3).join(', ')+')',
+            stalled:stalled, compounds:compounds.length};
+  }
   // 3. Ermüdung: RPE-Trend stark steigend bei hohem Wochenvolumen
   var rpeT = recentRpeTrend();
   var since = Date.now()-7*24*3600*1000;
