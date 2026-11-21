@@ -69,4 +69,26 @@ export default function ({ test, assert, loadApp }) {
     const src = c.daySheetHtml.toString() + c.renderDaySheet.toString();
     assert.doesNotMatch(src, /\b(confirm|alert|prompt)\(/);
   });
+
+  test('2 Spiel heute "fällt aus" → Heute-Karte zeigt sofort ein Gym-Training statt "kein Gym"', () => {
+    // Sonntag 22.11. 09:00, Spiel um 15:00
+    const plan = [
+      { id: 'ua', type: 'gym', name: 'Upper A', ex: [{ n: 'Bankdrücken (LH)', s: '4×5-8' }, { n: 'Klimmzüge', s: '4×6-10' }] },
+      { id: 'lo', type: 'gym', name: 'Lower', ex: [{ n: 'Kniebeuge (LH)', s: '4×5-8' }] },
+      { id: 'ub', type: 'gym', name: 'Upper B', ex: [{ n: 'Schulterdrücken (KH sitzend)', s: '3×8-12' }, { n: 'Latzug (Untergriff eng)', s: '3×8-12' }] },
+    ];
+    const c = app({ plan }, '2026-11-22T09:00:00');
+    let r = c.flexSuggestion();
+    assert.equal(r.main.kind, 'appointment');
+    assert.match(r.main.label, /Spiel – kein Gym/);
+    c.renderTodayCard();
+    const card = () => c.document.getElementById('todayCard').innerHTML;
+    assert.match(card(), /data-cancel-today="2026-11-22\|sp"[^>]*>Spiel fällt heute aus</);
+    assert.ok(c.cancelTodayAppt('2026-11-22|sp'));
+    r = c.flexSuggestion();
+    assert.equal(r.main.kind, 'unit', 'normale Empfehlung');
+    assert.match(card(), /Heute: (Upper A|Lower|Upper B)/);
+    assert.doesNotMatch(card(), /kein Gym|fällt heute aus/);
+    assert.equal(c.cancelTodayAppt('2026-11-25|tr'), false, 'nur Termine von heute');
+  });
 }
