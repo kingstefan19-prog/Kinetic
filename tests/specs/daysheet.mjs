@@ -145,4 +145,52 @@ export default function ({ test, assert, loadApp, REPO_ROOT }) {
     assert.equal(ev.length, 1);
     assert.equal(ev[0].load.legs, 3, 'fließt in die Erholung ein');
   });
+
+  // ── 5 Deload-Fehlalarm ──
+  const DAYS = ['2026-11-02', '2026-11-09', '2026-11-16'];
+  // lifts: {Name: [[w, r], [w, r], [w, r]]} je Session
+  const hist = (lifts, days = DAYS) => days.map((d, i) => ({ ts: Date.parse(d + 'T17:00:00'), dayName: 'Ganzkörper', durationMs: 3e6, volume: 0,
+    sets: Object.entries(lifts).map(([ex, s]) => ({ ex, w: s[i][0], r: s[i][1], rpe: 8 })) }));
+  const PLAN5 = () => [{ id: 'gk', type: 'gym', name: 'Ganzkörper', ex: [
+    { n: 'Bankdrücken (LH)', s: '4×5-8' }, { n: 'Kniebeuge (LH)', s: '4×5-8' }, { n: 'Rudern (LH Untergriff)', s: '3×8-10' },
+    { n: 'Klimmzüge', s: '4×6-10' }, { n: 'Seitheben (Kabel)', s: '3×12-15' }, { n: 'Beinbeuger (sitzend)', s: '3×10-12' }] }];
+  const FLAT = [[100, 5], [100, 5], [100, 5]], UP = [[100, 5], [102.5, 5], [105, 5]];
+  const deloadApp = (lifts, days) => {
+    const c = loadApp({ plan: PLAN5(), history: hist(lifts, days) }, { now: NOW });
+    c.mesoWeek = () => 3; c.deloadActive = () => false;   // Woche 3: vorzeitiger Deload möglich
+    return c;
+  };
+
+  test('5 Eine alte Übung, die nicht im Plan steht, zählt nie in stalledLifts()', () => {
+    const c = deloadApp({ 'Beinstrecker': FLAT, 'Bankdrücken (LH)': UP });
+    assert.deepEqual(plain(c.stalledLifts()), []);
+    // im Plan, aber seit über 28 Tagen nicht trainiert → zählt ebenfalls nicht
+    const old = deloadApp({ 'Bankdrücken (LH)': FLAT }, ['2026-09-07', '2026-09-14', '2026-09-21']);
+    assert.deepEqual(plain(old.stalledLifts()), []);
+  });
+
+  test('5 Seitheben (Kabel) 20 kg mit 12 → 13 → 14 Wdh gilt nicht als Plateau; 12 → 12 → 12 schon', () => {
+    const c = deloadApp({ 'Seitheben (Kabel)': [[20, 12], [20, 13], [20, 14]] });
+    assert.equal(c.liftTrend('Seitheben (Kabel)').plateau, true, 'E1RM ist bei 12 Wdh gedeckelt');
+    assert.deepEqual(plain(c.stalledLifts()), []);
+    assert.deepEqual(plain(deloadApp({ 'Seitheben (Kabel)': [[20, 12], [20, 12], [20, 12]] }).stalledLifts()), ['Seitheben (Kabel)']);
+    assert.deepEqual(plain(deloadApp({ 'Seitheben (Kabel)': [[20, 15], [22.5, 10], [22.5, 12]] }).stalledLifts()), [], 'mehr Gewicht = Fortschritt');
+  });
+
+  test('5 needsDeload(): mindestens 2 Übungen UND ein Drittel der Grundübungen; Text relativ', () => {
+    // 1 von 4 Grundübungen + 1 Isolation stagnieren → kein Deload
+    let c = deloadApp({ 'Bankdrücken (LH)': FLAT, 'Kniebeuge (LH)': UP, 'Rudern (LH Untergriff)': UP, 'Klimmzüge': UP, 'Beinbeuger (sitzend)': [[50, 10], [50, 10], [50, 10]] });
+    assert.equal(c.stalledLifts().length, 2);
+    assert.equal(c.needsDeload(), null);
+    // 2 von 4 Grundübungen → Deload, Text "2 von 4 Grundübungen stagnieren"
+    c = deloadApp({ 'Bankdrücken (LH)': FLAT, 'Kniebeuge (LH)': FLAT, 'Rudern (LH Untergriff)': UP, 'Klimmzüge': UP });
+    const d = c.needsDeload();
+    assert.ok(d);
+    assert.match(d.reason, /^2 von 4 Grundübungen stagnieren \(Bankdrücken \(LH\), Kniebeuge \(LH\)\)/);
+    c.renderSmartNotifs();
+    assert.match(c.document.getElementById('smartNotifs').innerHTML, /2 von 4 Grundübungen stagnieren/);
+    // nur 1 stagnierende Übung → nie
+    c = deloadApp({ 'Bankdrücken (LH)': FLAT, 'Kniebeuge (LH)': UP });
+    assert.equal(c.needsDeload(), null);
+  });
 }

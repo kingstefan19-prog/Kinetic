@@ -5037,18 +5037,55 @@ function liftTrend(exName){
   };
 }
 
-// Übungen die seit ≥3 Sessions kein neues E1RM mehr erreicht haben
-function stalledLifts(){
-  var seen = {};
-  (AppState.history||[]).forEach(function(sess){
-    (sess.sets||[]).forEach(function(s){
-      if(s.ex && s.w && s.r) seen[s.ex] = true;
+// feat/day-sheet 5: Übungen des aktiven Plans (alle Gym-Tage) → {Name, Wdh-Bereich}
+function planLifts(){
+  var out = {};
+  (AppState.plan||[]).forEach(function(d){
+    if(!d || d.type!=='gym') return;
+    (d.ex||[]).forEach(function(e){
+      if(!e || !e.n || e.timed) return;
+      var k = canonicalEx(e.n);
+      if(!out[k]) out[k] = {name:e.n, range:parseRepRange(e.s)};
     });
   });
+  return out;
+}
+// Bester Satz je Session (höchstes Gewicht, dabei die meisten Wdh), chronologisch
+function topSetHistory(exName){
+  var key = canonicalEx(exName), out = [];
+  (AppState.history||[]).slice().sort(function(a, b){ return (a.ts||0) - (b.ts||0); }).forEach(function(sess){
+    var best = null;
+    (sess.sets||[]).forEach(function(x){
+      if(!x || canonicalEx(x.ex)!==key || !(+x.w>0) || !(+x.r>0)) return;
+      if(!best || +x.w > best.w || (+x.w===best.w && +x.r > best.r)) best = {w:+x.w, r:+x.r, ts:sess.ts};
+    });
+    if(best) out.push(best);
+  });
+  return out;
+}
+// Ab Wdh-Obergrenze > 12 deckelt das E1RM (Cap 12 Wdh) – Fortschritt sind dort
+// mehr Wdh bei gleichem Gewicht oder mehr Gewicht (Vergleich über 3 Sessions)
+function repPlateau(exName){
+  var h = topSetHistory(exName);
+  if(h.length < 3) return false;
+  var last = h[h.length-1], ref = h[h.length-3];
+  return !(last.w > ref.w || (last.w===ref.w && last.r > ref.r));
+}
+// Übungen, die stagnieren: nur Übungen im aktiven Plan, in den letzten 28 Tagen
+// trainiert; seit ≥3 Sessions ohne Fortschritt (E1RM bzw. Wdh/Gewicht ab > 12 Wdh)
+function stalledLifts(){
+  var plan = planLifts(), since = Date.now() - 28*86400000, recent = {};
+  (AppState.history||[]).forEach(function(sess){
+    if(!sess || !(sess.ts >= since)) return;
+    (sess.sets||[]).forEach(function(s){ if(s && s.ex && s.w && s.r) recent[canonicalEx(s.ex)] = true; });
+  });
   var stalled = [];
-  Object.keys(seen).forEach(function(ex){
-    var t = liftTrend(ex);
-    if(t.sessions>=3 && t.plateau) stalled.push(ex);
+  Object.keys(plan).forEach(function(k){
+    if(!recent[k]) return;
+    var p = plan[k];
+    if(p.range && p.range.hi > 12){ if(repPlateau(k)) stalled.push(p.name); return; }
+    var t = liftTrend(k);
+    if(t.sessions>=3 && t.plateau) stalled.push(p.name);
   });
   return stalled;
 }
@@ -5753,8 +5790,15 @@ function needsDeload(){
   // Woche 6 ist der geplante Deload, Ende Woche 5 kommt die Karte "Deload startet"
   if(sinceDeload >= 5) return null;
   // Vorzeitig: Kraft-Stagnation: mehrere Hauptlifts ohne E1RM-Fortschritt
+  // feat/day-sheet 5: nur wenn mindestens 2 Übungen UND mindestens ein Drittel
+  // der Grundübungen im Plan stagnieren (einzelne Isolationsübungen reichen nicht)
   var stalled = stalledLifts();
-  if(stalled.length >= 2) return {reason:stalled.length+' Übungen stagnieren ('+stalled.slice(0,2).join(', ')+')'};
+  var compounds = Object.keys(planLifts()).filter(isCompoundLift);
+  var stalledComp = stalled.filter(isCompoundLift);
+  if(stalled.length >= 2 && compounds.length && stalledComp.length*3 >= compounds.length){
+    return {reason:stalledComp.length+' von '+compounds.length+' Grundübungen stagnieren ('+stalledComp.slice(0,3).join(', ')+')',
+            stalled:stalled, compounds:compounds.length};
+  }
   // 3. Ermüdung: RPE-Trend stark steigend bei hohem Wochenvolumen
   var rpeT = recentRpeTrend();
   var since = Date.now()-7*24*3600*1000;
