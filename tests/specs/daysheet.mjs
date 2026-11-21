@@ -193,4 +193,27 @@ export default function ({ test, assert, loadApp, REPO_ROOT }) {
     c = deloadApp({ 'Bankdrücken (LH)': FLAT, 'Kniebeuge (LH)': UP });
     assert.equal(c.needsDeload(), null);
   });
+
+  test('5 isCompoundLift(): Ausschlussliste vor dem Grundübungs-Muster, geprüft für alle Übungsnamen der App', () => {
+    const c = app();
+    const src = fs.readFileSync(path.join(REPO_ROOT, 'index.html'), 'utf8');
+    const names = new Set();
+    for (const m of src.matchAll(/\bn\s*:\s*'([^']+)'/g)) names.add(m[1]);            // Pläne, EXERCISE_FAMILIES
+    for (const m of src.matchAll(/\bE\('([^']+)'/g)) names.add(m[1]);                 // Plan-Generator
+    for (const m of src.matchAll(/pick\(\/[^/]*\/i?,\s*'([^']+)'/g)) names.add(m[1]);
+    Object.entries(c.EX_ALIAS).forEach(([a, b]) => { names.add(a); names.add(b); }); // Aliase
+    assert.ok(names.size > 60, 'Namen gefunden: ' + names.size);
+    const EXCL = /fly|flys|waden|calf|trizeps|tricep|curl|extension|seitheb|lateral/i;
+    const OLD = /bank|drück|press|kniebeug|squat|kreuzheb|deadlift|rudern|row|klimm|latzug|pulldown|^dip|beinpresse|hip thrust|ausfallschritt|lunge/i;
+    for (const n of names) assert.equal(c.isCompoundLift(n), !EXCL.test(n) && OLD.test(n), n);
+    for (const n of ['KH-Flys (Schrägbank)', 'Wadenheben (Beinpresse)', 'Trizepsdrücken']) assert.equal(c.isCompoundLift(n), false, n);
+    for (const n of ['Bankdrücken (LH)', 'Schrägbankdrücken (KH)', 'Beinpresse', 'Schulterdrücken (KH sitzend)', 'Dips (Brust)']) assert.equal(c.isCompoundLift(n), true, n);
+    // nur diese beiden Übungen der App wechseln die Klasse
+    assert.deepEqual([...names].filter((n) => OLD.test(n) && !c.isCompoundLift(n)).sort(), ['KH-Flys (Schrägbank)', 'Wadenheben (Beinpresse)']);
+    // Pausen laufen jetzt über die Isolations-Regel (Recomp-Modus: 90 s statt 150 s)
+    assert.equal(c.restSecondsFor('KH-Flys (Schrägbank)', false), 90);
+    assert.equal(c.restSecondsFor('Wadenheben (Beinpresse)', false), 90);
+    assert.equal(c.restSecondsFor('Bankdrücken (LH)', false), 150);
+    assert.equal(c.isIsolationLift('KH-Flys (Schrägbank)'), true);
+  });
 }

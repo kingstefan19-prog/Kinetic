@@ -5271,8 +5271,13 @@ function justIncreasedWeight(exName){
 // Evidenz: Mehrgelenkübungen profitieren von ~2–3 Min Pause (Schoenfeld 2016;
 // Grgic-Meta 2017) – kürzere Pausen kosten dort Volumen und damit Reiz.
 // Isolation regeneriert schneller, 60–90 s genügen.
+// Isolationsübungen, die sonst am Grundübungs-Muster hängen bleiben
+// ("KH-Flys (Schrägbank)" → bank, "Wadenheben (Beinpresse)" → beinpresse, "Trizepsdrücken" → drück)
+var NOT_COMPOUND = /fly|flys|waden|calf|trizeps|tricep|curl|extension|seitheb|lateral/i;
 function isCompoundLift(exName){
-  return /bank|drück|press|kniebeug|squat|kreuzheb|deadlift|rudern|row|klimm|latzug|pulldown|^dip|beinpresse|hip thrust|ausfallschritt|lunge/i.test(String(exName||''));
+  var n = String(exName||'');
+  if(NOT_COMPOUND.test(n)) return false;
+  return /bank|drück|press|kniebeug|squat|kreuzheb|deadlift|rudern|row|klimm|latzug|pulldown|^dip|beinpresse|hip thrust|ausfallschritt|lunge/i.test(n);
 }
 // Isolationsübung: keine Grundübung, nicht Körpergewicht, keine Zeitübung
 function isIsolationLift(exName){
